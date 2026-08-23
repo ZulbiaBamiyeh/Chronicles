@@ -205,12 +205,24 @@ export const GEAR = [
   // slot it would silently zero out every card that pays off the blade you're
   // holding. A trainer who makes your whole arsenal count sidesteps that and
   // reads better anyway.
+  // Capped at 3 weapons' worth. Uncapped, this directly rewarded hoarding
+  // every cheap weapon a themed deck could draw — including ones handed over
+  // free as monster drops — which is the opposite of "carry one great weapon"
+  // and had no ceiling: a maxed-out Aggro run reached ATK nearly triple a
+  // ghost's own band from this card alone. A small bonus for a broad arsenal
+  // is still the idea; it just can't be the run's main ATK source on its own.
   { no: 112, id: 'armsmaster', name: 'Armsmaster', tier: 2, cost: 8,
-    dyn: (ctx) => ({ atk: 2 + 2 * weaponCount(ctx.gear) }),
-    text: '+2 ATK, and 2 more for each weapon you own.' },
+    dyn: (ctx) => ({ atk: 2 + 2 * Math.min(3, weaponCount(ctx.gear)) }),
+    text: '+2 ATK, and 2 more per weapon you own (up to 3).' },
+  // Was a straight 1:1 copy of your weapon's ATK — on top of already wearing
+  // that weapon, that's doubling your single biggest number, and doubling
+  // compounds badly with everything else a weapon-arc build stacks on. Halved
+  // to match the discount every other cross-stat payoff in the pool runs at
+  // (Warden's Oath pays Armour at half Thorns, rounded up) — still a real
+  // reward for carrying something enormous, not a second copy of it.
   { no: 113, id: 'masters_forge', name: "Master's Forge", tier: 3, cost: 14,
-    dyn: (ctx) => ({ atk: weaponAtk(ctx.gear) }),
-    text: 'ATK equal to the weapon you are carrying.' },
+    dyn: (ctx) => ({ atk: Math.ceil(weaponAtk(ctx.gear) / 2) }),
+    text: 'ATK equal to half the weapon you are carrying, rounded up.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.

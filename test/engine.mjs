@@ -116,21 +116,34 @@ test('cross-keyword cards pay out of what you already built', () => {
 test('the weapon cards read the blade actually in your hand', () => {
   const base = { ...newRun(901), gold: 99 };
 
-  // Master's Forge is worth exactly the weapon you committed to — nothing at
-  // all bare-handed, which is what makes trading up an arc rather than a sum.
+  // Master's Forge is worth half the weapon you committed to, rounded up —
+  // nothing at all bare-handed, which is what makes trading up an arc rather
+  // than a sum. (Halved rather than a straight copy: on top of already
+  // wearing the weapon, a 1:1 copy was doubling a build's single biggest
+  // number, which compounds badly with everything else a weapon-arc build
+  // stacks on top of it.)
   assert.equal(played({ ...base, gear: [] }, 'masters_forge').atk, 0);
-  assert.equal(played({ ...base, gear: ['rusty_sword'] }, 'masters_forge').atk, 3);
-  assert.equal(played({ ...base, gear: ['runed_greatsword'] }, 'masters_forge').atk, 11);
+  assert.equal(played({ ...base, gear: ['rusty_sword'] }, 'masters_forge').atk, 2);
+  assert.equal(played({ ...base, gear: ['runed_greatsword'] }, 'masters_forge').atk, 6);
   // Only the weapon that wins the slot counts, so hoarding cheap blades is not
   // a substitute for carrying one great one.
-  assert.equal(played({ ...base, gear: ['rusty_sword', 'runed_greatsword'] }, 'masters_forge').atk, 11);
+  assert.equal(played({ ...base, gear: ['rusty_sword', 'runed_greatsword'] }, 'masters_forge').atk, 6);
 
   assert.equal(played({ ...base, gear: [] }, 'grindstone').atk, 2);
   assert.equal(played({ ...base, gear: ['rusty_sword'] }, 'grindstone').atk, 4);
 
-  // Armsmaster counts the arsenal instead, so it rewards the opposite habit.
+  // Armsmaster counts the arsenal instead, so it rewards the opposite habit —
+  // but caps at 3 weapons' worth. Uncapped, it directly rewarded hoarding
+  // every cheap weapon a themed deck could draw (including free monster
+  // drops), with no ceiling: a maxed Aggro run reached this card's own
+  // contribution alone before any of its other ATK sources were counted.
   assert.equal(played({ ...base, gear: [] }, 'armsmaster').atk, 2);
   assert.equal(played({ ...base, gear: ['rusty_sword', 'hunting_bow'] }, 'armsmaster').atk, 6);
+  assert.equal(played({ ...base, gear: ['rusty_sword', 'hunting_bow', 'hunting_knife'] }, 'armsmaster').atk, 8);
+  assert.equal(
+    played({ ...base, gear: ['rusty_sword', 'hunting_bow', 'hunting_knife', 'sling'] }, 'armsmaster').atk,
+    8, 'a fourth weapon adds nothing more',
+  );
 });
 
 test('adjacency cards read where they were placed, so ordering is a real choice', () => {
@@ -851,21 +864,21 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   // competitive, multi-exchange fight against ghosts drawn normally for that
   // same (round, wins).
   const scenarios = [
-    { label: 'round 1, low band', round: 1, wins: 0, atk: 4, maxHp: 23, kw: {}, band: [0.25, 0.75] },
-    { label: 'round 3, mid band', round: 3, wins: 1, atk: 14, maxHp: 35, kw: { armour: 1 }, band: [0.25, 0.78] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 33, maxHp: 50, kw: { armour: 3 }, band: [0.25, 0.82] },
+    { label: 'round 1, low band', round: 1, wins: 0, atk: 8, maxHp: 20, kw: {}, band: [0.25, 0.75] },
+    { label: 'round 3, mid band', round: 3, wins: 1, atk: 20, maxHp: 29, kw: { armour: 1 }, band: [0.25, 0.78] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 46, maxHp: 56, kw: { armour: 3 }, band: [0.25, 0.82] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 33, maxHp: 50, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 46, maxHp: 56, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more
     // than a mid-band one — just not be an unloseable lock.
-    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 16, maxHp: 38, kw: { firstStrike: true }, band: [0.55, 0.97] },
+    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 22, maxHp: 31, kw: { firstStrike: true }, band: [0.55, 0.97] },
   ];
   for (const { label, round, wins, atk, maxHp, kw, band } of scenarios) {
     let exchanges = 0, winCount = 0;

@@ -130,15 +130,22 @@ const PRESETS = {
   tank: {
     name: 'The Bulwark',
     blurb: 'Armour into Thorns and back. Nothing gets through, everything bleeds.',
+    // Used to carry zero weapons and zero flat-ATK gear at all — every card
+    // in the deck was Armour, Thorns, or max HP. A duel deals damage = ATK
+    // minus Armour, so a fighter parked at their starting ATK cannot actually
+    // kill anything: this deck won the war of attrition on paper and lost the
+    // duel in practice. One card per tier (Rusty Sword, War Pick, Reaver
+    // Plate — the last a hybrid Armour+ATK piece) gives it a real, if modest,
+    // way to finish a fight while keeping the theme intact.
     cards: [
       'bog_toad', 'skeleton_picket', 'wild_boar', 'sewer_rat',
-      'buckler', 'leather_jerkin', 'iron_cap', 'spiked_vambrace',
+      'buckler', 'leather_jerkin', 'rusty_sword', 'spiked_vambrace',
       'travellers_boots', 'roadside_shrine',
       'iron_golem', 'forest_troll', 'thornback_boar', 'cave_troll',
-      'chainmail', 'tower_shield', 'kite_shield',
+      'chainmail', 'tower_shield', 'war_pick',
       'bramblelord', 'wardens_oath', 'ambushers_nook',
       'stone_warden', 'bog_horror', 'hill_giant',
-      'dragonplate', 'aegis_of_dawn', 'bramble_aegis', 'ironblood_rite',
+      'dragonplate', 'reaver_plate', 'bramble_aegis', 'ironblood_rite',
       'shield_maiden', 'sacred_spring', 'standing_stones',
     ],
   },
@@ -147,7 +154,7 @@ const PRESETS = {
     blurb: 'Poison ignores Armour, and every vial you carry makes the next one worse.',
     cards: [
       'giant_spider', 'bog_toad', 'sewer_rat', 'wild_boar',
-      'venom_flask', 'leather_jerkin', 'buckler', 'travellers_boots',
+      'venom_flask', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
       'roadside_shrine', 'rust_powder',
       'marsh_wraith', 'cave_troll', 'thornback_boar', 'grave_knight',
       'plague_censer', 'coated_blade', 'venom_alchemist', 'toxinsmith',
@@ -162,7 +169,7 @@ const PRESETS = {
     blurb: 'Weak on the first exchange. Terrifying by the fourth — and worse when losing.',
     cards: [
       'bog_toad', 'skeleton_picket', 'wild_boar',
-      'battle_drum', 'leather_jerkin', 'buckler', 'travellers_boots',
+      'battle_drum', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
       'roadside_shrine', 'boneyard', 'snare_wire',
       'cave_troll', 'ogre_brute', 'iron_golem', 'grave_knight',
       'warhorn', 'rally_standard',

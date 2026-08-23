@@ -10,6 +10,16 @@ import {
   rng, PATH_SLOTS, refillHand, resolveAmbush,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
+import * as deckLib from '../js/deck.js';
+
+// Drawing from `newRun(seed)` with no deck argument pulls from the entire
+// 119-card pool, undifferentiated — which is not what a real player fights
+// with. A run is played on one 30-card preset (or a custom deck built from
+// the same rules), which concentrates exactly the synergy cards a theme
+// depends on. Measuring against the full pool understates what real play
+// actually reaches by a wide margin — this sweep uses the default starting
+// deck, since that's what most runs are actually played on.
+const DEFAULT_DECK = deckLib.defaultDeck();
 
 const RUNS = Number(process.argv[2] || 600);
 
@@ -110,7 +120,7 @@ function simulate(style) {
   };
 
   for (let seed = 1; seed <= RUNS; seed++) {
-    let run = newRun(seed);
+    let run = newRun(seed, 'x', DEFAULT_DECK);
     const rival = drawRival(run.rivalSeed);
     stats.runs++;
     let guard = 0;

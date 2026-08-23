@@ -21,17 +21,39 @@ import {
   newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand, resolveAmbush,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
+import * as deckLib from '../js/deck.js';
 
+// Every themed strategy weighted current HP far below the generalist's own
+// 1.0 (0.25-0.5 here against 1.0 there), which let the planner walk into path
+// damage a "balanced" run of the same numbers would have routed around — a
+// Poison build was measured arriving at duels on a third of its max HP,
+// making its own real strength (Poison ticks every exchange regardless of
+// Armour) moot when the fight is over in two hits either way. Bringing every
+// themed weight up near the generalist's own keeps the lean toward the
+// signature stat without that self-inflicted fragility being what the sweep
+// actually measures.
 const STRATEGIES = {
-  atk: (s) => s.atk * 6 + s.hp * 0.3 + s.maxHp * 0.15,
-  tank: (s) => s.kw.armour * 6 + s.atk * 1.8 + s.maxHp * 0.5 + s.hp * 0.25,
-  poison: (s) => s.kw.poison * 6 + s.atk * 2.2 + s.hp * 0.25 + s.kw.armour * 1.5,
-  rally: (s) => s.kw.rally * 6 + s.atk * 2.2 + s.hp * 0.25 + s.maxHp * 0.3 + s.kw.armour * 1.5,
-  thorns: (s) => s.kw.thorns * 6 + s.kw.armour * 2.5 + s.atk * 1.8 + s.hp * 0.25,
+  atk: (s) => s.atk * 6 + s.hp * 0.9 + s.maxHp * 0.3,
+  tank: (s) => s.kw.armour * 6 + s.atk * 1.8 + s.maxHp * 0.5 + s.hp * 0.9,
+  poison: (s) => s.kw.poison * 6 + s.atk * 2.2 + s.hp * 0.9 + s.kw.armour * 1.5,
+  rally: (s) => s.kw.rally * 6 + s.atk * 2.2 + s.hp * 0.9 + s.maxHp * 0.3 + s.kw.armour * 1.5,
+  thorns: (s) => s.kw.thorns * 6 + s.kw.armour * 2.5 + s.atk * 1.8 + s.hp * 0.9,
   // The generalist from tools/balance.mjs, included as the reference point
   // every themed strategy is measured against.
   balanced: (s) => s.atk * 2.6 + s.hp * 1.0 + s.maxHp * 0.35 + s.gold * 0.25 +
     s.kw.armour * 4 + s.kw.poison * 3 + s.kw.rally * 5.5 + s.kw.thorns * 2 + (s.kw.firstStrike ? 4 : 0),
+};
+
+// This tool used to draw every strategy from the full 119-card pool instead of
+// the deck a real player actually plays with — which meant "leaning into
+// Aggro" was diluted by dozens of unrelated cards the Duellist preset would
+// never carry, and the sweep read as far more moderate than real play. A
+// preset deck concentrates the theme's own synergy cards; this maps each
+// strategy to the preset that actually represents it. Thorns has no preset of
+// its own — The Bulwark carries both Armour and Thorns — so it borrows tank's.
+const STRATEGY_DECK = {
+  atk: 'aggro', tank: 'tank', poison: 'poison', rally: 'rally',
+  thorns: 'tank', balanced: 'balanced',
 };
 
 /**
@@ -74,10 +96,11 @@ function bestPath(run, hand, score, rivalDay) {
 
 function simulate(strategyName, runs) {
   const score = STRATEGIES[strategyName];
+  const deck = deckLib.presetCards(STRATEGY_DECK[strategyName]);
   let completed = 0, duels = 0, wins = 0;
   const finalByRound = {};
   for (let seed = 1; seed <= runs; seed++) {
-    let run = newRun(seed);
+    let run = newRun(seed, 'x', deck);
     const rival = drawRival(run.rivalSeed);
     let guard = 0;
     while (!run.over && guard++ < 40) {

@@ -158,29 +158,6 @@ scale. After both changes: 32.0% run completion for the brute-force planner
 (inside §9's own 25–35%), 40.9% duel win rate, 4.03 mean exchanges with 79.7%
 of duels inside §12's 3–6 window.
 
-### The shape of a run, not just its average
-
-`balance.mjs` also reports duel win rate broken down by day, because an
-aggregate hides the thing players actually feel. Day one is the day the whole
-game gets judged on, and a series is only tense if the early days are winnable
-and the late ones aren't a formality either way.
-
-That breakdown immediately turned up a real fault: **day three used to be the
-hardest day of the run**, at 28.7% against 39.9% on day four and 38.6% on day
-five. A difficulty curve that spikes and then relaxes reads as unfair rather
-than hard. The cause was structural — day three is when Tier 2 unlocks, so the
-ghost jumps a tier on the same day the player *starts* drawing one, with no
-Tier 2 gear bought yet and a purse still sized for Tier 1. Easing the day-three
-band leaves the curve at:
-
-```
-d1 58.4%   d2 36.8%   d3 32.0%   d4 38.5%   d5 35.1%
-```
-
-A winnable opener, then a steady 32–38% grind. Worth re-checking whenever the
-tier schedule or the gear pool moves, since the spike came from the interaction
-between the two rather than from either one being wrong.
-
 ### The hand used to shrink every day
 
 The single worst bug the prototype had, and it hid in plain sight behind a
@@ -192,22 +169,93 @@ the hand back up to a full six each day, so the choice-to-slots ratio is the
 same on day five as on day one.
 
 Fixing it made a real character enormously stronger — four *chosen* cards a
-day instead of whatever remained — and took the brute-force planner from 31%
-run completion to 75%. The ghost band absorbed that (up ~24% ATK, ~17% max HP)
-rather than the fix being walked back.
+day instead of whatever remained.
+
+### The balance tools were never measuring what a player actually plays
+
+Every balance number in this file before this section was wrong, including
+the ones this file itself reported earlier the same night. `tools/balance.mjs`
+and `tools/archetypes.mjs` both called `newRun(seed)` with no deck argument,
+which draws a hand from the entire 119-card pool undifferentiated — never
+from the 30-card preset a real run is actually played on. A themed deck
+concentrates exactly the cards its build depends on; measuring against the
+full pool diluted that so heavily that the sweep read as moderate when real
+play was a stomp. Fixed by passing an actual preset to every simulated run: a
+default-deck ("The Wanderer") player immediately measured at **94% run
+completion and an 84% duel win rate** — not the 25–35% the doc calls for by a
+wide margin. This is what "I got 25 ATK easily on day 3" and "mobs are
+laughably easy" actually was: the game had never been measured the way it was
+being played.
+
+Getting the ghost band to catch up to that also found a real bug in the
+pacing math, not just a stale number. A ghost's max HP is solved from
+`dmgToGhost * killGhostIn` — its canonical attacker's damage per hit times how
+many hits it should take to kill it — with nothing holding that product down.
+That's fine for Aggro ghosts, whose `killGhostIn` is small (2.5–3.8), but
+Tank, Poison, and Rally all target 5–6.8 exchanges to kill, and that many
+exchanges of canonical ATK compounds into HP with no relationship at all to
+`canonMaxHp`, the number that's supposed to describe how tanky a round-N
+character actually is. A Poison ghost at round 3 measured out at **113 max
+HP** against a 24–32 canonical band for that round — about four times what
+anyone at that point in a run could plausibly survive fighting, let alone
+whittle down. Capped at a multiple of `canonMaxHp` now; see the `targetHp`
+comment in `js/ghosts.js`.
+
+With both of those fixed, the ghost band was retuned a final time directly
+against what `balance.mjs`'s planner reaches on the default deck, day by day,
+rather than against §9's original table (itself derived for a much shallower
+card pool than this one has grown into). Landed at **27.0% run completion,
+36.2% duel win rate**, nothing floored at 1 HP, and a day-by-day curve of
+roughly 40/31/34/42/38 — no day is a formality, none of them is a wall.
+
+### The four archetypes are not close to equally viable, and this file's earlier claim that they were is wrong
+
+An earlier pass of this section reported all four themed archetypes within
+4 points of run completion of each other. That number came from the same
+undifferentiated-pool bug described above — every "themed" strategy was
+diluted by the same 119-card pool a generalist drew from, so leaning into
+Poison barely looked different from not leaning into anything. Measured
+against the actual preset decks, the picture is not close:
+
+```
+atk       completion= 35.4%   duelWin= 40.3%
+balanced  completion= 26.6%   duelWin= 36.0%
+tank      completion=  9.0%   duelWin=  9.7%
+thorns    completion=  4.4%   duelWin=  4.8%
+rally     completion=  0.0%   duelWin=  0.9%
+poison    completion=  0.0%   duelWin=  1.1%
+```
+
+ATK-stacking is the dominant strategy by a wide margin, and Poison and Rally
+are, as measured, not a viable way to play — a themed Poison or Rally deck
+essentially never wins a duel. This traces to the ghost-pacing math above in a
+way that isn't fully resolved by the `targetHp` cap: a ghost's *offensive*
+threat is solved from `canonMaxHp / killPlayerIn`, using the canonical
+character's survivability, while its HP (the thing a themed build has to
+overcome) is solved from `canonAtk`, the same canonical character's *raw ATK
+stat alone* — never their total per-exchange damage. An ATK-stacking build's
+own atk stat approximates that total, so the canonical band roughly describes
+what it needs to overcome. A Poison or Rally build's real damage output is
+mostly *not* in its ATK stat — it's in Poison ticks or Rally growth, neither
+of which `canonAtk` accounts for — so a ghost sized to be a fair fight for an
+ATK-stacker is sized far out of reach for a build that was never going to
+win primarily through ATK. Reining in ATK's ceiling across the pool so a
+single shared band can be fair to every archetype is the honest fix; it
+touches enough cards, in enough decks, that it needs its own pass rather than
+being folded into this one. Left as the clearest known gap in the game as it
+stands, not swept into a number that reads better than the game plays.
 
 ### Why the path is easy and the duel is hard
 
-`balance.mjs` reports path damage at ~12% of max HP against §12's 30–50%
+`balance.mjs` reports path damage at ~11% of max HP against §12's 30–50%
 target, and that MISS is deliberate. Path damage and duel outcome are the same
 dial: §3 carries path damage *into* the duel, so every point the path takes is
 a point you fight the ghost without. Sweeping monster ATK and HP upward to hit
-the path-damage target drags run completion from 31% to 11% and starts
-flooring runs at 1 HP — a game where the path mauls you and the duel is then a
-formality. The current split (an easy path, a 39.9% duel) makes the run
-difficulty land where §9 wants it, and the target was written before trophies
-and the deeper gear pool existed. Re-measure it if monsters change; don't
-chase it on its own.
+the path-damage target drags run completion down sharply and starts flooring
+runs at 1 HP — a game where the path mauls you and the duel is then a
+formality. The current split (an easy path, a real duel) keeps the difficulty
+where it's supposed to live. Re-measure it if monsters change; don't chase it
+on its own.
 
 ### What a fighter is holding, and how it hits
 
@@ -275,47 +323,36 @@ Where the numbers land, over 1000 runs of a greedy (brute-force) player:
 
 A MISS in that report is a tuning note, not a bug.
 
-### Every archetype is a real way to play, not just Aggro/ATK
+### Every archetype is a real way to play, not just Aggro/ATK — this is a design goal the game does not currently meet
 
 `§5`'s "loose triangle" — Aggro beats Poison, Tank beats Aggro, Poison beats
 Tank, Rally beats Poison — only means something if committing to Tank,
-Poison, or Rally is actually competitive with just stacking ATK. An earlier
-check of this simulated *exclusive* single-keyword strategies (a "Tank" that
-literally never buys an ATK card) and found Tank and Thorns crippled — 2–3%
-run completion against 12–15%+ for everything else. That result was real but
-misleading: no sane player plays that way, since ATK is on nearly every
-useful card regardless of theme. `tools/archetypes.mjs` instead models a
-player who *leans* into a stat family while still picking up the obviously
-good cards along the way — a realistic committed build, not a synthetic
-extreme — and the picture changes completely:
+Poison, or Rally is actually competitive with just stacking ATK. This section
+used to report all four themed archetypes within 4 points of completion of
+each other. That number was measured with the same undifferentiated-pool bug
+described in "The balance tools were never measuring what a player actually
+plays" above — the fix for that bug is what turned "close" into the real
+numbers reported there: ATK-stacking dominant, Poison and Rally essentially
+unplayable. That section is the current, correct account of archetype
+viability; this one is left in place, corrected, so the history of the claim
+isn't quietly erased.
 
-```
-atk       completion= 12.7%  duelWin= 31.2%
-tank      completion= 27.7%  duelWin= 42.5%
-poison    completion= 26.0%  duelWin= 41.8%
-rally     completion= 24.0%  duelWin= 40.7%
-thorns    completion= 27.7%  duelWin= 42.7%
-balanced  completion= 31.3%  duelWin= 45.7%
-```
-
-All four themed archetypes land within **3.7 points of completion** of each
-other — Tank and Thorns are not just viable, they're indistinguishable in
-strength from Poison and Rally. Pure ATK-stacking with no keyword synergy at
-all is the *weakest* strategy of the six, meaning there's no "just buy ATK
-gear and ignore keywords" dominant line to find. The balanced generalist
-naturally does a little better than any single theme, which is expected —
-adapting to what a hand actually deals should beat a fixed plan — but not
-by enough to make committing to a theme feel like a trap.
-
-### No dead cards
+### No dead cards — mostly
 
 `tools/card-coverage.mjs` runs the same six strategies and records which of
-the 119 cards each one ever actually chose. **All 119 get picked by at least
-one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever reach
-round 5, so those cards get fewer opportunities to be dealt at all — that's
-a sampling effect, not a balance problem) or cards that trade a resource
-directly for their effect, like Ruined Chapel spending 2 ATK to heal to
-full, which a strategy actively optimizing ATK correctly avoids.
+the 119 cards each one ever actually chose. **117 of 119 get picked by at
+least one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever
+reach round 5, so those cards get fewer opportunities to be dealt at all —
+that's a sampling effect, not a balance problem) or cards that trade a
+resource directly for their effect, like Ruined Chapel spending 2 ATK to heal
+to full, which a strategy actively optimizing ATK correctly avoids.
+
+The two genuinely dead ones, Berserker's Axe and Dragon Altar, are both Tier
+3 cards in the Warlord (Rally) deck — not a coincidence. A strategy that
+essentially never wins a duel (see the archetype-viability numbers above)
+essentially never reaches round 5 either, so its own Tier 3 cards never get
+the chance to be picked at all. This is downstream of the same unresolved
+Rally weakness, not a separate problem with either card.
 
 Four cards used to be picked by nobody. They aren't dead any more, and the fix
 wasn't to the cards: a hand that stays full has room to spend a slot on a

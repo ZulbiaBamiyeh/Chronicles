@@ -40,24 +40,55 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 // thumb: it exists to be re-measured with tools/balance.mjs after every pool
 // change, not tuned once and forgotten.
 //
-// Re-measured again after the hand fix (a day used to draw 3 cards against a
-// 4-slot path, so hands shrank 6/5/4/3 and the back half of a run had fewer
-// cards than slots — no choices left to make). Restoring a full hand every day
-// made a real character enormously stronger, since every day now gets four
-// *chosen* cards instead of whatever happened to remain: run completion for
-// the brute-force planner jumped to 75% against §9's 25–35% window. These
-// numbers put it back at 31%.
+// Re-measured a third time after finding that every measurement above it was
+// invalid. tools/balance.mjs and tools/archetypes.mjs both called `newRun()`
+// with no deck argument, which draws from the entire 119-card pool
+// undifferentiated — not the 30-card preset a real run is actually played on.
+// A themed deck concentrates exactly the cards a build depends on, so this
+// understated real play by a wide margin: measured against an actual deck,
+// the very first sweep after the hand fix already had a "competent player"
+// clearing 94% of runs at an 84% duel win rate, with ATK by day three landing
+// 50-60% above the band below. §9's own numbers, even doubly nudged, were
+// never in the same neighbourhood as what a full hand and a curated deck
+// actually produce.
+//
+// These numbers are anchored differently: not to §9's table at all, but
+// directly to what `tools/balance.mjs`'s planner reaches on the *default*
+// deck (the one most runs are actually played on) — day-by-day ATK and max HP
+// medians, sampled across 150 runs. A player who built unusually well still
+// gets to feel it; a player playing the default deck plainly should not be
+// clearing 9 in 10 runs.
+//
+// Getting here also found a real bug in the pacing math below, not just a
+// stale band. `targetHp` used to be `dmgToGhost * killGhostIn` with nothing
+// holding it down — fine for Aggro, whose killGhostIn is small (2.5-3.8), but
+// Tank, Poison, and Rally all target 5-6.8 exchanges to kill, and that many
+// exchanges of *canonical* ATK compounds into HP with no relationship to
+// canonMaxHp at all. A Poison ghost at round 3 measured out at 113 max HP
+// against a 24-32 canonical band — roughly four times what any character at
+// that point in a run could plausibly whittle down. It's why Poison and Rally
+// read as nearly unplayable (a handful of percent run completion) right up
+// until this got capped at a multiple of canonMaxHp: their own archetypes
+// were never actually losing to a fair fight, they were losing to ghosts with
+// stealth HP bars four times the size everyone else's opponents had. See the
+// `targetHp` comment below for the fix.
+//
+// The remaining day-by-day tuning is about the player's side, not the
+// ghost's: matching each day's band to that day's own ATK/HP median still
+// left the run's difficulty climbing hard through the back half — days one
+// through three around a fair coin flip, four and five climbing toward
+// 65-90% — because a player's own growth compounds through a run faster than
+// a straight day-by-day interpolation of the target band does. The day 4-5
+// bands are scaled up well past a straight read of their own medians for
+// that reason. Landed at 26.6% completion, 36.0% duel win rate, and a curve
+// of roughly 40/30/34/42/37 across the five days — no day is a formality,
+// and none of them is a wall either.
 const TARGETS = {
-  1: { atk: [4, 6], maxHp: [23, 28] },
-  2: { atk: [7, 11], maxHp: [26, 33] },
-  // Day three is the step where Tier 2 unlocks, and it used to be the hardest
-  // day of the run — harder than four or five — because the ghost jumps a tier
-  // on the same day the player *starts* drawing one, with no Tier 2 gear bought
-  // yet and a purse still sized for Tier 1. Eased so the curve climbs instead
-  // of spiking and then relaxing.
-  3: { atk: [12, 16], maxHp: [31, 38] },
-  4: { atk: [19, 26], maxHp: [37, 47] },
-  5: { atk: [27, 40], maxHp: [44, 57] },
+  1: { atk: [7, 10], maxHp: [20, 23] },
+  2: { atk: [19, 25], maxHp: [28, 35] },
+  3: { atk: [36, 45], maxHp: [37, 47] },
+  4: { atk: [63, 79], maxHp: [52, 66] },
+  5: { atk: [94, 117], maxHp: [68, 87] },
 };
 
 // ---------------------------------------------------------------------------
@@ -241,7 +272,21 @@ export function drawGhost(round, wins, seed, opts = {}) {
   // of 1 so a heavily armoured ghost can never demand literally infinite
   // damage to reach zero.
   const dmgToGhost = Math.max(1, canonAtk - g.keywords.armour);
-  const targetHp = Math.max(6, dmgToGhost * killGhostIn, canonMaxHp * HP_FLOOR);
+  // This used to be dmgToGhost * killGhostIn with nothing to hold it down —
+  // fine for Aggro, where killGhostIn is small (2.5-3.8), but Tank, Poison,
+  // and Rally all target 5-6.8 exchanges to kill, and that many exchanges of
+  // *canonical* ATK compounds into HP with no relationship to canonMaxHp at
+  // all. A Poison-archetype ghost at round 3 measured out at 113 max HP
+  // against a 24-32 canonical band — four times what any character at that
+  // point in a run could plausibly survive fighting, let alone whittle down.
+  // Capping it at a multiple of canonMaxHp keeps "Tank ghosts take longer to
+  // kill" true (a slow archetype still wants more of its killGhostIn budget
+  // than the cap removes) without letting that budget run away from what the
+  // rest of the fight's own numbers can support.
+  const targetHp = Math.min(
+    Math.max(6, dmgToGhost * killGhostIn, canonMaxHp * HP_FLOOR),
+    canonMaxHp * 1.8,
+  );
 
   // g.atk is *not* solved to be compensated for the real player's own
   // Armour, Thorns, Poison, Rally, or First Strike, because it can't be — a
