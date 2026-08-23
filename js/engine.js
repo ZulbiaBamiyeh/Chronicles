@@ -12,7 +12,9 @@
 import { card, DEAL_POOL, MONSTERS } from './cards.js';
 
 export const START = { hp: 20, maxHp: 20, atk: 1, gold: 3, hearts: 3 };
-export const WINS_TO_COMPLETE = 5;
+/** A run is five days against one rival — see js/rival.js. */
+export const RUN_DAYS = 5;
+export const WINS_TO_COMPLETE = RUN_DAYS;
 export const PATH_SLOTS = 4;
 export const HAND_SIZE = 6;
 
@@ -174,6 +176,11 @@ export function tiebreak(player, ghost) {
 export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer') {
   return {
     seed: seed >>> 0,
+    // Who you're up against for the whole run. Fixed here, before a single
+    // card is dealt, so the rival can never be a reaction to how you're
+    // doing — see js/rival.js. Saved with the run, so resuming faces the same
+    // person.
+    rivalSeed: (Math.imul(seed >>> 0, 0x9e3779b1) ^ 0x5bf03635) >>> 0,
     name,
     round: 1,
     wins: 0,
@@ -294,6 +301,7 @@ export function resolvePath(run, slots) {
   };
   const startHp = s.hp;
   const events = [];
+  const secrets = [];
   let monstersDefeated = 0;
   let usedWatchtower = false;
 
@@ -365,12 +373,19 @@ export function resolvePath(run, slots) {
     }
     if (c.scout) usedWatchtower = true;
     if (c.type === 'gear' || c.type === 'ally') s.gear.push(c.id);
+    // A secret does nothing to you — it's spent here and fires in the duel.
+    if (c.type === 'secret') {
+      secrets.push(c.id);
+      push({ slot: i, kind: 'secret', id: c.id, cost });
+      return;
+    }
     push({ slot: i, kind: 'card', id: c.id, fx, upgraded, cost, scout: Boolean(c.scout) });
   });
 
   return {
     state: s,
     events,
+    secrets,
     usedWatchtower,
     pathDamage: Math.max(0, startHp - s.hp),
     cleanPath: s.hp >= startHp,
@@ -417,27 +432,109 @@ export function ghostFighter(g) {
 }
 
 /**
- * The duel. Damage taken on the path carries in, so a greedy path is a real
- * cost. Only this fight can take a heart.
+ * Applies a set of secrets to the fighter they were laid against. Pure, and
+ * scoped to this one fight: the stored snapshot is never touched, so a secret
+ * you lay against a rival affects *your* copy of them, exactly as a real
+ * opponent's secret would affect their copy of you.
+ *
+ * Every strip has a floor. A fighter can always swing for at least 1 and can
+ * never be reduced below 1 max HP, so no stack of secrets can produce an
+ * unloseable duel or a fight that can't resolve.
  */
-export function duel(s, ghost, cleanPath) {
-  const bonus = cleanPath ? (s.perks.cleanPathArmour || 0) : 0;
-  const me = playerFighter(s, bonus);
-  const them = ghostFighter(ghost);
-  const fight = resolveCombat(me, them);
-  let won;
-  if (fight.winner === 'both') won = tiebreak({ maxHp: s.maxHp, gold: s.gold }, ghost) === 'player';
-  else won = fight.winner === 'a';
-  return { ...fight, won, bonusArmour: bonus, me, them };
+export function applySecrets(fighter, secretIds = []) {
+  const f = { ...fighter };
+  const landed = [];
+  for (const id of secretIds) {
+    const c = card(id);
+    if (!c || !c.counter) continue;
+    const k = c.counter;
+    if (k.atk) f.atk = Math.max(1, f.atk - k.atk);
+    if (k.armour) f.armour = Math.max(0, (f.armour || 0) - k.armour);
+    if (k.thorns) f.thorns = Math.max(0, (f.thorns || 0) - k.thorns);
+    if (k.poison) f.poison = Math.max(0, (f.poison || 0) - k.poison);
+    if (k.rally) f.rally = Math.max(0, (f.rally || 0) - k.rally);
+    if (k.firstStrike) f.firstStrike = false;
+    if (k.maxHp) {
+      f.maxHp = Math.max(1, (f.maxHp || f.hp) - k.maxHp);
+      f.hp = Math.min(f.hp, f.maxHp);
+    }
+    landed.push(id);
+  }
+  return { fighter: f, landed };
 }
 
-/** Applies the duel result: bank a win, or lose a heart. */
+/**
+ * The duel. Damage taken on the path carries in, so a greedy path is a real
+ * cost. Only this fight can take a heart.
+ *
+ * Secrets fire before the first exchange — yours onto them, theirs onto you —
+ * which is why they're worth a path slot despite doing nothing for your own
+ * statline.
+ *
+ * @param {object} s          the player's post-path state
+ * @param {object} ghost      the opponent snapshot
+ * @param {boolean} cleanPath
+ * @param {{mine?: string[], theirs?: string[]}} [secrets]
+ */
+export function duel(s, ghost, cleanPath, secrets = {}) {
+  const bonus = cleanPath ? (s.perks.cleanPathArmour || 0) : 0;
+  const baseMe = playerFighter(s, bonus);
+  const baseThem = ghostFighter(ghost);
+
+  const onThem = applySecrets(baseThem, secrets.mine || []);
+  const onMe = applySecrets(baseMe, secrets.theirs || []);
+  const me = onMe.fighter;
+  const them = onThem.fighter;
+
+  const fight = resolveCombat(me, them);
+  let won;
+  if (fight.winner === 'both') {
+    won = tiebreak({ maxHp: s.maxHp, gold: s.gold }, ghost) === 'player';
+  } else won = fight.winner === 'a';
+
+  return {
+    ...fight,
+    won,
+    bonusArmour: bonus,
+    me,
+    them,
+    // Both the before and after, so the duel screen can show a secret landing
+    // rather than just presenting an already-weakened opponent.
+    baseMe,
+    baseThem,
+    mySecrets: onThem.landed,
+    theirSecrets: onMe.landed,
+  };
+}
+
+/** Gold for winning a day of the series. */
+export const duelReward = (day) => 4 + 2 * Math.min(RUN_DAYS, Math.max(1, day));
+
+/**
+ * Applies the duel result: bank a win, or lose a heart.
+ *
+ * A run is a five-day series against one rival. Three losses ends it there and
+ * then — they beat you, and there's no point playing out days you can't win
+ * back. Otherwise the run goes the distance and finishing day five *is*
+ * completing it: surviving all five days means at most two losses against at
+ * least three wins, so reaching the end with a heart left is already having
+ * won the series. That keeps the last day genuinely decisive without making
+ * the first four free — every day can still take a heart.
+ */
 export function settleRound(run, won) {
   const s = { ...run, kw: { ...run.kw }, upkeepDone: false };
-  if (won) s.wins++;
-  else { s.losses++; s.hearts--; }
-  if (s.wins >= WINS_TO_COMPLETE) { s.completed = true; s.over = true; }
-  else if (s.hearts <= 0) { s.over = true; }
+  if (won) {
+    s.wins++;
+    // Taking a day off your rival pays, and pays more the deeper into the
+    // series you are. Without this the duel is pure downside — a heart to
+    // lose and nothing to gain — while the rival's secrets are a standing tax
+    // on you from day two. Winning has to buy something back, and gold is the
+    // right currency: it's spent on the next day's path, so a day you won
+    // makes the next one easier to plan rather than simply not hurting.
+    s.gold += duelReward(s.round);
+  } else { s.losses++; s.hearts--; }
+  if (s.hearts <= 0) { s.over = true; s.completed = false; }
+  else if (s.round >= RUN_DAYS) { s.over = true; s.completed = true; }
   else s.round++;
   return s;
 }

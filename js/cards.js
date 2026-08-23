@@ -25,7 +25,7 @@
 // this prototype pass so the fight itself could get the attention instead.
 // See README.md.
 
-/** @typedef {'monster'|'gear'|'ally'|'place'} CardType */
+/** @typedef {'monster'|'gear'|'ally'|'place'|'secret'} CardType */
 
 // Every Tier 2 and Tier 3 monster leaves a `trophy` — a permanent upgrade on
 // top of its gold. That's the whole risk/reward shape of the path: a Tier 1
@@ -172,9 +172,42 @@ export const PLACES = [
     text: '+2 max HP and +1 ATK. Doubled if this is your fourth slot.' },
 ].map((p) => ({ ...p, type: 'place' }));
 
+// Secrets are the one card type that reaches across the table. A secret is
+// laid during planning, costs a path slot like anything else, and fires at the
+// start of the duel — stripping something specific off your rival for that
+// fight only.
+//
+// They are deliberately *counters*, not generic debuffs: `counter` names the
+// exact stat it takes away, so a secret is only worth its slot if you've read
+// what your rival actually brings. Caltrops against a Tank is nearly wasted;
+// against an Aggro rival it's the difference in the fight. That read is the
+// whole point — it's what turns "here is my rival's build" from a readout into
+// a decision.
+//
+// Nothing here touches the stored snapshot. A secret applies inside one fight,
+// to your copy of the rival, the same way a real player's secret would apply
+// to their copy of yours.
+export const SECRETS = [
+  // ---- Tier 1 ----
+  { no: 64, id: 'caltrops', name: 'Caltrops', tier: 1, cost: 1, counter: { atk: 2 } },
+  { no: 65, id: 'rust_powder', name: 'Rust Powder', tier: 1, cost: 1, counter: { armour: 2 } },
+  { no: 66, id: 'snare_wire', name: 'Snare Wire', tier: 1, cost: 1, counter: { firstStrike: true } },
+
+  // ---- Tier 2 ----
+  { no: 67, id: 'antidote_draught', name: 'Antidote Draught', tier: 2, cost: 1, counter: { poison: 3 } },
+  { no: 68, id: 'dousing_rain', name: 'Dousing Rain', tier: 2, cost: 1, counter: { rally: 2 } },
+  { no: 69, id: 'barb_file', name: 'Barb File', tier: 2, cost: 1, counter: { thorns: 3 } },
+  { no: 70, id: 'hamstring', name: 'Hamstring', tier: 2, cost: 3, counter: { atk: 5 } },
+
+  // ---- Tier 3 ----
+  { no: 71, id: 'ambush_pit', name: 'Ambush Pit', tier: 3, cost: 3, counter: { maxHp: 10 } },
+  { no: 72, id: 'purge_ritual', name: 'Purge Ritual', tier: 3, cost: 2, counter: { poison: 6, rally: 3 } },
+  { no: 73, id: 'sabotage', name: 'Sabotage', tier: 3, cost: 5, counter: { atk: 7, armour: 3 } },
+].map((s) => ({ ...s, type: 'secret' }));
+
 /** Everything a hand can be dealt from — the whole pool, since there's no
  *  Spoils tier held back for monster drops. */
-export const DEAL_POOL = [...MONSTERS, ...GEAR, ...ALLIES, ...PLACES];
+export const DEAL_POOL = [...MONSTERS, ...GEAR, ...ALLIES, ...PLACES, ...SECRETS];
 
 export const ALL_CARDS = DEAL_POOL;
 
@@ -191,11 +224,24 @@ export function cardText(c) {
   if (c.text) return c.text;
   if (c.type === 'monster') {
     const parts = [`+${c.gold} gold`];
-    if (c.trophy?.atk) parts.push(`+${c.trophy.atk} ATK`);
-    if (c.trophy?.maxHp) parts.push(`+${c.trophy.maxHp} max HP`);
+    if (c.trophy) parts.push(fxText(c.trophy));
     return parts.join(', ');
   }
+  if (c.type === 'secret') return `Your rival: ${counterText(c.counter)}.`;
   return fxText(c.fx || {});
+}
+
+/** What a secret strips, in the rival's terms. */
+export function counterText(k = {}) {
+  const parts = [];
+  if (k.atk) parts.push(`−${k.atk} ATK`);
+  if (k.maxHp) parts.push(`−${k.maxHp} max HP`);
+  if (k.armour) parts.push(`−${k.armour} Armour`);
+  if (k.thorns) parts.push(`−${k.thorns} Thorns`);
+  if (k.poison) parts.push(`−${k.poison} Poison`);
+  if (k.rally) parts.push(`−${k.rally} Rally`);
+  if (k.firstStrike) parts.push('loses First Strike');
+  return parts.join(', ') || 'unchanged';
 }
 
 export function fxText(fx) {

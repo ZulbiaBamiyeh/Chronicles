@@ -67,6 +67,8 @@
       <!-- The hand scrolls if a short phone can't fit it; EMBARK stays pinned
            below so it's never the thing that gets clipped. -->
       <div class="plan-scroll">
+        <!-- Who you're building against today. Open statline, hidden secrets. -->
+        <div id="rival-panel" class="rival-panel"></div>
         <div class="hand-label"><span>YOUR HAND</span><em id="hand-hint">Tap a card to place it</em></div>
         <div id="hand" class="hand"></div>
       </div>
@@ -83,18 +85,20 @@
         <div id="path-fight-them" class="duelist duelist-them"></div>
       </div>
       <div id="resolve-log" class="resolve-log"></div>
-      <button id="btn-to-duel" class="btn btn-gold btn-big hidden">FACE THE GHOST</button>
+      <button id="btn-to-duel" class="btn btn-gold btn-big hidden">FACE YOUR RIVAL</button>
     </div>
   </section>
 
   <!-- ===================== DUEL ===================== -->
   <section id="screen-duel" class="screen hidden">
-    <p class="duel-heading">THE DUEL</p>
+    <p id="duel-heading" class="duel-heading">THE DUEL</p>
     <div class="duelists">
       <div id="duel-me" class="duelist duelist-me"></div>
       <div class="versus">VS</div>
       <div id="duel-them" class="duelist duelist-them"></div>
     </div>
+    <!-- Secrets firing, before the first exchange. -->
+    <div id="duel-secrets" class="duel-secrets hidden"></div>
     <div id="duel-feed" class="duel-feed"></div>
     <button id="btn-duel-result" class="btn btn-gold btn-big hidden">CONTINUE</button>
   </section>

@@ -158,11 +158,19 @@ const lerp = (band, t) => band[0] + (band[1] - band[0]) * t;
  * beat somebody. Nothing here is hidden from the player — Watchtower shows the
  * numbers, and every number it shows is one the resolver will actually use.
  *
+ * The fourth argument is *not* a way to size a ghost against an opponent, and
+ * never becomes one. The only key it honours is `archetype`, which pins which
+ * of the four builds this ghost is — that's the ghost's own identity, decided
+ * before anyone has been matched against it, and it exists so js/rival.js can
+ * hold one character's archetype steady across the five days of their run.
+ * Anything else in that object is ignored, and the test suite asserts it.
+ *
  * @param {number} round
  * @param {number} wins
  * @param {number} seed
+ * @param {{archetype?: string}} [opts]
  */
-export function drawGhost(round, wins, seed) {
+export function drawGhost(round, wins, seed, opts = {}) {
   const r = rng(seed);
   const tier = Math.max(...tiersForRound(round));
   const band = TARGETS[Math.min(5, Math.max(1, round))];
@@ -174,7 +182,10 @@ export function drawGhost(round, wins, seed) {
   const canonAtk = Math.max(1, lerp(band.atk, t));
   const canonMaxHp = Math.max(8, lerp(band.maxHp, t));
 
-  const archetype = pick(KEYS, r);
+  // Drawn either way, so pinning the archetype never shifts the rest of the
+  // random stream — a pinned ghost and a free one differ in archetype alone.
+  const rolled = pick(KEYS, r);
+  const archetype = KEYS.includes(opts?.archetype) ? opts.archetype : rolled;
   const [[killGhostLo, killGhostHi], [killPlayerLo, killPlayerHi]] = EXCHANGE_TARGET[archetype];
 
   // Difficulty ramps with wins inside the bucket: at higher wins, both sides

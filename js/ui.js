@@ -3,7 +3,7 @@
 // size class changes. Nothing here decides anything; main.js owns the flow
 // and calls in.
 
-import { card, cardText, keywordBadges, equipment } from './cards.js';
+import { card, cardText, keywordBadges, equipment, counterText } from './cards.js';
 import { costFor } from './engine.js';
 
 // One glyph per card. Emoji rather than 70 pieces of commissioned art is an
@@ -25,6 +25,10 @@ export const ICON = {
   runed_greatsword: '🔱', banner_of_the_vanguard: '🚩', executioners_blade: '☠️',
   plague_censer: '🏺', barbed_cuirass: '🌵', wyrmvenom_vial: '⚗️', bramble_aegis: '🛡',
   battle_drum: '🥁',
+  // secrets
+  caltrops: '🔻', rust_powder: '🧂', snare_wire: '🕸️', antidote_draught: '🍵',
+  dousing_rain: '🌧️', barb_file: '🪒', hamstring: '🩸', ambush_pit: '🕳️',
+  purge_ritual: '🔯', sabotage: '💣',
   // allies
   torchbearer: '🕯️', coin_clipper: '🪙', sparring_partner: '🥊', field_medic: '⚕️',
   shieldbearer: '🧱', houndmaster: '🐕', quartermaster: '📦', banner_squire: '🎖️',
@@ -210,6 +214,105 @@ function equipGrid(fighter) {
   return { node: grid, cells };
 }
 
+// ---- rival intel ------------------------------------------------------
+//
+// Shown while planning, because the whole point of a fixed rival is that you
+// build *against* them. Their statline and kit are open; their secrets are
+// not — you can see how many they've laid but not what they are unless you
+// spent a slot on a Watchtower. That gap is the tension: it's the difference
+// between solving the duel at planning time and having to make a read.
+
+const KW_SHORT = {
+  armour: 'ARM', thorns: 'THN', poison: 'PSN', rally: 'RLY',
+};
+
+/**
+ * @param {HTMLElement} mount
+ * @param {object} info      from rival.js's intel()
+ * @param {{wins:number, losses:number, days:number}} series
+ */
+export function rivalPanel(mount, info, series) {
+  mount.textContent = '';
+
+  const head = el('div', 'rival-head');
+  head.appendChild(el('span', 'rival-glyph', '👻'));
+  const id = el('div', 'rival-id');
+  id.appendChild(el('div', 'rival-name', info.name));
+  id.appendChild(el('div', 'rival-arch', `${info.archetype} · day ${info.day} of ${series.days}`));
+  head.appendChild(id);
+
+  // The series score, so "how am I doing against this person" is always on
+  // screen rather than something you reconstruct from the heart count.
+  const score = el('div', 'rival-score');
+  score.appendChild(el('b', 'score-me', String(series.wins)));
+  score.appendChild(el('span', 'score-sep', '–'));
+  score.appendChild(el('b', 'score-them', String(series.losses)));
+  head.appendChild(score);
+  mount.appendChild(head);
+
+  const stats = el('div', 'rival-stats');
+  stats.appendChild(statChip('⚔', info.atk, 'atk'));
+  stats.appendChild(statChip('♥', `${info.hp}/${info.maxHp}`, 'hp'));
+  for (const [k, label] of Object.entries(KW_SHORT)) {
+    if (info.keywords[k]) stats.appendChild(statChip(label, info.keywords[k], k));
+  }
+  if (info.keywords.firstStrike) stats.appendChild(statChip('FIRST', '', 'first'));
+  mount.appendChild(stats);
+
+  // What they're carrying, so a counter can be read off the kit as well as
+  // the numbers.
+  if (info.inventory.length) {
+    const kit = el('div', 'rival-kit');
+    for (const itemId of info.inventory) {
+      const c = card(itemId);
+      if (!c) continue;
+      const chip = el('span', 'kit-item', ICON[itemId] || '❔');
+      chip.title = c.name;
+      kit.appendChild(chip);
+    }
+    mount.appendChild(kit);
+  }
+
+  mount.appendChild(secretRow(info));
+  return mount;
+}
+
+function secretRow(info) {
+  const row = el('div', 'rival-secrets');
+  if (!info.secretCount) {
+    row.classList.add('none');
+    row.appendChild(el('span', 'secret-label', 'No secrets laid'));
+    return row;
+  }
+  if (info.secrets) {
+    row.classList.add('known');
+    row.appendChild(el('span', 'secret-label', 'Scouted:'));
+    for (const id of info.secrets) {
+      const c = card(id);
+      const chip = el('span', 'secret-chip known', `${ICON[id] || '❔'} ${c.name}`);
+      chip.title = `You: ${counterText(c.counter)}`;
+      row.appendChild(chip);
+    }
+    return row;
+  }
+  row.classList.add('hidden-secrets');
+  row.appendChild(el('span', 'secret-label',
+    `${info.secretCount} secret${info.secretCount === 1 ? '' : 's'} laid`));
+  for (let i = 0; i < info.secretCount; i++) {
+    const chip = el('span', 'secret-chip unknown', '?');
+    chip.title = 'Play a Watchtower to reveal';
+    row.appendChild(chip);
+  }
+  return row;
+}
+
+function statChip(icon, value, kind) {
+  const chip = el('span', `rival-stat rs-${kind}`);
+  chip.appendChild(el('i', null, icon));
+  if (value !== '') chip.appendChild(el('b', null, String(value)));
+  return chip;
+}
+
 /** Glyph rained by each status-effect animation. */
 const EFFECT_GLYPH = {
   poison: '☠', thorns: '✸', rally: '⬆', heal: '✚', gold: '◉', armour: '◈',
@@ -241,7 +344,7 @@ export function duelistEl(mount, fighter, { glyph, sub, facing = 'right' }) {
   bar.append(fill, text);
   mount.appendChild(bar);
 
-  const { node: equip, cells } = equipGrid(fighter);
+  let { node: equip, cells } = equipGrid(fighter);
   mount.appendChild(equip);
 
   const spawn = (cls, ttl, build) => {
@@ -286,6 +389,18 @@ export function duelistEl(mount, fighter, { glyph, sub, facing = 'right' }) {
       fill.style.width = `${p}%`;
       fill.classList.toggle('low', p <= 30);
       text.textContent = `${Math.max(0, hp)} / ${maxHp}`;
+    },
+    /**
+     * Redraw the equipment grid against a changed statline — used when a
+     * secret has stripped something off this fighter, so the panel shows what
+     * they're actually going into the fight with rather than what they
+     * brought to it.
+     */
+    setStats(next) {
+      const rebuilt = equipGrid(next);
+      mount.replaceChild(rebuilt.node, equip);
+      equip = rebuilt.node;
+      cells = rebuilt.cells;
     },
     flash(kind) {
       mount.classList.remove('hit', 'poisoned');

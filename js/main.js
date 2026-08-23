@@ -5,14 +5,17 @@
 
 import { ShaderBackground } from './bg.js';
 import { AudioEngine } from './audio.js';
-import { card, cardText, fxText, attackAnim } from './cards.js';
+import { card, cardText, fxText, attackAnim, counterText } from './cards.js';
 import {
   newRun, startRound, deal, resolvePath, duel, settleRound, toGhost,
-  tiersForRound, rng, costFor, PATH_SLOTS, WINS_TO_COMPLETE,
+  tiersForRound, rng, costFor, PATH_SLOTS, RUN_DAYS,
 } from './engine.js';
-import { drawGhost, pathNames, randomName } from './ghosts.js';
+import { randomName } from './ghosts.js';
+import { drawRival, rivalOnDay, intel } from './rival.js';
 import * as store from './storage.js';
-import { $, el, cardEl, renderHud, duelistEl, feedLine, MONSTER_GLYPH } from './ui.js';
+import {
+  $, el, cardEl, renderHud, duelistEl, feedLine, rivalPanel, MONSTER_GLYPH, ICON,
+} from './ui.js';
 
 const audio = new AudioEngine();
 const bg = new ShaderBackground(document.getElementById('bg-canvas'));
@@ -24,9 +27,10 @@ let dealt = [];          // this round's six card ids
 let slots = [];          // PATH_SLOTS entries of {id, from, upgrade} | null
 let roundSeed = 0;       // seeds this round's deal
 let outcome = null;      // the resolved path, kept for the duel and the result
-let ghost = null;
+let rival = null;        // one opponent for the whole run (see js/rival.js)
+let ghost = null;        // that rival as they stood on today's day
 let duelResult = null;
-let scouted = false;     // Watchtower revealed the opponent this round
+let scouted = false;     // Watchtower revealed the rival's secrets this round
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -81,8 +85,11 @@ function beginRound() {
   dealt = deal(run.round, rng(roundSeed));
   slots = new Array(PATH_SLOTS).fill(null);
   outcome = null;
-  ghost = null;
   scouted = false;
+  // The rival was decided when the run started and doesn't change; today's
+  // opponent is simply them, as they stood on this day of their own run.
+  if (!rival) rival = drawRival(run.rivalSeed);
+  ghost = rivalOnDay(rival, run.round);
   store.saveRun(run);
 
   $('#plan-area').classList.remove('hidden');
@@ -99,6 +106,7 @@ function beginRound() {
 
 function renderPlan() {
   renderHud(run, tierLabel(run.round));
+  renderRival();
   renderPath();
   renderHand();
   const full = slots.every(Boolean);
@@ -106,6 +114,18 @@ function renderPlan() {
   $('#hand-hint').textContent = full
     ? 'Drag slots to reorder'
     : `Tap to place · ${slots.filter(Boolean).length}/${PATH_SLOTS}`;
+}
+
+/**
+ * The rival readout above the hand. A Watchtower placed anywhere in the path
+ * reveals their secrets — and it updates live as you plan, so you can see
+ * what scouting would buy you before you commit the slot.
+ */
+function renderRival() {
+  const willScout = slots.some((s) => s && card(s.id)?.scout);
+  rivalPanel($('#rival-panel'), intel(rival, run.round, willScout), {
+    wins: run.wins, losses: run.losses, days: RUN_DAYS,
+  });
 }
 
 function renderPath() {
@@ -326,15 +346,9 @@ async function embark() {
   audio.click();
   outcome = resolvePath(run, slots);
   scouted = outcome.usedWatchtower;
-  // Half the opponents come out of the local bucket (characters this save has
-  // finished a round with before), half are freshly generated. Leaning on
-  // generated ghosts is what keeps the archetype spread wide — §12 wants no
-  // archetype above 30% or below 15%, and a bucket of one player's own runs
-  // drifts towards whatever they happen to build.
-  const ghostSeed = (roundSeed ^ 0x2545f491) >>> 0;
-  const gr = rng(ghostSeed);
-  ghost = (gr() < 0.5 && store.drawStoredGhost(run.round, run.wins, gr))
-       || drawGhost(run.round, run.wins, ghostSeed);
+  // No draw here any more: today's opponent has been fixed since the run
+  // began. That's the point — the path you just committed to was planned
+  // against this specific person.
 
   $('#plan-area').classList.add('hidden');
   $('#resolve-area').classList.remove('hidden');
@@ -360,10 +374,17 @@ async function embark() {
   }
 
   await sleep(500);
-  const line = scouted
-    ? `The Watchtower shows ${ghost.name}: ${ghost.hp} HP, ${ghost.atk} ATK.`
-    : `${ghost.name} is waiting.`;
-  feedLine($('#resolve-log'), line, 'log-ghost');
+  const log = $('#resolve-log');
+  if (scouted && ghost.secrets.length) {
+    const names = ghost.secrets.map((id) => card(id).name).join(' and ');
+    feedLine(log, `The Watchtower shows ${ghost.name} has laid ${names}.`, 'log-ghost');
+  } else if (scouted) {
+    feedLine(log, `The Watchtower shows ${ghost.name} has laid no secrets today.`, 'log-ghost');
+  } else if (ghost.secrets.length) {
+    feedLine(log, `${ghost.name} is waiting — and something has been laid for you.`, 'log-ghost');
+  } else {
+    feedLine(log, `${ghost.name} is waiting.`, 'log-ghost');
+  }
   $('#btn-to-duel').classList.remove('hidden');
 }
 
@@ -377,6 +398,16 @@ async function playSlot(ev, cell) {
     cell.classList.add('fizzled');
     audio.fizzle();
     feedLine(log, `${c.name} — can't afford ${ev.cost} gold. Fizzles.`, 'log-bad');
+    await sleep(900);
+    return;
+  }
+
+  if (ev.kind === 'secret') {
+    cell.classList.add('secret-laid');
+    audio.lift();
+    burst(cell, 'secret', 4);
+    float(cell, 'LAID', 'secret');
+    feedLine(log, `${c.name} laid — ${cardText(c).replace(/\.$/, '')} in the duel.`, 'log-secret');
     await sleep(900);
     return;
   }
@@ -525,6 +556,53 @@ async function replayLog({ feed, side, fighter, log, speed = 1 }) {
 /** How a fighter's blows are drawn: a monster's own style, or their weapon. */
 const animFor = (f) => f.anim || attackAnim(f.gear || []);
 
+/**
+ * Secrets firing, before the first exchange. Theirs go first — you find out
+ * what was waiting for you before you get to see your own read pay off, which
+ * is the right order emotionally and the right order mechanically too, since
+ * a rival's secret is the one piece of information the planning screen
+ * deliberately withheld.
+ */
+async function playSecrets(result, me, them) {
+  const banner = $('#duel-secrets');
+  banner.textContent = '';
+  if (!result.mySecrets.length && !result.theirSecrets.length) {
+    banner.classList.add('hidden');
+    return;
+  }
+  banner.classList.remove('hidden');
+
+  const rounds = [
+    { ids: result.theirSecrets, side: me, after: result.me, who: 'theirs' },
+    { ids: result.mySecrets, side: them, after: result.them, who: 'mine' },
+  ];
+
+  for (const { ids, side, after, who } of rounds) {
+    for (const id of ids) {
+      const c = card(id);
+      const row = el('div', `secret-fire secret-${who}`);
+      row.append(
+        el('span', 'secret-fire-icon', ICON[id] || '✦'),
+        el('span', 'secret-fire-name', c.name),
+        el('span', 'secret-fire-effect', counterText(c.counter)),
+      );
+      banner.appendChild(row);
+      audio.firstStrike();
+      side.effect('secret');
+      side.flash('hit');
+      await sleep(760);
+    }
+    // Once a side's secrets have all landed, snap their panel to what they're
+    // actually going into the fight with.
+    if (ids.length) {
+      side.setHp(after.hp, after.maxHp);
+      side.setStats(after);
+      await sleep(260);
+    }
+  }
+  await sleep(420);
+}
+
 /** Tick the HUD forward to where a slot left the character. */
 function applySnap(snap) {
   if (!snap) return;
@@ -544,7 +622,7 @@ const BUFF_BURST = (fx) =>
 
 const BURST_GLYPH = {
   gold: '◉', heal: '✚', trophy: '★', poison: '☠', thorns: '✸',
-  rally: '⬆', armour: '◈', atk: '⚔',
+  rally: '⬆', armour: '◈', atk: '⚔', secret: '✦',
 };
 
 /** A shower of particles out of a path slot — coins, sparks, a trophy star. */
@@ -569,21 +647,35 @@ async function runDuel() {
   audio.ghostRise();
 
   const s = outcome.state;
-  const result = duel(s, ghost, outcome.cleanPath);
+  const result = duel(s, ghost, outcome.cleanPath, {
+    mine: outcome.secrets,
+    theirs: ghost.secrets,
+  });
   const feed = $('#duel-feed');
   feed.textContent = '';
 
+  const isFinal = run.round >= RUN_DAYS;
+  $('#duel-heading').textContent = isFinal
+    ? `DAY ${run.round} — THE LAST DAY`
+    : `DAY ${run.round} OF ${RUN_DAYS}`;
+  $('#duel-heading').classList.toggle('final', isFinal);
+
   const meSub = result.bonusArmour
     ? `untouched on the path · +${result.bonusArmour} Armour`
-    : `round ${run.round} · ${run.wins}/${WINS_TO_COMPLETE} wins`;
-  const me = duelistEl($('#duel-me'), result.me, { glyph: '🧍', sub: meSub, facing: 'right' });
-  const them = duelistEl($('#duel-them'), result.them, {
+    : `${run.wins}–${run.losses} in the series`;
+
+  // Both fighters are drawn at their *pre-secret* strength, so a secret can be
+  // seen taking something off them rather than arriving as a number that was
+  // always there.
+  const me = duelistEl($('#duel-me'), result.baseMe, { glyph: '🧍', sub: meSub, facing: 'right' });
+  const them = duelistEl($('#duel-them'), result.baseThem, {
     glyph: '👻',
-    sub: pathNames(ghost.path).slice(0, 2).join(' · '),
+    sub: `day ${run.round} · ${ghost.archetype}`,
     facing: 'left',
   });
 
-  await sleep(1100);
+  await sleep(900);
+  await playSecrets(result, me, them);
 
   const who = { a: result.me.name, b: result.them.name };
   await replayLog({
@@ -626,13 +718,15 @@ async function showResult() {
 
   $('#result-title').textContent = won ? 'VICTORY' : 'DEFEAT';
   $('#result-title').className = `result-title ${won ? 'win' : 'loss'}`;
+  const rivalName = duelResult.them.name;
   $('#result-sub').textContent = won
-    ? `${duelResult.them.name} fades. ${run.wins}/${WINS_TO_COMPLETE} wins banked.`
-    : `${duelResult.them.name} stands over you. ${run.hearts} heart${run.hearts === 1 ? '' : 's'} left.`;
+    ? `${rivalName} falls. You lead the series ${run.wins}–${run.losses}.`
+    : `${rivalName} stands over you. ${run.hearts} heart${run.hearts === 1 ? '' : 's'} left.`;
 
   const stats = $('#result-stats');
   stats.textContent = '';
   const rows = [
+    ['Series', `${run.wins}–${run.losses} vs ${rivalName}`],
     ['HP', `${run.hp} / ${run.maxHp}`],
     ['ATK', run.atk],
     ['Gold', run.gold],
@@ -658,18 +752,20 @@ function nextRound() {
 function showOver() {
   store.recordRunEnd(run.completed);
   store.clearRun();
-  $('#over-title').textContent = run.completed ? 'RUN COMPLETE' : 'RUN OVER';
+  const rivalName = rival ? rival.name : 'your rival';
+  $('#over-title').textContent = run.completed ? 'SERIES WON' : 'RUN OVER';
   $('#over-title').className = `result-title ${run.completed ? 'win' : 'loss'}`;
   $('#over-sub').textContent = run.completed
-    ? `Five duels won. ${run.name} walks out of the fog.`
-    : `Three hearts spent at ${run.wins} win${run.wins === 1 ? '' : 's'}.`;
+    ? `Five days survived. ${run.name} takes the series ${run.wins}–${run.losses} against ${rivalName}.`
+    : `${rivalName} took it ${run.losses}–${run.wins}. Three hearts spent on day ${run.round}.`;
+  rival = null;
 
   const stats = $('#over-stats');
   stats.textContent = '';
   const lt = store.load().lifetime;
   for (const [k, v] of [
-    ['Rounds played', run.round],
-    ['Duels won', run.wins],
+    ['Days fought', run.round],
+    ['Series', `${run.wins}–${run.losses}`],
     ['Final ATK', run.atk],
     ['Final max HP', run.maxHp],
     ['Lifetime', `${lt.duelsWon}W ${lt.duelsLost}L over ${lt.runs} runs`],
@@ -685,6 +781,7 @@ function showOver() {
 function startRun() {
   store.recordRunStart();
   run = newRun(undefined, randomName());
+  rival = null;   // drawn fresh in beginRound() from the new run's rivalSeed
   beginRound();
 }
 
@@ -714,6 +811,9 @@ function wire() {
     // same six cards back — so resuming costs the player nothing and can't be
     // used to reroll a bad hand either.
     run = store.load().run;
+    // The rival is regenerated from the saved rivalSeed, so a resumed run
+    // faces the same person on the same day, not a fresh opponent.
+    rival = null;
     beginRound();
   });
   $('#btn-howto').addEventListener('click', () => { audio.click(); show('howto'); });

@@ -44,6 +44,7 @@
   --t-gear: #79a6ff;
   --t-ally: #5fd39a;
   --t-place: #b17ce0;
+  --t-secret: #ff7ad1;
 
   --pixel: 'Silkscreen', ui-monospace, monospace;
   --body: 'Baloo 2', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -431,6 +432,15 @@ body.no-webgl #app {
 .card-gear    { --accent: var(--t-gear); }
 .card-ally    { --accent: var(--t-ally); }
 .card-place   { --accent: var(--t-place); }
+.card-secret  { --accent: var(--t-secret); }
+/* A secret is the one card that reaches across the table, so it doesn't look
+   like the rest of your kit — dashed frame, faint crosshatch, its own colour. */
+.card-secret {
+  border-style: dashed;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 122, 209, 0.055) 0 6px, transparent 6px 12px),
+    linear-gradient(170deg, rgba(38, 26, 58, 0.96), rgba(12, 8, 24, 0.97));
+}
 
 .card.placed { opacity: 0.24; filter: saturate(0.3); pointer-events: none; }
 .card.dim { opacity: 0.5; }
@@ -730,6 +740,184 @@ body.is-dragging { cursor: grabbing; }
 .floater-good { color: #a8e8c0; border-color: rgba(95, 211, 154, 0.6); }
 .floater-gold { color: var(--gold); border-color: rgba(255, 207, 63, 0.6); }
 .floater-poison { color: var(--venom); border-color: rgba(126, 217, 87, 0.6); }
+
+/* ===================== the rival =====================
+   Sits above the hand while planning, because a fixed rival is only
+   interesting if you can build against them. Statline and kit open; secrets
+   deliberately not. */
+.rival-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.45rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(139, 233, 255, 0.28);
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(139, 233, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, rgba(18, 28, 54, 0.85), rgba(7, 10, 22, 0.85));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.rival-head { display: flex; align-items: center; gap: 0.45rem; }
+.rival-glyph {
+  font-size: 1.35rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+  animation: bob 3.4s ease-in-out infinite;
+}
+.rival-id { flex: 1; min-width: 0; }
+.rival-name {
+  font-family: var(--pixel);
+  font-size: 0.62rem;
+  color: var(--ghost);
+  line-height: 1.2;
+}
+.rival-arch {
+  font-size: 0.56rem;
+  color: var(--dim);
+  text-transform: capitalize;
+  line-height: 1.3;
+}
+.rival-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.12rem;
+  font-family: var(--pixel);
+  font-size: 0.8rem;
+  padding: 0.14rem 0.36rem;
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--line);
+}
+.score-me { color: var(--gold); }
+.score-sep { color: var(--dim); font-size: 0.6rem; }
+.score-them { color: var(--blood); }
+
+.rival-stats { display: flex; flex-wrap: wrap; gap: 0.26rem; }
+.rival-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.16rem;
+  font-family: var(--pixel);
+  font-size: 0.5rem;
+  padding: 0.14rem 0.3rem;
+  border-radius: 0.3rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line);
+  color: var(--dim);
+}
+.rival-stat i { font-style: normal; opacity: 0.8; }
+.rival-stat b { font-size: 0.56rem; }
+.rs-atk    { border-color: rgba(255, 176, 138, 0.5); color: #ffb08a; }
+.rs-hp     { border-color: rgba(126, 227, 154, 0.45); color: #7ee39a; }
+.rs-armour { border-color: rgba(159, 192, 255, 0.5); color: #9fc0ff; }
+.rs-thorns { border-color: rgba(255, 160, 122, 0.5); color: #ffa07a; }
+.rs-poison { border-color: rgba(126, 217, 87, 0.5); color: var(--venom); }
+.rs-rally  { border-color: rgba(255, 207, 63, 0.5); color: var(--gold); }
+.rs-first  { border-color: rgba(139, 233, 255, 0.5); color: var(--ghost); }
+
+.rival-kit { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.kit-item {
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.16rem;
+  border-radius: 0.28rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line);
+}
+
+/* The one thing the panel withholds. An unknown secret is a visible blank,
+   not an absence — you always know something is waiting, just not what. */
+.rival-secrets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  padding-top: 0.28rem;
+  border-top: 1px dashed var(--line);
+}
+.secret-label {
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+}
+.rival-secrets.none { opacity: 0.5; }
+.rival-secrets.hidden-secrets .secret-label { color: var(--t-secret); }
+.secret-chip {
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  padding: 0.14rem 0.3rem;
+  border-radius: 0.28rem;
+  border: 1px solid var(--t-secret);
+  color: var(--t-secret);
+  background: rgba(255, 122, 209, 0.1);
+}
+.secret-chip.unknown {
+  min-width: 1.1rem;
+  text-align: center;
+  border-style: dashed;
+  animation: secretPulse 2.4s ease-in-out infinite;
+}
+.secret-chip.known { border-style: solid; background: rgba(255, 122, 209, 0.2); }
+@keyframes secretPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; box-shadow: 0 0 10px rgba(255, 122, 209, 0.45); }
+}
+
+/* A secret resolving on the path: it does nothing to you now, so it says so
+   rather than floating a stat change that never happened. */
+.slot.secret-laid .card { box-shadow: 0 0 0 2px var(--t-secret), 0 8px 20px rgba(0, 0, 0, 0.55); }
+.floater-secret { color: var(--t-secret); border-color: rgba(255, 122, 209, 0.7); }
+.burst-secret .burst-bit { color: var(--t-secret); text-shadow: 0 0 10px rgba(255, 122, 209, 0.95); }
+.log-secret { color: var(--t-secret); }
+
+/* Secrets firing at the top of the duel. */
+.duel-secrets {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+.secret-fire {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.28rem 0.42rem;
+  border-radius: 0.42rem;
+  border: 1px solid var(--t-secret);
+  background: rgba(255, 122, 209, 0.12);
+  animation: secretFire 0.45s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+/* Theirs come in from their side of the screen, yours from yours, so who
+   played what is legible without reading the words. */
+.secret-theirs { border-color: rgba(255, 122, 209, 0.75); }
+.secret-mine { border-color: rgba(139, 233, 255, 0.6); background: rgba(139, 233, 255, 0.1); }
+.secret-fire-icon { font-size: 0.85rem; line-height: 1; }
+.secret-fire-name {
+  font-family: var(--pixel);
+  font-size: 0.52rem;
+  color: var(--bone);
+}
+.secret-fire-effect {
+  margin-left: auto;
+  font-family: var(--pixel);
+  font-size: 0.5rem;
+  color: var(--t-secret);
+}
+.secret-mine .secret-fire-effect { color: var(--ghost); }
+@keyframes secretFire {
+  0% { opacity: 0; transform: scale(0.9) translateY(-6px); }
+  60% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.efx-secret .efx-bit { color: var(--t-secret); text-shadow: 0 0 10px rgba(255, 122, 209, 0.95); }
+
+.duel-heading.final {
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(255, 207, 63, 0.6);
+}
 
 /* ===================== duel ===================== */
 

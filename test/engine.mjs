@@ -7,13 +7,15 @@
 import assert from 'node:assert/strict';
 import {
   resolveCombat, tiebreak, newRun, startRound, deal, resolvePath, duel,
-  settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter,
+  settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter, applySecrets,
   PATH_SLOTS, HAND_SIZE, START,
 } from '../js/engine.js';
 import {
-  card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES, equipment, attackAnim,
+  card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES, SECRETS,
+  equipment, attackAnim,
 } from '../js/cards.js';
 import { drawGhost, ARCHETYPES } from '../js/ghosts.js';
+import { drawRival, rivalOnDay, intel, RUN_DAYS } from '../js/rival.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -32,20 +34,36 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 63 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 63);
-  assert.equal(ALL_CARDS.length, 63);
+test('the pool is 73 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 73);
+  assert.equal(ALL_CARDS.length, 73);
   assert.equal(MONSTERS.length, 22);
   assert.equal(GEAR.length, 24);
   assert.equal(ALLIES.length, 8);
   assert.equal(PLACES.length, 9);
+  assert.equal(SECRETS.length, 10);
 });
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 63);
+  assert.equal(ids.size, 73);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
+});
+
+test('every keyword worth countering has a secret that counters it', () => {
+  // A secret is only worth a path slot if it answers something a rival can
+  // actually bring, so every keyword the rival generator can roll needs an
+  // answer somewhere in the pool.
+  for (const key of ['atk', 'armour', 'thorns', 'poison', 'rally', 'firstStrike']) {
+    assert.ok(SECRETS.some((s) => s.counter[key]), `nothing counters ${key}`);
+  }
+});
+
+test('secrets stay available at every tier, so countering never runs dry', () => {
+  for (const tier of [1, 2, 3]) {
+    assert.ok(SECRETS.some((s) => s.tier === tier), `no tier ${tier} secret`);
+  }
 });
 
 test('a keyword you can start building stays buildable to the end of a run', () => {
@@ -615,6 +633,182 @@ test('Tank ghosts take longer to resolve than Aggro ghosts, on average', () => {
     return total / n;
   };
   assert.ok(meanFor('tank') > meanFor('aggro'), 'a Tank ghost should out-stall an Aggro one');
+});
+
+// ---------------------------------------------------------------------------
+// The rival, and secrets
+// ---------------------------------------------------------------------------
+
+test('a rival is one person: same name and archetype every day of the run', () => {
+  for (let seed = 1; seed <= 200; seed++) {
+    const rv = drawRival(seed * 7919);
+    assert.equal(rv.days.length, RUN_DAYS);
+    for (const d of rv.days) {
+      assert.equal(d.name, rv.name, 'a rival must not change name mid-run');
+      assert.equal(d.archetype, rv.archetype,
+        'a rival whose build flips overnight cannot be learned or countered');
+    }
+  }
+});
+
+test('a rival is a pure function of their seed, fixed before the run begins', () => {
+  // Same promise js/ghosts.js makes, and it matters more here: the rival is
+  // chosen on day one and cannot react to how the player is doing.
+  for (const seed of [1, 4242, 0xfeed]) {
+    assert.deepEqual(drawRival(seed), drawRival(seed));
+  }
+});
+
+test('a rival gets stronger across their five days', () => {
+  // Averaged over many rivals — an individual archetype can wobble, but the
+  // series has to escalate or the last day means nothing.
+  const power = (day) => {
+    let total = 0;
+    for (let s = 1; s <= 300; s++) {
+      const d = rivalOnDay(drawRival(s * 613), day);
+      total += d.atk * 3 + d.maxHp;
+    }
+    return total / 300;
+  };
+  const curve = [1, 2, 3, 4, 5].map(power);
+  for (let i = 1; i < curve.length; i++) {
+    assert.ok(curve[i] > curve[i - 1], `day ${i + 1} should out-scale day ${i}`);
+  }
+});
+
+test('the rival lays no secrets on day one, and more of them later', () => {
+  for (let s = 1; s <= 100; s++) {
+    const rv = drawRival(s * 31);
+    assert.equal(rivalOnDay(rv, 1).secrets.length, 0,
+      'day one should be a clean read, so the player learns the shape first');
+    assert.ok(rivalOnDay(rv, 5).secrets.length >= rivalOnDay(rv, 2).secrets.length);
+    for (const d of rv.days) {
+      for (const id of d.secrets) {
+        assert.ok(card(id), `${id} is not a real card`);
+        assert.equal(card(id).type, 'secret');
+      }
+    }
+  }
+});
+
+test('intel opens the statline but hides the secrets until you scout', () => {
+  const rv = drawRival(999);
+  for (let day = 1; day <= RUN_DAYS; day++) {
+    const blind = intel(rv, day, false);
+    const scout = intel(rv, day, true);
+    const truth = rivalOnDay(rv, day);
+
+    // The build is open — that's the whole point of a fixed rival.
+    assert.equal(blind.atk, truth.atk);
+    assert.deepEqual(blind.keywords, truth.keywords);
+
+    // The secrets are not, but their *number* is: you always know something
+    // is waiting, which is what makes scouting a decision instead of a shot
+    // in the dark.
+    assert.equal(blind.secrets, null, 'unscouted intel must not leak the secrets');
+    assert.equal(blind.secretCount, truth.secrets.length);
+    assert.deepEqual(scout.secrets, truth.secrets);
+  }
+});
+
+test('a secret strips exactly what it names, and nothing else', () => {
+  const base = { name: 'r', hp: 40, maxHp: 40, atk: 10, armour: 4, thorns: 3, poison: 3, rally: 2, firstStrike: true };
+  const { fighter: f } = applySecrets(base, ['caltrops']);
+  assert.equal(f.atk, 8, 'Caltrops takes 2 ATK');
+  assert.equal(f.armour, 4, 'and touches nothing else');
+  assert.equal(f.poison, 3);
+  assert.equal(f.firstStrike, true);
+
+  const { fighter: g } = applySecrets(base, ['snare_wire']);
+  assert.equal(g.firstStrike, false);
+  assert.equal(g.atk, 10);
+});
+
+test('secrets stack, and every strip has a floor', () => {
+  const weak = { name: 'r', hp: 10, maxHp: 10, atk: 2, armour: 1, poison: 1, rally: 1, thorns: 1, firstStrike: true };
+  const { fighter: f } = applySecrets(weak, ['sabotage', 'hamstring', 'purge_ritual', 'ambush_pit']);
+  // No pile of secrets may produce a fighter who cannot fight, or a duel that
+  // cannot resolve.
+  assert.ok(f.atk >= 1, 'a fighter can always swing for at least 1');
+  assert.ok(f.maxHp >= 1);
+  assert.ok(f.hp >= 0 && f.hp <= f.maxHp);
+  assert.equal(f.armour, 0);
+  assert.equal(f.poison, 0);
+});
+
+test('a secret never mutates the snapshot it was played against', () => {
+  // The async promise: your secret applies to *your copy* of the rival, the
+  // way a real opponent's would apply to their copy of you. The stored
+  // character has to come out the other side untouched.
+  const rv = drawRival(2024);
+  const day = rivalOnDay(rv, 4);
+  const before = JSON.stringify(day);
+  const player = { ...newRun(1), atk: 20, hp: 40, maxHp: 40 };
+  duel(player, day, false, { mine: ['sabotage', 'ambush_pit'], theirs: day.secrets });
+  assert.equal(JSON.stringify(rivalOnDay(rv, 4)), before, 'the rival snapshot was modified');
+});
+
+test('a duel applies each side’s secrets to the other, not to themselves', () => {
+  const rv = drawRival(555);
+  const them = rivalOnDay(rv, 3);
+  const player = { ...newRun(1), atk: 14, hp: 30, maxHp: 30 };
+
+  const clean = duel(player, them, false);
+  const withMine = duel(player, them, false, { mine: ['hamstring'] });
+  assert.equal(withMine.them.atk, Math.max(1, clean.them.atk - 5), 'Hamstring should hit the rival');
+  assert.equal(withMine.me.atk, clean.me.atk, 'and must not touch the player');
+
+  const withTheirs = duel(player, them, false, { theirs: ['hamstring'] });
+  assert.equal(withTheirs.me.atk, Math.max(1, clean.me.atk - 5), 'their Hamstring should hit the player');
+  assert.equal(withTheirs.them.atk, clean.them.atk);
+});
+
+test('a secret played on the path costs its slot and changes nothing about you', () => {
+  const run = { ...newRun(40), gold: 10, atk: 5 };
+  const out = resolvePath(run, [{ id: 'caltrops', from: 'hand' }, null, null, null]);
+  assert.equal(out.events[0].kind, 'secret');
+  assert.deepEqual(out.secrets, ['caltrops']);
+  assert.equal(out.state.atk, run.atk, 'a secret does nothing to your own statline');
+  assert.equal(out.state.gold, run.gold - card('caltrops').cost, 'but it is still paid for');
+  assert.deepEqual(out.state.gear, [], 'a secret is spent, not worn');
+});
+
+test('a secret you cannot pay for fizzles and is never carried into the duel', () => {
+  const broke = { ...newRun(41), gold: 0 };
+  const out = resolvePath(broke, [{ id: 'sabotage', from: 'hand' }, null, null, null]);
+  assert.equal(out.events[0].kind, 'fizzle');
+  assert.deepEqual(out.secrets, []);
+});
+
+test('winning a day pays, and pays more the deeper into the series it is', () => {
+  const early = settleRound({ ...newRun(60), round: 1, gold: 0 }, true);
+  const late = settleRound({ ...newRun(60), round: 4, gold: 0 }, true);
+  assert.ok(early.gold > 0, 'a duel win has to buy something back');
+  assert.ok(late.gold > early.gold, 'later days should pay more');
+  const lost = settleRound({ ...newRun(60), round: 4, gold: 0 }, false);
+  assert.equal(lost.gold, 0, 'losing pays nothing');
+});
+
+test('a five-day series ends on day five, and three losses ends it sooner', () => {
+  let run = newRun(50);
+  for (let d = 0; d < RUN_DAYS; d++) {
+    assert.ok(!run.over, `the run should still be live on day ${d + 1}`);
+    run = settleRound(run, true);
+  }
+  assert.ok(run.over && run.completed, 'surviving five days wins the series');
+
+  // Losing two of five and winning the rest still takes it — you finished
+  // with hearts left, which is the same thing as winning more days.
+  let mixed = newRun(51);
+  for (const won of [false, true, false, true, true]) mixed = settleRound(mixed, won);
+  assert.ok(mixed.over && mixed.completed);
+  assert.equal(mixed.wins, 3);
+  assert.equal(mixed.losses, 2);
+
+  let doomed = newRun(52);
+  for (let i = 0; i < 3; i++) doomed = settleRound(doomed, false);
+  assert.ok(doomed.over && !doomed.completed, 'three losses ends it wherever you are');
+  assert.equal(doomed.hearts, 0);
 });
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import {
   newRun, startRound, deal, resolvePath, duel, settleRound,
   rng, PATH_SLOTS,
 } from '../js/engine.js';
-import { drawGhost } from '../js/ghosts.js';
+import { drawRival, rivalOnDay } from '../js/rival.js';
 
 const RUNS = Number(process.argv[2] || 600);
 
@@ -18,8 +18,15 @@ const RUNS = Number(process.argv[2] || 600);
  * from what's dealt and keep the one that scores best. It's brute force (at
  * most P(6,4) = 360 paths), which is the point — a heuristic planner would
  * make the report a measurement of the heuristic instead of the cards.
+ *
+ * The planner is *rival-aware*, because the player now is: today's opponent is
+ * on screen while you plan. Each candidate path is scored by actually
+ * resolving the duel it leads to, which is the only way a secret can ever
+ * score at all — a secret adds nothing to your own statline, so a planner
+ * that only weighed stats would correctly conclude it was a wasted slot and
+ * the whole mechanic would go unmeasured.
  */
-function bestPath(run, hand, score) {
+function bestPath(run, hand, score, ctx) {
   const available = hand.map((id) => ({ id, from: 'hand' }));
   let best = null;
   const chosen = [];
@@ -28,8 +35,12 @@ function bestPath(run, hand, score) {
   const walk = () => {
     if (chosen.length === PATH_SLOTS) {
       const out = resolvePath(run, chosen.slice());
-      const value = score(out);
-      if (!best || value > best.value) best = { value, slots: chosen.slice(), out };
+      const d = duel(out.state, ctx.rivalDay, out.cleanPath, {
+        mine: out.secrets,
+        theirs: ctx.rivalDay.secrets,
+      });
+      const value = score(out, d);
+      if (!best || value > best.value) best = { value, slots: chosen.slice(), out, duel: d };
       return;
     }
     for (let i = 0; i < available.length; i++) {
@@ -51,10 +62,16 @@ const power = (s) =>
   s.kw.armour * 4 + s.kw.poison * 3 + s.kw.rally * 5.5 +
   s.kw.thorns * 2 + (s.kw.firstStrike ? 4 : 0);
 
+// Winning today's duel dominates everything else a path could buy you — a
+// heart is worth more than any statline. Below that, the styles differ in how
+// much they'll bleed to get there.
+const WIN = 500;
+
 const STYLES = {
-  greedy: (out) => power(out.state),
+  greedy: (out, d) => (d.won ? WIN : 0) + power(out.state),
   // The same player, but unwilling to arrive at a duel bleeding.
-  cautious: (out) => power(out.state) + out.state.hp * 2.2 - out.pathDamage * 1.6,
+  cautious: (out, d) =>
+    (d.won ? WIN : 0) + power(out.state) + out.state.hp * 2.2 - out.pathDamage * 1.6,
 };
 
 function simulate(style) {
@@ -64,18 +81,22 @@ function simulate(style) {
     exchanges: [], pathDamagePct: [], fizzles: 0, slotsEarly: 0, fizzlesEarly: 0,
     slotsLate: 0, fizzlesLate: 0, slots: 0,
     flooredAtOne: 0, rounds: 0,
+    secretsPlayed: 0, secretRounds: 0, scoutRounds: 0,
   };
 
   for (let seed = 1; seed <= RUNS; seed++) {
     let run = newRun(seed);
+    const rival = drawRival(run.rivalSeed);
     stats.runs++;
     let guard = 0;
     while (!run.over && guard++ < 40) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
       const hand = deal(run.round, rng(roundSeed));
-      const chosen = bestPath(run, hand, score);
+      const rivalDay = rivalOnDay(rival, run.round);
+      const chosen = bestPath(run, hand, score, { rivalDay });
       const out = chosen.out;
+      const d = chosen.duel;
 
       stats.rounds++;
       stats.slots += PATH_SLOTS;
@@ -85,9 +106,10 @@ function simulate(style) {
       if (run.round >= 5) { stats.slotsLate += PATH_SLOTS; stats.fizzlesLate += fizzled; }
       stats.pathDamagePct.push(out.pathDamage / out.state.maxHp);
       if (out.state.hp === 1) stats.flooredAtOne++;
+      stats.secretsPlayed += out.secrets.length;
+      if (out.secrets.length) stats.secretRounds++;
+      if (out.usedWatchtower) stats.scoutRounds++;
 
-      const ghost = drawGhost(run.round, run.wins, (roundSeed ^ 0x2545f491) >>> 0);
-      const d = duel(out.state, ghost, out.cleanPath);
       stats.duels++;
       if (d.won) stats.duelWins++;
       stats.exchanges.push(d.exchanges);
@@ -134,6 +156,13 @@ function report(style) {
     ['duel win rate', pct(s.duelWins / s.duels), '—', true],
     ['rounds ending floored at 1 HP', pct(s.flooredAtOne / s.rounds), 'rare — §12 risk #1',
       s.flooredAtOne / s.rounds < 0.12],
+    // A secret costs a whole path slot and gives you nothing, so if a
+    // duel-aware planner never chooses one they're priced wrong and the
+    // mechanic is dead. Never expected to be *most* rounds — that would mean
+    // countering beats building, which is the opposite failure.
+    ['rounds laying a secret', pct(s.secretRounds / s.rounds), '10–45%',
+      s.secretRounds / s.rounds >= 0.10 && s.secretRounds / s.rounds <= 0.45],
+    ['rounds scouting (Watchtower)', pct(s.scoutRounds / s.rounds), '—', true],
   ];
   for (const [label, value, want, ok] of rows) {
     console.log(`${target(ok)} ${label.padEnd(32)} ${String(value).padStart(9)}   want ${want}`);
