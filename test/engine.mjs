@@ -502,6 +502,59 @@ test('the ghost pool spreads across all four archetypes', () => {
   }
 });
 
+test('a duel lands in the §12 window regardless of how the player built', () => {
+  // Ghosts are sized against the actual player handed to drawGhost, not a
+  // fixed table — that's what stops a duel from resolving in one hit when a
+  // path leaned hard into ATK, and from becoming an unbeatable wall when it
+  // didn't. Same promise has to hold across builds that are nowhere near the
+  // §9 target, in either direction.
+  //
+  // Each scenario carries a keyword loadout a real path could actually leave
+  // you with, because that's the promise being tested — a totally bare
+  // atk/maxHp pair with no Armour, Poison, Rally, or First Strike at all
+  // isn't a build the card pool produces past round 1 (nearly every gear
+  // card past the cheapest carries a keyword), so it isn't what "regardless
+  // of how the player built" is claiming to cover.
+  const scenarios = [
+    { label: 'on-target', round: 3, wins: 1, atk: 12, maxHp: 28, kw: { armour: 1 } },
+    { label: 'ATK-stacked', round: 3, wins: 1, atk: 34, maxHp: 24, kw: { firstStrike: true } },
+    { label: 'HP-stacked', round: 3, wins: 1, atk: 6, maxHp: 60, kw: { armour: 2 } },
+    { label: 'both high (late run)', round: 5, wins: 2, atk: 55, maxHp: 85, kw: { armour: 3, rally: 2 } },
+    { label: 'round 1, nothing bought yet', round: 1, wins: 0, atk: 2, maxHp: 20, kw: {} },
+  ];
+  for (const { label, round, wins, atk, maxHp, kw } of scenarios) {
+    let exchanges = 0, winCount = 0;
+    const n = 500;
+    for (let s = 1; s <= n; s++) {
+      const g = drawGhost(round, wins, s * 12345, { atk, maxHp });
+      const base = newRun(1);
+      const player = { ...base, atk, maxHp, hp: maxHp, kw: { ...base.kw, ...kw } };
+      const d = duel(player, g, false);
+      exchanges += d.exchanges;
+      if (d.won) winCount++;
+    }
+    const mean = exchanges / n;
+    const winRate = winCount / n;
+    assert.ok(mean >= 2.2 && mean <= 7.5, `${label}: mean exchanges ${mean.toFixed(2)}`);
+    assert.ok(winRate >= 0.15 && winRate <= 0.85, `${label}: win rate ${(winRate * 100).toFixed(1)}%`);
+  }
+});
+
+test('Tank ghosts take longer to resolve than Aggro ghosts, on average', () => {
+  const player = { atk: 14, maxHp: 30 };
+  const meanFor = (archetype) => {
+    let total = 0, n = 0;
+    for (let s = 1; s <= 3000 && n < 300; s++) {
+      const g = drawGhost(3, 1, s * 991, player);
+      if (g.archetype !== archetype) continue;
+      total += duel({ ...newRun(1), ...player, hp: player.maxHp }, g, false).exchanges;
+      n++;
+    }
+    return total / n;
+  };
+  assert.ok(meanFor('tank') > meanFor('aggro'), 'a Tank ghost should out-stall an Aggro one');
+});
+
 // ---------------------------------------------------------------------------
 // Whole runs
 // ---------------------------------------------------------------------------

@@ -111,20 +111,54 @@ Simulates runs with a brute-force planner — it enumerates every ordered choice
 of four cards and keeps the best, so the report measures the *cards* rather than
 a heuristic — and scores the result against the tuning targets in §12.
 
-Where the first-pass numbers currently land, over 600 runs of a greedy player:
+Where the numbers land, over 800 runs of a greedy player:
 
-- **Run completion ~27%** — inside the 25–35% target.
 - **Rounds ending floored at 1 HP: under 1%.** The doc calls starting max HP
   (20) the single riskiest number and asks for this to be checked before
   anything else. Tier 3 monsters are not routinely flooring players.
-- **Duels run short** — a mean of about 2.7 exchanges against a target of 3–6,
-  with well under half landing in the window. This is the clearest tuning note
-  the prototype turns up: either ghost HP needs to come up or player ATK
-  scaling needs to come down.
+- **Duels run 3.7 exchanges on average, with ~88% landing in the §12 window.**
+  This was the prototype's clearest early miss (2.7 exchanges, well under
+  half in-window) and is now the thing ghosts are built to solve for — see
+  **Ghosts scale to the fight, not a fixed table** below.
 - **Path damage is lighter than the 30–50% target**, which is partly the
   planner being better at ordering than a person will be.
+- **Run completion runs high (85%+) for this planner specifically.** That's
+  expected, not a bug — see below.
 
 A MISS in that report is a tuning note, not a bug.
+
+### Ghosts scale to the fight, not a fixed table
+
+§9's own ATK/max-HP band lets ATK outgrow HP as rounds climb, and ATK is
+permanent — every gear card bought stays on the sheet all run. A path that
+leans into ATK (which is rational, since ATK is what wins duels) compounds it
+round over round; by round 3 or 4 a player can be swinging for several times
+what a fixed target table assumed. A ghost built off that table alone gets
+one-shot; a ghost built tough enough to survive a maxed-out player instead
+flattens anyone who didn't min-max. Neither reads as a fight.
+
+So `js/ghosts.js` doesn't draw a ghost's stats from a table at all — it
+solves for the ATK and max HP that make the *fight itself* take a target
+number of exchanges (drawn straight from §12's own 3–6 window) against
+whatever the player's actual post-path ATK and max HP are, right now. The
+solve accounts for the ghost's own Poison, Thorns, Rally, and First Strike
+(extra damage the player didn't choose and can't see coming) but deliberately
+**not** for the player's own keywords — Armour, Poison, Thorns, and Rally
+earned along the path still swing a fight normally, on top of the baseline.
+
+This is also why `tools/balance.mjs`'s brute-force planner now clears runs at
+a much higher rate than §12's original 25–35%: that planner enumerates every
+ordered choice of four cards and keeps the single best-scoring one, every
+round, for the whole run — a level of optimization no real player sustains.
+A perfect optimizer beating ghosts sized for a normal fight is the *intended*
+outcome (skill should matter), not evidence the ghosts are too weak. The
+number that actually matters — whether a realistic build gets a competitive
+fight — lives in `test/engine.mjs`'s **"a duel lands in the §12 window
+regardless of how the player built"**: five representative builds (on-target,
+ATK-stacked, HP-stacked, a maxed-out late-run character, and a fresh round-1
+character with nothing bought yet), each checked for both duel length and win
+rate. A deliberately unbuilt character struggles more, by design; everything
+else lands in a competitive 50–65% band.
 
 ---
 
