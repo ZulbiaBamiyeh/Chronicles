@@ -6,18 +6,28 @@
 // matter." Generating them locally also makes them the balance dial: the
 // archetype mix is chosen, not hoped for.
 //
-// A generated ghost is built relative to the player it's about to face, then
-// pushed into one of the four archetypes so the rock-paper-scissors between
-// them actually shows up in the pool. See PACING below for why "relative to
-// the player" rather than a fixed table.
+// CRITICAL: a ghost's stats are a pure function of (round, wins, seed) and
+// nothing else. §2.1 and §8.1 aren't decoration — a ghost really is a frozen
+// snapshot, uploaded once and fought by strangers afterward, same as a real
+// player's would be. Two different players who draw the same ghost have to
+// fight the *same* opponent; a ghost that quietly resized itself around
+// whoever showed up would make that a lie, and would have no equivalent at
+// all once this stops being a solo prototype and starts reading real
+// snapshots over the network. (An earlier version of this file took the
+// player's own post-path stats as an input and solved for a ghost sized to
+// them specifically. It produced great duel pacing and was flatly wrong for
+// that reason — see the git history if you're tempted to bring it back.)
+//
+// A generated ghost is built to the round's target band — see PACING below —
+// then pushed into one of the four archetypes so the rock-paper-scissors
+// between them actually shows up in the pool.
 
 import { rng, pick, shuffle, tiersForRound } from './engine.js';
 import { DEAL_POOL, card } from './cards.js';
 
-/** Round → the band the player is expected to be in (§9). Used as a fallback
- *  when a ghost is drawn with no player state to scale against, and to keep
- *  a very over- or under-built player meeting something that still reads as
- *  "round N" rather than a trivial pushover or a wall. */
+/** Round → the band a character at that point in a run is expected to be in
+ *  (§9). This is the *only* thing a generated ghost's power is anchored to —
+ *  never the specific player it's about to fight. */
 const TARGETS = {
   1: { atk: [3, 5], maxHp: [20, 24] },
   2: { atk: [6, 9], maxHp: [22, 28] },
@@ -29,27 +39,28 @@ const TARGETS = {
 // ---------------------------------------------------------------------------
 // PACING
 //
-// §9's own band lets ATK outgrow max HP as the rounds climb, and ATK is
-// permanent — every gear card ever bought stays on the sheet all run. A path
-// that leans into ATK (which a rational player has every reason to, since
-// it's what wins duels) compounds it round over round, so by round 3 or 4 a
-// player can be swinging for several times what a fixed target table assumed.
-// A ghost built off that table alone gets one-shot; a ghost built defensively
-// tough enough to survive a maxed-out player instead flattens anyone who
-// *didn't* min-max ATK. Neither reads as a fight — one's a coin flip, the
-// other's a wall.
+// §9's own band lets ATK outgrow max HP as the rounds climb, which on its
+// own would make a duel between two *equally*-built round-N characters end
+// in one or two blows well before round 5. A ghost is still only ever built
+// to this band, never to a specific opponent (see the note at the top of
+// this file) — but within that constraint, a ghost's ATK and max HP aren't
+// simply lerped from the band's min/max. They're set to take a target
+// number of exchanges (§12's own 3–6 window) to resolve against a *canonical
+// round-N character* — one sitting at the same point in the band this ghost
+// itself was drawn from — the way Chronicle's own climactic "fight to the
+// death" plays out over several real exchanges rather than one. Everything
+// downstream of that (archetype keywords, First Strike, Poison, Rally,
+// Thorns) still applies normally and still swings an individual fight — a
+// Poison ghost still eats through Armour, a Tank still grinds — this only
+// sets the baseline the archetypes bend.
 //
-// So a ghost's core stats aren't drawn from the table at all. They're set
-// directly to take a target number of exchanges to resolve against whatever
-// this particular player's ATK and max HP actually are, post-path, right now
-// — the way Chronicle's own climactic "fight to the death" plays out over
-// several real exchanges regardless of how the chapters before it went. The
-// target itself is exactly §12's own duel-length window (3–6), so hitting it
-// isn't a coincidence of tuning, it's the thing being solved for. Everything
-// downstream of that (archetype keywords, First Strike, Poison, Rally, Thorns)
-// still applies normally and still swings an individual fight — a Poison
-// ghost still eats through Armour, a Tank still grinds — this only sets the
-// baseline the archetypes bend.
+// A real player who over- or under-shoots that canonical band — by playing
+// unusually well, unusually badly, or just having a lucky Spoil run — gets a
+// duel that isn't perfectly paced against *them specifically*, the same way
+// two real human players' snapshots wouldn't be perfectly matched either.
+// That's normal variance, not a bug this file is responsible for fixing; see
+// README.md's Balance section for where that variance actually lives and
+// what, if anything, is worth doing about it.
 //
 // Both sides of every archetype's range below are equal, or close to it — the
 // asymmetry an archetype is supposed to have comes from its actual keyword
@@ -73,12 +84,11 @@ const EXCHANGE_TARGET = {
 
 const baseArmour = (tier) => Math.max(0, tier - 1);   // T1 → 0, T2 → 1, T3 → 2
 
-// A ghost built purely off the player's ATK hands a defensive, low-ATK build
-// a paper-thin opponent (easy to finish quickly) while that same build's own
-// high HP and Armour make it slow to bring down in return — pacing survives
-// that fine, but the fight stops being one. This is the floor (a third of the
-// player's own max HP) below which a ghost's HP is never allowed to fall,
-// regardless of how little raw ATK the player is bringing to the fight.
+// A ghost built purely off the canonical ATK for its band would, at the low
+// end of a band where ATK sits far below max HP, end up with an oddly
+// paper-thin HP pool itself. This is the floor (a third of the canonical max
+// HP for the round) below which a ghost's HP is never allowed to fall,
+// regardless of how low the round's canonical ATK is.
 const HP_FLOOR = 0.35;
 
 const NAMES = [
@@ -131,8 +141,10 @@ const KEYS = Object.keys(ARCHETYPES);
 const lerp = (band, t) => band[0] + (band[1] - band[0]) * t;
 
 /**
- * Draw an opponent for the (round, wins) bucket, sized to actually fight the
- * player handed in.
+ * Draw an opponent for the (round, wins) bucket. Deterministic in (round,
+ * wins, seed) alone — the same three inputs always produce the exact same
+ * ghost, byte for byte, which is the one property this function is not
+ * allowed to trade away for anything, including better duel pacing.
  *
  * Wins are a difficulty dial inside the bucket: a player on 4 wins has been
  * winning duels, so the ghosts at that point in a run should be the ones that
@@ -142,18 +154,18 @@ const lerp = (band, t) => band[0] + (band[1] - band[0]) * t;
  * @param {number} round
  * @param {number} wins
  * @param {number} seed
- * @param {{atk:number, maxHp:number}} [player] the player's post-path stats.
- *   Omit only when there's no real player to scale against (a bare flavour
- *   draw, or a test) — the §9 band is used as a stand-in instead.
  */
-export function drawGhost(round, wins, seed, player) {
+export function drawGhost(round, wins, seed) {
   const r = rng(seed);
   const tier = Math.max(...tiersForRound(round));
   const band = TARGETS[Math.min(5, Math.max(1, round))];
   const t = Math.min(1, wins / 4) * 0.55 + r() * 0.45;
 
-  const pAtk = Math.max(1, player ? player.atk : lerp(band.atk, t));
-  const pMaxHp = Math.max(8, player ? player.maxHp : lerp(band.maxHp, t));
+  // The canonical round-N character this ghost is paced against — not the
+  // ghost's own stats (those are what's being solved for below) and never
+  // the player who happens to be about to fight it.
+  const canonAtk = Math.max(1, lerp(band.atk, t));
+  const canonMaxHp = Math.max(8, lerp(band.maxHp, t));
 
   const archetype = pick(KEYS, r);
   const [[killGhostLo, killGhostHi], [killPlayerLo, killPlayerHi]] = EXCHANGE_TARGET[archetype];
@@ -188,40 +200,33 @@ export function drawGhost(round, wins, seed, player) {
 
   ARCHETYPES[archetype].build(g, r, tier);
 
-  // The ghost's own Armour comes off the player's ATK before the "how many
+  // The ghost's own Armour comes off the canonical ATK before the "how many
   // hits to kill the ghost" target is applied — a Tank ghost is meant to be
   // this tanky on purpose, not tanky *and* still die on schedule. Set a floor
   // of 1 so a heavily armoured ghost can never demand literally infinite
   // damage to reach zero.
-  const dmgToGhost = Math.max(1, pAtk - g.keywords.armour);
-  // A player who built defensively — low ATK, high max HP — would otherwise
-  // hand every ghost a paper-thin HP pool, since it's sized off their (small)
-  // ATK alone: easy to finish quickly, while their own high HP and Armour
-  // make them slow to bring down in return. Pacing survives that fine, but
-  // the fight stops being one — a floor tied to the encounter's overall
-  // scale (a third of the player's own max HP) keeps a tanky build from
-  // trivialising the ghost's side of the fight even when its ATK is modest.
-  const targetHp = Math.max(6, dmgToGhost * killGhostIn, pMaxHp * HP_FLOOR);
+  const dmgToGhost = Math.max(1, canonAtk - g.keywords.armour);
+  const targetHp = Math.max(6, dmgToGhost * killGhostIn, canonMaxHp * HP_FLOOR);
 
-  // The reverse is deliberately *not* compensated for the player's own
-  // Armour, Thorns, Poison, Rally, or First Strike — those are the player's
-  // own build decisions paying off, not something a ghost should be
-  // calibrated to erase. It *is* compensated for the ghost's own Poison,
-  // Thorns, Rally, and First Strike, which is not the same thing: those are
-  // all extra damage on top of raw ATK that this round's archetype rolled
-  // for the player, not anything the player chose or can see coming, so
-  // left alone they'd quietly tilt every archetype's "even on paper"
-  // EXCHANGE_TARGET range toward the ghost — a Poison tick and a Thorns
-  // reflection both land on top of a normal attack, not instead of it, and
-  // Rally means the opening ATK understates the fight's average. Solve for
-  // the base ATK that, added to those extras over killPlayerIn exchanges,
-  // totals pMaxHp — so the target is a promise about total damage dealt,
-  // not about one stat in isolation.
+  // g.atk is *not* solved to be compensated for the real player's own
+  // Armour, Thorns, Poison, Rally, or First Strike, because it can't be — a
+  // ghost is fixed the moment it's drawn, before anyone knows who's about to
+  // fight it. A well-built player still gets the benefit of every point of
+  // Armour or Poison they earned, same as they would against a real human
+  // opponent's snapshot. What *is* solved for is the ghost's own Poison,
+  // Thorns, Rally, and First Strike — extra damage this archetype rolled for
+  // itself, on top of raw ATK, that the canonical-band target below would
+  // otherwise silently overshoot. A Poison tick and a Thorns reflection both
+  // land on top of a normal attack, not instead of it, and Rally means the
+  // opening ATK understates the fight's average — solve for the base ATK
+  // that, added to those extras over killPlayerIn exchanges, totals
+  // canonMaxHp, so the target is a promise about total damage dealt against
+  // the canonical band, not about one stat in isolation.
   const kw = g.keywords;
   const extraPerExchange = kw.poison + kw.thorns;                 // land every exchange
   const rallyGrowth = kw.rally * killPlayerIn * (killPlayerIn - 1) / 2; // triangular sum
   const strikes = killPlayerIn + (kw.firstStrike ? 1 : 0);         // one bonus hit, free
-  const baseAtk = (pMaxHp - extraPerExchange * killPlayerIn - rallyGrowth) / strikes;
+  const baseAtk = (canonMaxHp - extraPerExchange * killPlayerIn - rallyGrowth) / strikes;
   g.atk = Math.max(1, Math.round(baseAtk));
 
   // Ghosts arrive off a path of their own, so they are rarely at full health —

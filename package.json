@@ -7,6 +7,8 @@
   "scripts": {
     "test": "node test/engine.mjs",
     "balance": "node tools/balance.mjs",
+    "archetypes": "node tools/archetypes.mjs",
+    "card-coverage": "node tools/card-coverage.mjs",
     "build:www": "node scripts/build-www.mjs",
     "android:sync": "npm run build:www && npx cap sync android",
     "serve": "node scripts/serve.mjs"

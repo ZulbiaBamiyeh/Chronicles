@@ -365,9 +365,8 @@ async function embark() {
   // drifts towards whatever they happen to build.
   const ghostSeed = (roundSeed ^ 0x2545f491) >>> 0;
   const gr = rng(ghostSeed);
-  const player = { atk: outcome.state.atk, maxHp: outcome.state.maxHp };
   ghost = (gr() < 0.5 && store.drawStoredGhost(run.round, run.wins, gr))
-       || drawGhost(run.round, run.wins, ghostSeed, player);
+       || drawGhost(run.round, run.wins, ghostSeed);
 
   $('#plan-area').classList.add('hidden');
   $('#resolve-area').classList.remove('hidden');

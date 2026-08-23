@@ -98,7 +98,7 @@ function simulate(style) {
         if (slot.from === 'stash') { stats.spoilsUsed++; usedSpoils.add(card(slot.id).name); }
       }
 
-      const ghost = drawGhost(run.round, run.wins, (roundSeed ^ 0x2545f491) >>> 0, out.state);
+      const ghost = drawGhost(run.round, run.wins, (roundSeed ^ 0x2545f491) >>> 0);
       const d = duel(out.state, ghost, out.cleanPath);
       stats.duels++;
       if (d.won) stats.duelWins++;

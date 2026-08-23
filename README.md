@@ -105,60 +105,105 @@ reach and spend gold, and that a thousand random runs finish without stalling.
 
 ```sh
 npm run balance          # or: node tools/balance.mjs 2000
+npm run archetypes       # or: node tools/archetypes.mjs 2000
+npm run card-coverage    # or: node tools/card-coverage.mjs 800
 ```
 
-Simulates runs with a brute-force planner — it enumerates every ordered choice
-of four cards and keeps the best, so the report measures the *cards* rather than
-a heuristic — and scores the result against the tuning targets in §12.
+Three tools, three different questions. `balance.mjs` simulates runs with a
+brute-force planner — it enumerates every ordered choice of four cards and
+keeps the single best-scoring one, every round — and scores the result
+against §12's tuning targets. `archetypes.mjs` asks whether each of the
+game's four named strategies (Aggro, Tank, Poison, Rally) is actually worth
+playing, not just a flavour label. `card-coverage.mjs` asks whether any of
+the 70 cards is dead weight nobody ever wants.
 
-Where the numbers land, over 800 runs of a greedy player:
+### Ghosts are fixed snapshots, not opponents sized to fit
+
+A ghost's stats are a pure function of `(round, wins, seed)` — see the
+`PACING` note at the top of `js/ghosts.js`. This isn't a stylistic choice:
+§2.1 and §8.1 describe ghosts as characters *uploaded once and fought by
+strangers afterward*, and once this stops being a solo prototype and starts
+reading real snapshots over the network, "two players draw the same ghost"
+has to mean they fight the literal same opponent. A ghost that quietly
+resized itself around whoever showed up to fight it would make that
+impossible — it would still be single-player difficulty scaling, just
+wearing async PvP's name. An earlier draft of this file took the *live*
+player's post-path stats as an input and solved a ghost specifically sized
+to them. It produced excellent duel pacing and was flatly incompatible with
+the game this is a prototype *of* — worth calling out here because it's an
+easy trap to fall back into while chasing a pacing number.
+
+Duel pacing instead comes from anchoring every ghost to a *canonical*
+round-N character — one sitting at the same point in §9's own ATK/max-HP
+band the ghost itself was drawn from — and solving for the ATK, max HP, and
+archetype keywords that make the fight against *that* character take a
+target number of exchanges (§12's own 3–6 window), the way Chronicle's own
+climactic "fight to the death" plays out over several real exchanges rather
+than one. A real player who's well above or below that canonical band — from
+skill, luck, or a good Spoil run — gets a fight that isn't perfectly matched
+to them personally, the same way two real human players' snapshots wouldn't
+be either. That's normal variance in an async PvP game, not something ghost
+generation is responsible for erasing.
+
+Where the numbers land, over 1000 runs of a greedy (brute-force) player:
 
 - **Rounds ending floored at 1 HP: under 1%.** The doc calls starting max HP
   (20) the single riskiest number and asks for this to be checked before
   anything else. Tier 3 monsters are not routinely flooring players.
-- **Duels run 3.7 exchanges on average, with ~88% landing in the §12 window.**
-  This was the prototype's clearest early miss (2.7 exchanges, well under
-  half in-window) and is now the thing ghosts are built to solve for — see
-  **Ghosts scale to the fight, not a fixed table** below.
+- **Duels run 4.4 exchanges on average, with ~80% landing in the §12 window.**
+  Short duels (2.6 exchanges, well under half in-window) were the prototype's
+  clearest early miss; fixed by the canonical-band pacing above.
+- **Run completion: 42% for the maximizer, 20% for a cautious style** —
+  close to §9's own 25–35%, without needing ghosts to bend around whoever's
+  fighting them. Skill and playstyle produce a real, sensible spread; a
+  perfect optimizer beating typical ghosts more than a cautious player does
+  is the point, not a leak.
 - **Path damage is lighter than the 30–50% target**, which is partly the
   planner being better at ordering than a person will be.
-- **Run completion runs high (85%+) for this planner specifically.** That's
-  expected, not a bug — see below.
 
 A MISS in that report is a tuning note, not a bug.
 
-### Ghosts scale to the fight, not a fixed table
+### Every archetype is a real way to play, not just Aggro/ATK
 
-§9's own ATK/max-HP band lets ATK outgrow HP as rounds climb, and ATK is
-permanent — every gear card bought stays on the sheet all run. A path that
-leans into ATK (which is rational, since ATK is what wins duels) compounds it
-round over round; by round 3 or 4 a player can be swinging for several times
-what a fixed target table assumed. A ghost built off that table alone gets
-one-shot; a ghost built tough enough to survive a maxed-out player instead
-flattens anyone who didn't min-max. Neither reads as a fight.
+`§5`'s "loose triangle" — Aggro beats Poison, Tank beats Aggro, Poison beats
+Tank, Rally beats Poison — only means something if committing to Tank,
+Poison, or Rally is actually competitive with just stacking ATK. An earlier
+check of this simulated *exclusive* single-keyword strategies (a "Tank" that
+literally never buys an ATK card) and found Tank and Thorns crippled — 2–3%
+run completion against 12–15%+ for everything else. That result was real but
+misleading: no sane player plays that way, since ATK is on nearly every
+useful card regardless of theme. `tools/archetypes.mjs` instead models a
+player who *leans* into a stat family while still picking up the obviously
+good cards along the way — a realistic committed build, not a synthetic
+extreme — and the picture changes completely:
 
-So `js/ghosts.js` doesn't draw a ghost's stats from a table at all — it
-solves for the ATK and max HP that make the *fight itself* take a target
-number of exchanges (drawn straight from §12's own 3–6 window) against
-whatever the player's actual post-path ATK and max HP are, right now. The
-solve accounts for the ghost's own Poison, Thorns, Rally, and First Strike
-(extra damage the player didn't choose and can't see coming) but deliberately
-**not** for the player's own keywords — Armour, Poison, Thorns, and Rally
-earned along the path still swing a fight normally, on top of the baseline.
+```
+atk       completion= 21.8%  duelWin= 40.6%
+tank      completion= 34.2%  duelWin= 47.8%
+poison    completion= 31.7%  duelWin= 47.2%
+rally     completion= 32.3%  duelWin= 47.0%
+thorns    completion= 31.8%  duelWin= 47.2%
+balanced  completion= 36.8%  duelWin= 50.2%
+```
 
-This is also why `tools/balance.mjs`'s brute-force planner now clears runs at
-a much higher rate than §12's original 25–35%: that planner enumerates every
-ordered choice of four cards and keeps the single best-scoring one, every
-round, for the whole run — a level of optimization no real player sustains.
-A perfect optimizer beating ghosts sized for a normal fight is the *intended*
-outcome (skill should matter), not evidence the ghosts are too weak. The
-number that actually matters — whether a realistic build gets a competitive
-fight — lives in `test/engine.mjs`'s **"a duel lands in the §12 window
-regardless of how the player built"**: five representative builds (on-target,
-ATK-stacked, HP-stacked, a maxed-out late-run character, and a fresh round-1
-character with nothing bought yet), each checked for both duel length and win
-rate. A deliberately unbuilt character struggles more, by design; everything
-else lands in a competitive 50–65% band.
+All four themed archetypes land within **2.5 points of completion** of each
+other — Tank and Thorns are not just viable, they're indistinguishable in
+strength from Poison and Rally. Pure ATK-stacking with no keyword synergy at
+all is the *weakest* strategy of the six, meaning there's no "just buy ATK
+gear and ignore keywords" dominant line to find. The balanced generalist
+naturally does a little better than any single theme, which is expected —
+adapting to what a hand actually deals should beat a fixed plan — but not
+by enough to make committing to a theme feel like a trap.
+
+### No dead cards
+
+`tools/card-coverage.mjs` runs the same six strategies and records which of
+the 70 cards each one ever actually chose. **All 70 get picked by at least
+one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever reach
+round 5, so those cards get fewer opportunities to be dealt at all — that's
+a sampling effect, not a balance problem) or cards that trade a resource
+directly for their effect, like Ruined Chapel spending 2 ATK to heal to
+full, which a strategy actively optimizing ATK correctly avoids.
 
 ---
 
