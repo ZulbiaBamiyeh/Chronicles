@@ -936,17 +936,21 @@ body.is-dragging { cursor: grabbing; }
   letter-spacing: 0.12em;
   color: var(--dim);
 }
+/* Used to be a horizontal-scroll strip — on a viewport this narrow that
+   showed exactly three of the five presets with no partial peek of a
+   fourth and no scroll hint at all, so it read as cut-off content rather
+   than "swipe for more" and two presets (Alchemist, Warlord) were only
+   reachable by a gesture nobody had a reason to try. Wrapping instead
+   means every preset is always on screen, no swipe required. */
 .deck-preset-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  overflow-x: auto;
   padding: 0.3rem 0 0.4rem;
-  scrollbar-width: none;
 }
-.deck-preset-row::-webkit-scrollbar { display: none; }
 .deck-preset {
-  flex: 0 0 auto;
-  width: 8.4rem;
+  flex: 1 1 8.4rem;
+  min-width: 8rem;
   text-align: left;
   display: flex;
   flex-direction: column;
