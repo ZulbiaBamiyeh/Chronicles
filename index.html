@@ -63,13 +63,17 @@
       <div id="path" class="path"></div>
     </div>
 
+    <!-- Who you're building against today. Open statline, hidden secrets. A
+         direct child of the screen (not nested in the hand column) so a wide
+         viewport can pin it in its own column beside the plan instead of
+         stacking above the hand — see the desktop layout in style.css. -->
+    <div id="rival-panel" class="rival-panel"></div>
+
     <!-- Planning -->
     <div id="plan-area" class="plan-area">
       <!-- The hand scrolls if a short phone can't fit it; EMBARK stays pinned
            below so it's never the thing that gets clipped. -->
       <div class="plan-scroll">
-        <!-- Who you're building against today. Open statline, hidden secrets. -->
-        <div id="rival-panel" class="rival-panel"></div>
         <div class="hand-label"><span>YOUR HAND</span><em id="hand-hint">Tap a card to place it</em></div>
         <div id="mulligan-bar" class="mulligan-bar hidden"></div>
         <div id="hand" class="hand"></div>
@@ -141,13 +145,24 @@
 
     <div id="deck-status" class="deck-status"></div>
 
-    <div class="deck-tabs" id="deck-tabs">
-      <button class="deck-tab on" data-tier="1" type="button">TIER 1</button>
-      <button class="deck-tab" data-tier="2" type="button">TIER 2</button>
-      <button class="deck-tab" data-tier="3" type="button">TIER 3</button>
+    <div class="deck-columns">
+      <div class="deck-pool-col">
+        <div class="deck-tabs" id="deck-tabs">
+          <button class="deck-tab on" data-tier="1" type="button">TIER 1</button>
+          <button class="deck-tab" data-tier="2" type="button">TIER 2</button>
+          <button class="deck-tab" data-tier="3" type="button">TIER 3</button>
+        </div>
+        <div id="deck-pool" class="deck-pool"></div>
+      </div>
+      <!-- A running list of what's already in the deck, beside the picker
+           instead of only inferred from checkmarks scattered across it. Only
+           shown at desktop width — see the layout note in style.css — since
+           on a phone it would just repeat what the checkmarks already say. -->
+      <div class="deck-chosen-col">
+        <h3 class="deck-chosen-title">IN YOUR DECK</h3>
+        <div id="deck-chosen" class="deck-chosen"></div>
+      </div>
     </div>
-
-    <div id="deck-pool" class="deck-pool"></div>
 
     <div class="deck-actions">
       <button id="btn-deck-save" class="btn btn-gold btn-big">SAVE DECK</button>

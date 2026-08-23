@@ -150,6 +150,36 @@ function renderDeck() {
     wrap.addEventListener('click', () => toggleCard(c.id));
     mount.appendChild(wrap);
   }
+
+  renderChosenList();
+}
+
+/**
+ * The desktop-only sidebar: everything currently in the deck, grouped by
+ * tier, each entry removable with a tap — a second way to see and edit the
+ * deck that doesn't require hunting the checkmark down in the picker grid.
+ */
+function renderChosenList() {
+  const mount = $('#deck-chosen');
+  mount.textContent = '';
+  for (const tier of deckLib.TIERS) {
+    const ids = deckLib.deckTier(editing, tier);
+    const group = el('div', 'chosen-group');
+    group.appendChild(el('div', 'chosen-tier-label', `TIER ${tier} · ${ids.length}/${deckLib.PER_TIER}`));
+    for (const id of ids) {
+      const c = card(id);
+      const row = el('button', 'chosen-row');
+      row.type = 'button';
+      row.append(
+        glyphEl('chosen-icon', ICON[id] || '❔', c.name),
+        el('span', 'chosen-name', c.name),
+        el('span', 'chosen-remove', '✕'),
+      );
+      row.addEventListener('click', () => toggleCard(id));
+      group.appendChild(row);
+    }
+    mount.appendChild(group);
+  }
 }
 
 function toggleCard(id) {
@@ -201,6 +231,7 @@ function beginRound() {
 
   $('#plan-area').classList.remove('hidden');
   $('#resolve-area').classList.add('hidden');
+  $('#rival-panel').classList.remove('hidden');
   $('#btn-to-duel').classList.add('hidden');
   $('#resolve-log').textContent = '';
   $('#path-fight-stage').classList.add('hidden');
@@ -509,6 +540,7 @@ async function embark() {
 
   $('#plan-area').classList.add('hidden');
   $('#resolve-area').classList.remove('hidden');
+  $('#rival-panel').classList.add('hidden');
   $('#resolve-log').textContent = '';
   audio.setStyle('path');
 

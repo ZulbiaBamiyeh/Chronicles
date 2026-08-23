@@ -849,6 +849,13 @@ body.is-dragging { cursor: grabbing; }
 .deck-problem { color: #ff9aa8; }
 .deck-ok { color: #a8e8c0; font-family: var(--pixel); font-size: 0.52rem; }
 
+/* On a phone this is just a column: tabs, then the pool grid. The chosen-deck
+   sidebar only appears at the desktop breakpoint (style.css's layout section,
+   near the bottom) — see .deck-chosen-col there for why. */
+.deck-columns { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }
+.deck-pool-col { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; }
+.deck-chosen-col { display: none; }
+
 .deck-tabs { display: flex; gap: 0.3rem; width: 100%; }
 .deck-tab {
   flex: 1;
@@ -893,6 +900,42 @@ body.is-dragging { cursor: grabbing; }
   background: radial-gradient(circle at 34% 28%, #d8ffbe, #5fd39a 62%, #2c8f5c);
   color: #0d2418;
 }
+.deck-chosen-title {
+  font-family: var(--pixel);
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  margin: 0;
+}
+.deck-chosen { display: flex; flex-direction: column; gap: 0.5rem; }
+.chosen-group { display: flex; flex-direction: column; gap: 0.18rem; }
+.chosen-tier-label {
+  font-family: var(--pixel);
+  font-size: 0.44rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  margin-top: 0.2rem;
+}
+.chosen-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.24rem 0.4rem;
+  border-radius: 0.34rem;
+  border: 1px solid var(--line);
+  background: rgba(7, 10, 22, 0.6);
+  color: var(--bone);
+  font-size: 0.6rem;
+  text-align: left;
+  cursor: pointer;
+}
+.chosen-row:hover { border-color: var(--line-hot); background: rgba(20, 26, 46, 0.75); }
+.chosen-icon { font-size: 0.8rem; line-height: 1; flex: none; }
+.chosen-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chosen-remove { color: var(--blood); opacity: 0.6; flex: none; }
+.chosen-row:hover .chosen-remove { opacity: 1; }
+
 .deck-actions {
   width: 100%;
   display: flex;
@@ -1670,6 +1713,83 @@ body.is-dragging { cursor: grabbing; }
   .screen { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
   .hud, .path-wrap, .plan-area, .resolve-area, .duelists, .duel-feed { max-width: 520px; }
   .path { gap: 0.5rem; }
+}
+
+/* ===================== desktop / wide viewport =====================
+   Everything above is a single scrolling column because a phone has no
+   width to spend. Past this point there's real horizontal room, and three
+   screens specifically wanted it: the rival you're planning against (was
+   stacked above the hand — now a pinned sidebar that never has to be
+   scrolled past), the duel stage (was capped at 520px like the rest of the
+   phone UI — now wide enough for the strike animations to actually travel),
+   and the deck builder (was one grid with checkmarks as the only record of
+   what's in the deck — now a second pane that just lists it).
+
+   Nothing here is a separate layout system: every element restyled below
+   already exists on the phone build, this just gives them a wider arena and,
+   for the rival panel and deck-chosen list, a column of their own instead of
+   sharing the phone's single vertical stack. */
+@media (min-width: 900px) {
+  /* -- the run screen: path/hand on the left, the rival pinned on the right -- */
+  #screen-run {
+    display: grid;
+    grid-template-columns: minmax(0, 640px) minmax(300px, 380px);
+    grid-template-areas:
+      "hud   hud"
+      "path  rival"
+      "plan  rival";
+    column-gap: 1.6rem;
+    row-gap: 0.6rem;
+    align-content: start;
+    max-width: 1080px;
+    width: 100%;
+    margin: 0 auto;
+    padding-top: var(--top);
+  }
+  #screen-run > .hud { grid-area: hud; }
+  #screen-run > .path-wrap { grid-area: path; }
+  #screen-run > #rival-panel { grid-area: rival; position: sticky; top: 0.5rem; margin-bottom: 0; align-self: start; }
+  #screen-run > #plan-area { grid-area: plan; }
+  /* The rival panel hides while resolving (its "would scouting help" preview
+     stops meaning anything once the path is locked in) — rather than leave
+     its column sitting empty, the resolve stage claims the full width. */
+  #screen-run > #resolve-area { grid-area: plan; grid-column: 1 / -1; }
+  #screen-run .hud, #screen-run .path-wrap, #screen-run .plan-area,
+  #screen-run .resolve-area, #screen-run #rival-panel { max-width: none; width: 100%; }
+  #screen-run .resolve-area .duelists { max-width: 760px; margin: 0 auto; }
+  #screen-run .path { gap: 0.65rem; }
+  #screen-run .hand { grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+
+  /* -- the duel screen: real room for the strike animations to travel -- */
+  #screen-duel {
+    max-width: 920px;
+    width: 100%;
+    margin: 0 auto;
+    padding-top: var(--top);
+  }
+  #screen-duel .duelists, #screen-duel .duel-feed, #screen-duel .duel-secrets { max-width: none; width: 100%; }
+  .duelists { grid-template-columns: 1fr auto 1fr; column-gap: 1.4rem; }
+  .duelist { padding: 0.9rem 0.8rem; }
+  .duelist-glyph { font-size: clamp(2.4rem, 6vw, 3.6rem); }
+  .duel-feed { max-height: 40vh; }
+
+  /* -- the deck builder: pool and the chosen list side by side -- */
+  #screen-deck { max-width: 1080px; width: 100%; margin: 0 auto; padding-top: var(--top); }
+  .deck-columns { flex-direction: row; align-items: flex-start; gap: 1.4rem; }
+  .deck-pool-col { flex: 1 1 auto; min-width: 0; }
+  .deck-pool { grid-template-columns: repeat(4, 1fr); }
+  .deck-chosen-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 0 0 320px;
+    width: 320px;
+    position: sticky;
+    top: 0.5rem;
+    max-height: 82vh;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
