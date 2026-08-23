@@ -18,7 +18,7 @@
 // building that way would actually do, and it's worth being able to re-run
 // after any card change.
 import {
-  newRun, startRound, deal, resolvePath, duel, settleRound, rng, PATH_SLOTS, STASH_CAP,
+  newRun, startRound, deal, resolvePath, duel, settleRound, rng, PATH_SLOTS,
 } from '../js/engine.js';
 import { drawGhost } from '../js/ghosts.js';
 
@@ -35,14 +35,14 @@ const STRATEGIES = {
 };
 
 /** Same brute-force best-of-permutations planner as tools/balance.mjs. */
-function bestPath(run, hand, score, r) {
-  const available = [...hand.map((id) => ({ id, from: 'hand' })), ...run.stash.map((id) => ({ id, from: 'stash' }))];
+function bestPath(run, hand, score) {
+  const available = hand.map((id) => ({ id, from: 'hand' }));
   let best = null;
   const chosen = [];
   const used = new Set();
   const walk = () => {
     if (chosen.length === PATH_SLOTS) {
-      const out = resolvePath(run, chosen.slice(), rng(r));
+      const out = resolvePath(run, chosen.slice());
       const value = score(out.state);
       if (!best || value > best.value) best = { value, out };
       return;
@@ -67,13 +67,13 @@ function simulate(strategyName, runs) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
       const hand = deal(run.round, rng(roundSeed));
-      const chosen = bestPath(run, hand, score, roundSeed ^ 0x9e3779b9);
+      const chosen = bestPath(run, hand, score);
       const out = chosen.out;
       (finalByRound[run.round] ||= []).push(out.state);
       const ghost = drawGhost(run.round, run.wins, (roundSeed ^ 0x2545f491) >>> 0);
       const d = duel(out.state, ghost, out.cleanPath);
       duels++; if (d.won) wins++;
-      run = settleRound({ ...out.state, stash: out.state.stash.slice(0, STASH_CAP) }, d.won);
+      run = settleRound(out.state, d.won);
     }
     if (run.completed) completed++;
   }

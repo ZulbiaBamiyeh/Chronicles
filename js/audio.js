@@ -369,16 +369,6 @@ export class AudioEngine {
     this.tone(300, { dur: 0.3, type: 'sawtooth', gain: 0.1, to: 90, filter: { type: 'lowpass', freq: 700 } });
   }
 
-  /** A Spoil dropping — the one genuinely lucky moment in a path. */
-  spoil() {
-    this.duck(0.6, 0.9);
-    const t = this.now();
-    [72, 76, 79, 84].forEach((m, i) => {
-      this.tone(mtof(m), { at: t + i * 0.06, dur: 0.6, type: 'triangle', gain: 0.11 });
-    });
-    this.noise(0.5, { at: t, gain: 0.06, freq: 6000, sweep: 9000, q: 0.5 });
-  }
-
   /** Monster defeated on the path. */
   kill() {
     this.tone(220, { dur: 0.28, type: 'square', gain: 0.12, to: 70, filter: { type: 'lowpass', freq: 1200 } });

@@ -7,33 +7,27 @@
 
 import {
   newRun, startRound, deal, resolvePath, duel, settleRound,
-  rng, PATH_SLOTS, STASH_CAP,
+  rng, PATH_SLOTS,
 } from '../js/engine.js';
-import { card } from '../js/cards.js';
 import { drawGhost } from '../js/ghosts.js';
 
 const RUNS = Number(process.argv[2] || 600);
 
 /**
  * A stand-in for a competent player: enumerate every ordered choice of four
- * from what's available and keep the one that scores best. It's brute force
- * (at most P(9,4) = 3024 paths), which is the point — a heuristic planner would
+ * from what's dealt and keep the one that scores best. It's brute force (at
+ * most P(6,4) = 360 paths), which is the point — a heuristic planner would
  * make the report a measurement of the heuristic instead of the cards.
  */
-function bestPath(run, hand, score, r) {
-  const available = [
-    ...hand.map((id) => ({ id, from: 'hand' })),
-    ...run.stash.map((id) => ({ id, from: 'stash' })),
-  ];
+function bestPath(run, hand, score) {
+  const available = hand.map((id) => ({ id, from: 'hand' }));
   let best = null;
   const chosen = [];
   const used = new Set();
 
   const walk = () => {
     if (chosen.length === PATH_SLOTS) {
-      // Drop rolls are held fixed across candidates so the planner is choosing
-      // between paths, not fishing for a lucky Spoil roll.
-      const out = resolvePath(run, chosen.slice(), rng(r));
+      const out = resolvePath(run, chosen.slice());
       const value = score(out);
       if (!best || value > best.value) best = { value, slots: chosen.slice(), out };
       return;
@@ -69,10 +63,8 @@ function simulate(style) {
     runs: 0, completed: 0, duels: 0, duelWins: 0,
     exchanges: [], pathDamagePct: [], fizzles: 0, slotsEarly: 0, fizzlesEarly: 0,
     slotsLate: 0, fizzlesLate: 0, slots: 0,
-    spoilsWon: 0, spoilsUsed: 0, spoilsLost: 0,
-    flooredAtOne: 0, rounds: 0, roundsByTier: {},
+    flooredAtOne: 0, rounds: 0,
   };
-  const usedSpoils = new Set();
 
   for (let seed = 1; seed <= RUNS; seed++) {
     let run = newRun(seed);
@@ -82,7 +74,7 @@ function simulate(style) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
       const hand = deal(run.round, rng(roundSeed));
-      const chosen = bestPath(run, hand, score, roundSeed ^ 0x9e3779b9);
+      const chosen = bestPath(run, hand, score);
       const out = chosen.out;
 
       stats.rounds++;
@@ -94,27 +86,16 @@ function simulate(style) {
       stats.pathDamagePct.push(out.pathDamage / out.state.maxHp);
       if (out.state.hp === 1) stats.flooredAtOne++;
 
-      for (const slot of chosen.slots) {
-        if (slot.from === 'stash') { stats.spoilsUsed++; usedSpoils.add(card(slot.id).name); }
-      }
-
       const ghost = drawGhost(run.round, run.wins, (roundSeed ^ 0x2545f491) >>> 0);
       const d = duel(out.state, ghost, out.cleanPath);
       stats.duels++;
       if (d.won) stats.duelWins++;
       stats.exchanges.push(d.exchanges);
 
-      let next = { ...out.state };
-      for (const id of out.spoilsWon) {
-        stats.spoilsWon++;
-        if (next.stash.length < STASH_CAP) next.stash.push(id);
-        else stats.spoilsLost++;      // the cap forced a discard
-      }
-      run = settleRound(next, d.won);
+      run = settleRound(out.state, d.won);
     }
     if (run.completed) stats.completed++;
   }
-  stats.distinctSpoilsUsed = usedSpoils.size;
   return stats;
 }
 
@@ -127,7 +108,6 @@ function report(style) {
   const dmg = mean(s.pathDamagePct);
   const ex = mean(s.exchanges);
   const completion = s.completed / s.runs;
-  const spoilUse = s.spoilsWon ? s.spoilsUsed / s.spoilsWon : 0;
 
   const target = (ok) => (ok ? '  ok  ' : ' MISS ');
   console.log(`\n── ${style.toUpperCase()} PLAYER · ${s.runs} runs, ${s.rounds} rounds ──`);
@@ -142,19 +122,16 @@ function report(style) {
     ['mean duel length', ex.toFixed(2), '3–6 exchanges', ex >= 3 && ex <= 6],
     ['duels 3–6 exchanges', pct(share(s.exchanges, (e) => e >= 3 && e <= 6)), 'most of them',
       share(s.exchanges, (e) => e >= 3 && e <= 6) >= 0.6],
-    // §12's 25–35% was written for ghosts drawn from a fixed table. Ghosts are
-    // now sized against the actual player they're about to fight (see
-    // js/ghosts.js's PACING note), which is what makes a duel take a
-    // handful of real exchanges regardless of how the path went — but it
-    // also means a planner that maximizes every round, permutation by
-    // permutation, keeps outrunning the ghosts it draws: the target here is
-    // no longer a fixed pass/fail line, it's a sanity check that a perfect
-    // optimizer isn't clearing literally every run.
+    // §12's 25–35% assumes ghosts roughly matched to the player. Ghosts are
+    // anchored to a canonical round-N character (see js/ghosts.js's PACING
+    // note), never to the specific player about to fight them — so a
+    // planner that maximizes every round, permutation by permutation, keeps
+    // outrunning the band it's calibrated against, the same way a real,
+    // heavily-optimizing human player would outrun a same-bucket peer. The
+    // target here is a sanity check, not a fixed pass/fail line: a perfect
+    // optimizer shouldn't be clearing literally every run.
     ['run completion', pct(completion), 'high, not total', completion < 0.97],
     ['duel win rate', pct(s.duelWins / s.duels), '—', true],
-    ['Spoils used before the cap bit', pct(spoilUse), 'at least 60%', spoilUse >= 0.6],
-    ['Spoils lost to a full Stash', String(s.spoilsLost), 'few', true],
-    ['distinct Spoils ever played', `${s.distinctSpoilsUsed} / 12`, 'all 12', s.distinctSpoilsUsed === 12],
     ['rounds ending floored at 1 HP', pct(s.flooredAtOne / s.rounds), 'rare — §12 risk #1',
       s.flooredAtOne / s.rounds < 0.12],
   ];
@@ -170,9 +147,6 @@ report('cautious');
 console.log('\nTargets are §12 of the design doc. A MISS is a tuning note, not a bug.');
 console.log(
   'This planner brute-forces every round, so its "run completion" and "duel\n' +
-  'win rate" run well above what a real player should expect — see\n' +
-  'test/engine.mjs\'s "a duel lands in the §12 window regardless of how the\n' +
-  'player built" for the number that actually matters: whether a *realistic*\n' +
-  'build gets a competitive, multi-exchange fight, not whether a maximizer\n' +
-  'can be beaten by ghosts at all.\n',
+  'win rate" run above what a real player should expect. See tools/archetypes.mjs\n' +
+  'for whether a realistic, single-strategy build gets a competitive fight.\n',
 );

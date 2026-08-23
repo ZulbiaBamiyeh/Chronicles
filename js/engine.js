@@ -5,9 +5,9 @@
 // The single most important property: combat is fully deterministic. Same two
 // fighters in, same result out, every time. Breakpoint planning ("4 ATK costs
 // me 20 HP, 5 ATK costs me 15") is only a real decision if the player can
-// compute it exactly, so there are no dice anywhere in resolution. All the
-// randomness in Ghostwalk lives in *acquisition* — what you're dealt, what
-// drops — never in what happens once the cards are down.
+// compute it exactly, so there are no dice anywhere in resolution. The only
+// randomness in Ghostwalk is in what you're dealt — never in what happens
+// once the cards are down.
 
 import { card, DEAL_POOL, MONSTERS } from './cards.js';
 
@@ -15,7 +15,6 @@ export const START = { hp: 20, maxHp: 20, atk: 1, gold: 3, hearts: 3 };
 export const WINS_TO_COMPLETE = 5;
 export const PATH_SLOTS = 4;
 export const HAND_SIZE = 6;
-export const STASH_CAP = 3;
 
 // ---------------------------------------------------------------------------
 // Seeded RNG
@@ -186,7 +185,6 @@ export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer'
     hearts: START.hearts,
     kw: { armour: 0, thorns: 0, poison: 0, rally: 0, firstStrike: false },
     perks: { healPerKill: 0, gearDiscount: 0, cleanPathArmour: 0, roundStart: {} },
-    stash: [],
     // Marks that this round's upkeep (the between-rounds heal and every
     // recurring ally) has already been applied, so resuming a save mid-round
     // doesn't hand out a second helping of it.
@@ -274,24 +272,24 @@ function applyFx(s, fx) {
 
 /**
  * Walks the four slots left to right and returns the character who comes out
- * the other side, plus an event per slot for the animation to replay.
+ * the other side, plus an event per slot for the animation to replay. A
+ * `fight` event carries the resolver's own exchange-by-exchange log and both
+ * fighters' starting stats — not just the final damage total — so a monster
+ * fight can be replayed blow by blow exactly like the duel, not summarised.
  *
  * @param {object} run
- * @param {Array<{id:string, from:'hand'|'stash', upgrade?:boolean}|null>} slots
- * @param {() => number} r randomness, used only for Spoil drop rolls
+ * @param {Array<{id:string, from:'hand', upgrade?:boolean}|null>} slots
  */
-export function resolvePath(run, slots, r) {
+export function resolvePath(run, slots) {
   const s = {
     ...run,
     kw: { ...run.kw },
     perks: { ...run.perks, roundStart: { ...run.perks.roundStart } },
-    stash: run.stash.slice(),
   };
   const startHp = s.hp;
   const events = [];
   let monstersDefeated = 0;
   let usedWatchtower = false;
-  const spoilsWon = [];
 
   // Each event carries the stats as they stood the moment that slot finished,
   // so the resolution animation can tick the HUD along with the flips instead
@@ -314,7 +312,7 @@ export function resolvePath(run, slots, r) {
     };
 
     // Fizzle: the cost can't be paid when the slot resolves, so the slot does
-    // nothing at all. Spoils are pre-paid and can never land here.
+    // nothing at all.
     const cost = costFor(s, c);
     if (cost > s.gold) {
       push({ slot: i, kind: 'fizzle', id: c.id, cost });
@@ -323,29 +321,25 @@ export function resolvePath(run, slots, r) {
     if (cost) s.gold -= cost;
 
     if (c.type === 'monster') {
+      const me = playerFighter(s);
+      const monster = monsterFighter(c);
+      const fight = resolveCombat(me, monster, { floorA: true });
       const before = s.hp;
-      const fight = resolveCombat(playerFighter(s), monsterFighter(c), { floorA: true });
       s.hp = fight.a.hp;
       s.gold += c.gold;
       if (c.trophy) applyFx(s, c.trophy);
       monstersDefeated++;
       if (s.perks.healPerKill) s.hp = Math.min(s.maxHp, s.hp + s.perks.healPerKill);
 
-      // Drop roll. This is the only randomness inside a path, and it decides
-      // what you *get*, never how the fight went.
-      let drop = null;
-      if (c.spoil && r() < c.spoil.rate) {
-        drop = c.spoil.id;
-        spoilsWon.push(drop);
-      }
       push({
         slot: i, kind: 'fight', id: c.id, damage: before - s.hp,
-        exchanges: fight.exchanges, gold: c.gold, trophy: c.trophy || null, drop,
+        exchanges: fight.exchanges, gold: c.gold, trophy: c.trophy || null,
+        me, monster, log: fight.log,
       });
       return;
     }
 
-    // Everything else is a stat card: gear, ally, place, or spoil.
+    // Everything else is a stat card: gear, ally, or place.
     const fx = c.dyn ? c.dyn(ctx) : c.fx;
     applyFx(s, fx);
     let upgraded = false;
@@ -364,17 +358,12 @@ export function resolvePath(run, slots, r) {
       }
     }
     if (c.scout) usedWatchtower = true;
-    if (slot.from === 'stash') {
-      const at = s.stash.indexOf(c.id);
-      if (at >= 0) s.stash.splice(at, 1);
-    }
     push({ slot: i, kind: 'card', id: c.id, fx, upgraded, cost, scout: Boolean(c.scout) });
   });
 
   return {
     state: s,
     events,
-    spoilsWon,
     usedWatchtower,
     pathDamage: Math.max(0, startHp - s.hp),
     cleanPath: s.hp >= startHp,
@@ -440,11 +429,7 @@ export function settleRound(run, won) {
   return s;
 }
 
-/**
- * Serialised character uploaded as a ghost at the end of every round. Unused
- * Stash contents are deliberately absent — the Stash is private, and a ghost
- * only ever carries what actually resolved.
- */
+/** Serialised character uploaded as a ghost at the end of every round. */
 export function toGhost(run, path) {
   return {
     name: run.name,

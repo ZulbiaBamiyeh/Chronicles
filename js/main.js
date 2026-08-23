@@ -8,11 +8,11 @@ import { AudioEngine } from './audio.js';
 import { card, cardText, fxText } from './cards.js';
 import {
   newRun, startRound, deal, resolvePath, duel, settleRound, toGhost,
-  tiersForRound, rng, costFor, PATH_SLOTS, STASH_CAP, WINS_TO_COMPLETE,
+  tiersForRound, rng, costFor, PATH_SLOTS, WINS_TO_COMPLETE,
 } from './engine.js';
 import { drawGhost, pathNames, randomName } from './ghosts.js';
 import * as store from './storage.js';
-import { $, el, cardEl, stashChip, renderHud, duelistEl, feedLine, ICON } from './ui.js';
+import { $, el, cardEl, renderHud, duelistEl, feedLine, MONSTER_GLYPH } from './ui.js';
 
 const audio = new AudioEngine();
 const bg = new ShaderBackground(document.getElementById('bg-canvas'));
@@ -22,7 +22,7 @@ const bg = new ShaderBackground(document.getElementById('bg-canvas'));
 let run = null;          // the persisted run (see storage.js)
 let dealt = [];          // this round's six card ids
 let slots = [];          // PATH_SLOTS entries of {id, from, upgrade} | null
-let roundSeed = 0;       // seeds this round's deal and its Spoil rolls
+let roundSeed = 0;       // seeds this round's deal
 let outcome = null;      // the resolved path, kept for the duel and the result
 let ghost = null;
 let duelResult = null;
@@ -89,6 +89,7 @@ function beginRound() {
   $('#resolve-area').classList.add('hidden');
   $('#btn-to-duel').classList.add('hidden');
   $('#resolve-log').textContent = '';
+  $('#path-fight-stage').classList.add('hidden');
   renderPlan();
   show('run');
   audio.setStyle('plan');
@@ -100,7 +101,6 @@ function renderPlan() {
   renderHud(run, tierLabel(run.round));
   renderPath();
   renderHand();
-  renderStash();
   const full = slots.every(Boolean);
   $('#btn-embark').disabled = !full;
   $('#hand-hint').textContent = full
@@ -139,32 +139,6 @@ function renderHand() {
     }
     mount.appendChild(node);
   });
-}
-
-function renderStash() {
-  const tray = $('#stash-tray');
-  tray.textContent = '';
-  tray.appendChild(el('span', 'stash-label', 'STASH'));
-  if (!run.stash.length) {
-    tray.appendChild(el('span', 'stash-empty', 'empty — kill monsters to fill it'));
-    return;
-  }
-  // The Stash can legitimately hold two copies of the same Spoil, so "is this
-  // one placed?" is a count, not a lookup: grey out as many chips of an id as
-  // the path is currently using.
-  const placing = new Map();
-  for (const s of slots) {
-    if (s && s.from === 'stash') placing.set(s.id, (placing.get(s.id) || 0) + 1);
-  }
-  for (const id of run.stash) {
-    const chip = stashChip(id);
-    const left = placing.get(id) || 0;
-    if (left > 0) {
-      placing.set(id, left - 1);
-      chip.classList.add('placed');
-    }
-    tray.appendChild(chip);
-  }
 }
 
 /** Put a card in the first free slot. Returns false if the path is full. */
@@ -217,8 +191,6 @@ function cardSource(target) {
   if (slotCell && slotCell.querySelector('.card')) {
     return { kind: 'slot', index: Number(slotCell.dataset.slot), id: slots[Number(slotCell.dataset.slot)].id };
   }
-  const chip = target.closest('.chip');
-  if (chip && !chip.classList.contains('placed')) return { kind: 'stash', id: chip.dataset.id };
   const handCard = target.closest('#hand .card');
   if (handCard && !handCard.classList.contains('placed')) return { kind: 'hand', id: handCard.dataset.id };
   return null;
@@ -301,7 +273,7 @@ function onPointerUp(ev) {
 
   if (!g.dragging) {
     if (g.opened) return;
-    // A plain tap: into the path from hand or stash, back out from a slot.
+    // A plain tap: into the path from the hand, back out from a slot.
     if (g.src.kind === 'slot') unplace(g.src.index);
     else if (!place(g.src.id, g.src.kind)) shake($('#path'));
     return;
@@ -337,11 +309,7 @@ function openDetail(id) {
   mount.appendChild(cardEl(id, { run, size: 'detail' }));
   const note = el('p', 'detail-note');
   if (c.type === 'monster') {
-    note.textContent = c.spoil
-      ? `Fights for ${c.gold} gold. May drop ${card(c.spoil.id).name} (${Math.round(c.spoil.rate * 100)}%).`
-      : `Fights for ${c.gold} gold.`;
-  } else if (c.type === 'spoil') {
-    note.textContent = `Dropped by ${c.from}. Costs nothing and never fizzles.`;
+    note.textContent = `Fights for ${c.gold} gold.`;
   } else if (c.type === 'gear' || c.type === 'ally') {
     note.textContent = 'Permanent for the rest of the run.';
   } else {
@@ -356,7 +324,7 @@ function openDetail(id) {
 
 async function embark() {
   audio.click();
-  outcome = resolvePath(run, slots, rng((roundSeed ^ 0x9e3779b9) >>> 0));
+  outcome = resolvePath(run, slots);
   scouted = outcome.usedWatchtower;
   // Half the opponents come out of the local bucket (characters this save has
   // finished a round with before), half are freshly generated. Leaning on
@@ -414,9 +382,7 @@ async function playSlot(ev, cell) {
   }
 
   if (ev.kind === 'fight') {
-    audio.hit(Math.min(1, ev.damage / 12));
-    float(cell, `−${ev.damage}`, 'bad');
-    await sleep(420);
+    await playPathFight(ev, c);
     audio.kill();
     audio.coin(2);
     float(cell, `+${ev.gold}◉`, 'gold');
@@ -425,18 +391,11 @@ async function playSlot(ev, cell) {
     if (ev.trophy) bits.push(fxText(ev.trophy));
     feedLine(log, `${bits.join(' · ')}.`, ev.damage > 0 ? '' : 'log-good');
     applySnap(ev.snap);
-    if (ev.drop) {
-      await sleep(420);
-      audio.spoil();
-      float(cell, ICON[ev.drop] || '★', 'spoil');
-      feedLine(log, `${card(ev.drop).name} dropped — it goes to your Stash.`, 'log-spoil');
-      await sleep(500);
-    }
-    await sleep(700);
+    await sleep(500);
     return;
   }
 
-  // Gear, ally, place, spoil.
+  // Gear, ally, place.
   const fx = ev.fx || {};
   const shown = { ...fx };
   if (ev.upgraded) {
@@ -456,6 +415,88 @@ async function playSlot(ev, cell) {
   feedLine(log, `${c.name}${paid ? ` (−${paid} gold)` : ''} — ${summary}`, 'log-good');
   applySnap(ev.snap);
   await sleep(900);
+}
+
+/**
+ * Plays a monster fight out in the same equip-grid, exchange-by-exchange
+ * presentation as the duel — §4's whole premise is one resolver for both, so
+ * a creep fight deserves the same clarity as the one against a ghost, not a
+ * single compressed damage number. Faster-paced than the duel (there can be
+ * up to four of these in one path) but otherwise identical machinery.
+ */
+async function playPathFight(ev, c) {
+  const stage = $('#path-fight-stage');
+  stage.classList.remove('hidden');
+  const me = duelistEl($('#path-fight-me'), ev.me, { glyph: '🧍', sub: `round ${run.round}` });
+  const monster = duelistEl($('#path-fight-them'), ev.monster, {
+    glyph: MONSTER_GLYPH[ev.id] || '❔',
+    sub: `Tier ${c.tier} monster`,
+  });
+  await sleep(400);
+  await replayLog({
+    feed: $('#resolve-log'),
+    side: { a: me, b: monster },
+    who: { a: ev.me.name, b: ev.monster.name },
+    log: ev.log,
+    startHp: { a: ev.me.hp, b: ev.monster.hp },
+    maxHp: { a: ev.me.maxHp, b: ev.monster.maxHp },
+    speed: 0.72,
+  });
+  await sleep(300);
+  stage.classList.add('hidden');
+}
+
+/**
+ * Replays a resolved fight's exchange log into a feed, updating both fighter
+ * panels — HP bar, hit flash, and a pulse on whichever equip slot dealt the
+ * blow — as it goes. Shared by the duel and every path monster fight.
+ *
+ * @param {object} opts
+ * @param {HTMLElement} opts.feed
+ * @param {{a: object, b: object}} opts.side  the two duelistEl() handles
+ * @param {{a: string, b: string}} opts.who   display names
+ * @param {Array} opts.log        resolveCombat's log, in order
+ * @param {{a: number, b: number}} opts.startHp
+ * @param {{a: number, b: number}} opts.maxHp
+ * @param {number} [opts.speed]   pacing multiplier — 1 for the duel, faster for the path
+ */
+async function replayLog({ feed, side, who, log, startHp, maxHp, speed = 1 }) {
+  const hp = { ...startHp };
+  const SOURCE_SLOT = { attack: 'atk', firstStrike: 'atk', poison: 'poison', thorns: 'thorns' };
+  const VERB = {
+    poison: 'poison eats at', thorns: 'thorns bite', firstStrike: 'strikes first at', attack: 'hits',
+  };
+
+  let ex = 0;
+  for (const entry of log) {
+    if (entry.ex !== ex) {
+      ex = entry.ex;
+      await sleep(560 * speed);
+      feedLine(feed, `— exchange ${ex} —`, 'feed-ex');
+    }
+    hp[entry.target] -= entry.amount;
+    side[entry.target].setHp(hp[entry.target], maxHp[entry.target]);
+    side[entry.target].flash(entry.source === 'poison' ? 'poison' : 'hit');
+    side[entry.target].float(`−${entry.amount}`, entry.source === 'poison' ? 'poison' : 'bad');
+
+    // The dealer of every log entry is the side other than its target —
+    // true for a plain attack, First Strike, Poison, and Thorns alike (a
+    // Thorns entry targets whoever just landed a hit, dealt by the other
+    // side's Thorns keyword). Pulsing their equip slot is what makes "the
+    // player's attack, armour, thorns" traceable in the moment, not just
+    // stated in a log line.
+    const dealer = entry.target === 'a' ? 'b' : 'a';
+    const slotKey = SOURCE_SLOT[entry.source];
+    if (slotKey) side[dealer].pulseSlot(slotKey);
+
+    if (entry.source === 'poison') audio.poison();
+    else if (entry.source === 'thorns') audio.thorns();
+    else if (entry.source === 'firstStrike') audio.firstStrike();
+    else audio.hit(Math.min(1, entry.amount / Math.max(4, maxHp[entry.target] / 3)));
+
+    feedLine(feed, `${who[dealer]} ${VERB[entry.source]} ${who[entry.target]} for ${entry.amount}.`);
+    await sleep(340 * speed);
+  }
 }
 
 /** Tick the HUD forward to where a slot left the character. */
@@ -494,37 +535,15 @@ async function runDuel() {
 
   await sleep(1100);
 
-  // Replay the resolver's log. The numbers are already decided — this only
-  // paces them out so the fight is readable.
-  const hp = { a: result.me.hp, b: result.them.hp };
-  const maxHp = { a: result.me.maxHp, b: result.them.maxHp };
-  const side = { a: me, b: them };
   const who = { a: result.me.name, b: result.them.name };
-
-  let ex = 0;
-  for (const entry of result.log) {
-    if (entry.ex !== ex) {
-      ex = entry.ex;
-      await sleep(560);
-      feedLine(feed, `— exchange ${ex} —`, 'feed-ex');
-    }
-    hp[entry.target] -= entry.amount;
-    side[entry.target].setHp(hp[entry.target], maxHp[entry.target]);
-    side[entry.target].flash(entry.source === 'poison' ? 'poison' : 'hit');
-    side[entry.target].float(`−${entry.amount}`, entry.source === 'poison' ? 'poison' : 'bad');
-
-    if (entry.source === 'poison') audio.poison();
-    else if (entry.source === 'thorns') audio.thorns();
-    else if (entry.source === 'firstStrike') audio.firstStrike();
-    else audio.hit(Math.min(1, entry.amount / Math.max(4, maxHp[entry.target] / 3)));
-
-    const verb = {
-      poison: 'poison eats at', thorns: 'thorns bite', firstStrike: 'strikes first at', attack: 'hits',
-    }[entry.source];
-    const attacker = entry.target === 'a' ? who.b : who.a;
-    feedLine(feed, `${attacker} ${verb} ${who[entry.target]} for ${entry.amount}.`);
-    await sleep(340);
-  }
+  await replayLog({
+    feed,
+    side: { a: me, b: them },
+    who,
+    log: result.log,
+    startHp: { a: result.me.hp, b: result.them.hp },
+    maxHp: { a: result.me.maxHp, b: result.them.maxHp },
+  });
 
   await sleep(700);
   if (result.won) {
@@ -551,18 +570,6 @@ async function showResult() {
   run = { ...outcome.state };
   store.recordDuel(won);
 
-  // Spoils land in the Stash now, at the end of the round (§2.1 step 6). If the
-  // Stash is full the player chooses what goes — one tap, and the run waits.
-  const pending = outcome.spoilsWon.slice();
-  for (const id of pending) {
-    if (run.stash.length < STASH_CAP) { run.stash.push(id); continue; }
-    const keep = await askStash(id);
-    if (keep !== null) {
-      run.stash.splice(keep, 1);
-      run.stash.push(id);
-    }
-  }
-
   // Upload the character as a ghost for other players — here, for future runs.
   store.uploadGhost(toGhost(run, slots.filter(Boolean).map((s) => s.id)));
 
@@ -575,18 +582,6 @@ async function showResult() {
     ? `${duelResult.them.name} fades. ${run.wins}/${WINS_TO_COMPLETE} wins banked.`
     : `${duelResult.them.name} stands over you. ${run.hearts} heart${run.hearts === 1 ? '' : 's'} left.`;
 
-  const spoilsBox = $('#result-spoils');
-  spoilsBox.textContent = '';
-  if (outcome.spoilsWon.length) {
-    spoilsBox.classList.remove('hidden');
-    spoilsBox.appendChild(el('p', 'spoils-label', 'SPOILS TAKEN'));
-    const row = el('div', 'spoils-row');
-    for (const id of outcome.spoilsWon) row.appendChild(stashChip(id));
-    spoilsBox.appendChild(row);
-  } else {
-    spoilsBox.classList.add('hidden');
-  }
-
   const stats = $('#result-stats');
   stats.textContent = '';
   const rows = [
@@ -594,7 +589,6 @@ async function showResult() {
     ['ATK', run.atk],
     ['Gold', run.gold],
     ['Hearts', '♥'.repeat(run.hearts) || '—'],
-    ['Stash', run.stash.length ? run.stash.map((id) => card(id).name).join(', ') : 'empty'],
   ];
   for (const [k, v] of rows) {
     const r = el('div', 'stat-row');
@@ -605,30 +599,6 @@ async function showResult() {
   $('#btn-next-round').textContent = run.over ? 'SEE THE RUN' : 'NEXT ROUND';
   show('result');
   audio.setStyle(won ? 'plan' : 'gameover');
-}
-
-/** The §7.2 prompt: the Stash is full, so something has to go. */
-function askStash(incoming) {
-  return new Promise((resolve) => {
-    const box = $('#stash-prompt');
-    $('#stash-prompt-sub').textContent =
-      `${card(incoming).name} dropped. Tap a Spoil to discard and make room.`;
-    const mount = $('#stash-prompt-cards');
-    mount.textContent = '';
-    run.stash.forEach((id, i) => {
-      const node = cardEl(id, { run, size: 'hand' });
-      node.addEventListener('click', () => { close(); resolve(i); }, { once: true });
-      mount.appendChild(node);
-    });
-    const discard = $('#stash-prompt-discard');
-    const onDiscard = () => { close(); resolve(null); };
-    discard.addEventListener('click', onDiscard, { once: true });
-    function close() {
-      box.classList.add('hidden');
-      discard.removeEventListener('click', onDiscard);
-    }
-    box.classList.remove('hidden');
-  });
 }
 
 function nextRound() {

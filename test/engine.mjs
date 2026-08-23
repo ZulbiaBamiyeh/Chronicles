@@ -10,7 +10,7 @@ import {
   settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter,
   PATH_SLOTS, HAND_SIZE, START,
 } from '../js/engine.js';
-import { card, ALL_CARDS, DEAL_POOL, SPOILS, MONSTERS, GEAR, ALLIES, PLACES } from '../js/cards.js';
+import { card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES } from '../js/cards.js';
 import { drawGhost, ARCHETYPES } from '../js/ghosts.js';
 
 let passed = 0;
@@ -30,10 +30,9 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 58 dealt cards plus 12 Spoils', () => {
+test('the pool is 58 cards, all of them dealable', () => {
   assert.equal(DEAL_POOL.length, 58);
-  assert.equal(SPOILS.length, 12);
-  assert.equal(ALL_CARDS.length, 70);
+  assert.equal(ALL_CARDS.length, 58);
   assert.equal(MONSTERS.length, 22);
   assert.equal(GEAR.length, 19);
   assert.equal(ALLIES.length, 8);
@@ -42,25 +41,9 @@ test('the pool is 58 dealt cards plus 12 Spoils', () => {
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 70);
+  assert.equal(ids.size, 58);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
-});
-
-test('Spoils are never in the deal pool and never cost gold', () => {
-  for (const s of SPOILS) {
-    assert.ok(!DEAL_POOL.some((c) => c.id === s.id), `${s.id} leaked into the deal pool`);
-    assert.equal(s.cost, 0);
-  }
-});
-
-test('every monster drop names a real Spoil', () => {
-  for (const m of MONSTERS) {
-    if (!m.spoil) continue;
-    assert.ok(card(m.spoil.id), `${m.id} drops an unknown spoil`);
-    assert.equal(card(m.spoil.id).type, 'spoil');
-    assert.ok(m.spoil.rate > 0 && m.spoil.rate < 1);
-  }
 });
 
 // ---------------------------------------------------------------------------
@@ -187,14 +170,14 @@ test('you cannot die on the path', () => {
     { id: 'hill_giant', from: 'hand' }, { id: 'chimera', from: 'hand' },
     { id: 'elder_wyrm', from: 'hand' }, { id: 'stone_warden', from: 'hand' },
   ];
-  const out = resolvePath(run, slots, rng(1));
+  const out = resolvePath(run, slots);
   assert.equal(out.state.hp, 1, 'path damage should floor at 1 HP, never below');
   assert.ok(out.state.hearts === 3, 'the path must never touch hearts');
 });
 
 test('a card you cannot pay for fizzles and the slot does nothing', () => {
   const run = { ...newRun(2), gold: 0 };
-  const out = resolvePath(run, [{ id: 'rusty_sword', from: 'hand' }, null, null, null], rng(2));
+  const out = resolvePath(run, [{ id: 'rusty_sword', from: 'hand' }, null, null, null]);
   assert.equal(out.events[0].kind, 'fizzle');
   assert.equal(out.state.atk, run.atk, 'a fizzled slot must not apply its effect');
   assert.equal(out.state.gold, 0, 'a fizzled slot must not spend gold');
@@ -207,11 +190,11 @@ test('the §11 fizzle trap: the same four cards pass or fail on order alone', ()
   const buckler = { id: 'buckler', from: 'hand' };
   const boar = { id: 'wild_boar', from: 'hand' };
 
-  const trap = resolvePath(base, [mouse, sword, buckler, boar], rng(3));
+  const trap = resolvePath(base, [mouse, sword, buckler, boar]);
   assert.equal(trap.events[2].kind, 'fizzle', 'Buckler at 1 gold should fizzle');
   assert.equal(trap.state.kw.armour, 0);
 
-  const fixed = resolvePath(base, [mouse, sword, boar, buckler], rng(3));
+  const fixed = resolvePath(base, [mouse, sword, boar, buckler]);
   assert.ok(fixed.events.every((e) => e.kind !== 'fizzle'), 'swapping the last two should fix it');
   assert.equal(fixed.state.kw.armour, 1);
 });
@@ -222,62 +205,22 @@ test('a Place that counts earlier kills pays only for kills that came first', ()
   const boar = { id: 'wild_boar', from: 'hand' };
   const yard = { id: 'training_yard', from: 'hand' };
 
-  const late = resolvePath(base, [rat, boar, yard, null], rng(4));
+  const late = resolvePath(base, [rat, boar, yard, null]);
   assert.equal(late.state.atk, base.atk + 2, 'two earlier kills should give +2 ATK');
 
-  const early = resolvePath(base, [yard, rat, boar, null], rng(4));
+  const early = resolvePath(base, [yard, rat, boar, null]);
   assert.equal(early.state.atk, base.atk, 'no earlier kills should give nothing');
 });
 
 test('Standing Stones doubles in the fourth slot', () => {
   const base = newRun(5);
   const stones = { id: 'standing_stones', from: 'hand' };
-  const early = resolvePath(base, [stones, null, null, null], rng(5));
-  const last = resolvePath(base, [null, null, null, stones], rng(5));
+  const early = resolvePath(base, [stones, null, null, null]);
+  const last = resolvePath(base, [null, null, null, stones]);
   assert.equal(early.state.atk, base.atk + 1);
   assert.equal(early.state.maxHp, base.maxHp + 2);
   assert.equal(last.state.atk, base.atk + 2);
   assert.equal(last.state.maxHp, base.maxHp + 4);
-});
-
-test('Wedge of Cheese heals 14 in the last slot and 8 anywhere else', () => {
-  const base = { ...newRun(6), hp: 2, maxHp: 40, stash: ['wedge_of_cheese'] };
-  const cheese = { id: 'wedge_of_cheese', from: 'stash' };
-  assert.equal(resolvePath(base, [cheese, null, null, null], rng(6)).state.hp, 10);
-  assert.equal(resolvePath(base, [null, null, null, cheese], rng(6)).state.hp, 16);
-});
-
-test('Golem Fist pays out double at exactly 0 gold', () => {
-  const broke = { ...newRun(7), gold: 0, stash: ['golem_fist'] };
-  const rich = { ...newRun(7), gold: 1, stash: ['golem_fist'] };
-  const fist = { id: 'golem_fist', from: 'stash' };
-  assert.equal(resolvePath(broke, [fist, null, null, null], rng(7)).state.atk, broke.atk + 14);
-  assert.equal(resolvePath(rich, [fist, null, null, null], rng(7)).state.atk, rich.atk + 8);
-});
-
-test('Watchtower turns the two scouting Spoils on, in path order', () => {
-  const base = { ...newRun(8), stash: ['toxin_sac'] };
-  const tower = { id: 'watchtower', from: 'hand' };
-  const sac = { id: 'toxin_sac', from: 'stash' };
-  assert.equal(resolvePath(base, [tower, sac, null, null], rng(8)).state.kw.poison, 6);
-  assert.equal(resolvePath(base, [sac, tower, null, null], rng(8)).state.kw.poison, 3,
-    'a Spoil played before the Watchtower has nothing to key off yet');
-});
-
-test('a Spoil leaves the Stash when it is played, and stays when it is not', () => {
-  const base = { ...newRun(9), stash: ['wolf_pelt_cloak', 'warlords_horn'] };
-  const played = resolvePath(base, [{ id: 'warlords_horn', from: 'stash' }, null, null, null], rng(9));
-  assert.deepEqual(played.state.stash, ['wolf_pelt_cloak']);
-  const untouched = resolvePath(base, [null, null, null, null], rng(9));
-  assert.deepEqual(untouched.state.stash, ['wolf_pelt_cloak', 'warlords_horn']);
-});
-
-test('Spoils never fizzle, however broke you are', () => {
-  const broke = { ...newRun(10), gold: 0, stash: SPOILS.slice(0, 3).map((s) => s.id) };
-  const slots = broke.stash.map((id) => ({ id, from: 'stash' }));
-  slots.push(null);
-  const out = resolvePath(broke, slots, rng(10));
-  assert.ok(out.events.every((e) => e.kind !== 'fizzle'));
 });
 
 test('the Quartermaster discount applies to gear and floors at 1', () => {
@@ -287,20 +230,9 @@ test('the Quartermaster discount applies to gear and floors at 1', () => {
   assert.equal(costFor(run, card('roadside_shrine')), 0, 'places are free either way');
 });
 
-test('gold from a Spoil is spendable by later slots in the same path', () => {
-  const base = { ...newRun(12), gold: 0, stash: ['stolen_purse'] };
-  const out = resolvePath(base, [
-    { id: 'stolen_purse', from: 'stash' },
-    { id: 'steel_longsword', from: 'hand' },
-    null, null,
-  ], rng(12));
-  assert.equal(out.events[1].kind, 'card', 'the sword should be affordable off the purse');
-  assert.equal(out.state.atk, base.atk + 6);
-});
-
 test('raising max HP is a ceiling, not a heal', () => {
   const hurt = { ...newRun(13), hp: 5, maxHp: 20, gold: 20 };
-  const out = resolvePath(hurt, [{ id: 'chainmail', from: 'hand' }, null, null, null], rng(13));
+  const out = resolvePath(hurt, [{ id: 'chainmail', from: 'hand' }, null, null, null]);
   assert.equal(out.state.maxHp, 26);
   assert.equal(out.state.hp, 5, 'Chainmail says nothing about healing, so it heals nothing');
 });
@@ -310,12 +242,12 @@ test('an armed paid upgrade fires only when the gold is actually there', () => {
   const poor = { ...newRun(20), gold: 3 };
   const smith = { id: 'blacksmith', from: 'hand', upgrade: true };
 
-  const paid = resolvePath(rich, [smith, null, null, null], rng(20));
+  const paid = resolvePath(rich, [smith, null, null, null]);
   assert.equal(paid.state.atk, rich.atk + 5, '+2 base and +3 for the 4 gold');
   assert.equal(paid.state.gold, 6);
   assert.equal(paid.events[0].upgraded, true);
 
-  const unpaid = resolvePath(poor, [smith, null, null, null], rng(20));
+  const unpaid = resolvePath(poor, [smith, null, null, null]);
   assert.equal(unpaid.state.atk, poor.atk + 2, 'the base effect still lands');
   assert.equal(unpaid.state.gold, 3, 'and no gold is taken for an upgrade you cannot afford');
   assert.equal(unpaid.events[0].upgraded, false);
@@ -323,17 +255,17 @@ test('an armed paid upgrade fires only when the gold is actually there', () => {
 
 test('an upgrade you did not arm never fires', () => {
   const run = { ...newRun(21), gold: 20 };
-  const out = resolvePath(run, [{ id: 'blacksmith', from: 'hand', upgrade: false }, null, null, null], rng(21));
+  const out = resolvePath(run, [{ id: 'blacksmith', from: 'hand', upgrade: false }, null, null, null]);
   assert.equal(out.state.atk, run.atk + 2);
   assert.equal(out.state.gold, 20);
 });
 
 test('Toll Bridge does nothing at all unless you pay', () => {
   const run = { ...newRun(22), gold: 20, hp: 10, maxHp: 30 };
-  const skipped = resolvePath(run, [{ id: 'toll_bridge', from: 'hand' }, null, null, null], rng(22));
+  const skipped = resolvePath(run, [{ id: 'toll_bridge', from: 'hand' }, null, null, null]);
   assert.equal(skipped.state.maxHp, 30);
   assert.equal(skipped.state.hp, 10);
-  const paid = resolvePath(run, [{ id: 'toll_bridge', from: 'hand', upgrade: true }, null, null, null], rng(22));
+  const paid = resolvePath(run, [{ id: 'toll_bridge', from: 'hand', upgrade: true }, null, null, null]);
   assert.equal(paid.state.maxHp, 38);
   assert.equal(paid.state.hp, 18);
   assert.equal(paid.state.gold, 15);
@@ -341,7 +273,7 @@ test('Toll Bridge does nothing at all unless you pay', () => {
 
 test('Ruined Chapel heals to full and costs 2 ATK, never dropping below 0', () => {
   const run = { ...newRun(23), hp: 3, maxHp: 28, atk: 1 };
-  const out = resolvePath(run, [{ id: 'ruined_chapel', from: 'hand' }, null, null, null], rng(23));
+  const out = resolvePath(run, [{ id: 'ruined_chapel', from: 'hand' }, null, null, null]);
   assert.equal(out.state.hp, 28);
   assert.equal(out.state.atk, 0, 'ATK floors at 0 rather than going negative');
 });
@@ -350,10 +282,10 @@ test('the Houndmaster grants First Strike to path fights too, not just the duel'
   const run = { ...newRun(24), gold: 20, atk: 4 };
   const withAlly = resolvePath(run, [
     { id: 'houndmaster', from: 'hand' }, { id: 'wild_boar', from: 'hand' }, null, null,
-  ], rng(24));
+  ]);
   const without = resolvePath({ ...run, gold: 20 }, [
     { id: 'wild_boar', from: 'hand' }, null, null, null,
-  ], rng(24));
+  ]);
   const withDamage = withAlly.events[1].damage;
   const withoutDamage = without.events[0].damage;
   assert.ok(withDamage < withoutDamage, 'a free opening hit should cost you less HP');
@@ -361,10 +293,20 @@ test('the Houndmaster grants First Strike to path fights too, not just the duel'
 
 test('the Shieldbearer only pays out on a duel you reached unhurt', () => {
   const run = { ...newRun(25), gold: 20 };
-  const bought = resolvePath(run, [{ id: 'shieldbearer', from: 'hand' }, null, null, null], rng(25)).state;
+  const bought = resolvePath(run, [{ id: 'shieldbearer', from: 'hand' }, null, null, null]).state;
   const ghost = drawGhost(1, 0, 5);
   assert.equal(duel(bought, ghost, true).bonusArmour, 2);
   assert.equal(duel(bought, ghost, false).bonusArmour, 0);
+});
+
+test('a monster fight event carries a full, replayable exchange log', () => {
+  const run = { ...newRun(26), atk: 5, hp: 20, maxHp: 20 };
+  const out = resolvePath(run, [{ id: 'sewer_rat', from: 'hand' }, null, null, null]);
+  const ev = out.events[0];
+  assert.equal(ev.kind, 'fight');
+  assert.ok(Array.isArray(ev.log) && ev.log.length > 0, 'a fight event needs a log to replay');
+  assert.ok(ev.me && ev.monster, 'a fight event needs both starting fighters for the UI to render');
+  assert.equal(typeof ev.exchanges, 'number');
 });
 
 // ---------------------------------------------------------------------------
@@ -382,7 +324,6 @@ test('every hand is six cards with at least two monsters and one thing to buy', 
       assert.ok(kinds.some((t) => t === 'gear' || t === 'place'), `round ${round} seed ${seed}: gold unspendable`);
       const tiers = tiersForRound(round);
       for (const id of hand) assert.ok(tiers.includes(card(id).tier), 'off-tier card dealt');
-      assert.ok(!hand.some((id) => card(id).type === 'spoil'), 'a Spoil was dealt');
     }
   }
 });
@@ -424,7 +365,7 @@ test('recurring allies pay out at the top of every future round', () => {
     { id: 'coin_clipper', from: 'hand' },
     { id: 'sparring_partner', from: 'hand' },
     null, null,
-  ], rng(16)).state;
+  ]).state;
   const goldAfterBuying = run.gold;
   const atkAfterBuying = run.atk;
   run = startRound({ ...run, round: 2, upkeepDone: false });
@@ -445,7 +386,7 @@ test('five wins completes a run, three losses ends it', () => {
 
 test('only the duel can take a heart', () => {
   const run = { ...newRun(19), hp: 1 };
-  const after = resolvePath(run, [{ id: 'hill_giant', from: 'hand' }, null, null, null], rng(19));
+  const after = resolvePath(run, [{ id: 'hill_giant', from: 'hand' }, null, null, null]);
   assert.equal(after.state.hearts, 3);
   assert.equal(settleRound(after.state, false).hearts, 2);
 });
@@ -584,7 +525,6 @@ test('Tank ghosts take longer to resolve than Aggro ghosts, on average', () => {
 
 test('a thousand random runs finish without throwing or stalling', () => {
   for (let seed = 1; seed <= 1000; seed++) {
-    const r = rng(seed);
     let run = newRun(seed);
     let guard = 0;
     while (!run.over) {
@@ -593,12 +533,12 @@ test('a thousand random runs finish without throwing or stalling', () => {
       const hand = deal(run.round, rng(run.seed + run.round));
       // Play greedily and stupidly: whatever comes first.
       const slots = hand.slice(0, PATH_SLOTS).map((id) => ({ id, from: 'hand', upgrade: false }));
-      const out = resolvePath(run, slots, r);
+      const out = resolvePath(run, slots);
       assert.ok(out.state.hp >= 1, 'the path floor held');
       assert.ok(Number.isFinite(out.state.gold) && out.state.gold >= 0, 'gold went strange');
       const g = drawGhost(run.round, run.wins, (seed * 31 + run.round) >>> 0);
       const d = duel(out.state, g, out.cleanPath);
-      run = settleRound({ ...out.state, stash: out.state.stash.slice(0, 3) }, d.won);
+      run = settleRound(out.state, d.won);
     }
     assert.ok(run.completed || run.hearts === 0);
   }

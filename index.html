@@ -64,10 +64,9 @@
 
     <!-- Planning -->
     <div id="plan-area" class="plan-area">
-      <!-- The tray and hand scroll together if a short phone can't fit them;
-           EMBARK stays pinned below so it's never the thing that gets clipped. -->
+      <!-- The hand scrolls if a short phone can't fit it; EMBARK stays pinned
+           below so it's never the thing that gets clipped. -->
       <div class="plan-scroll">
-        <div id="stash-tray" class="stash-tray"></div>
         <div class="hand-label"><span>YOUR HAND</span><em id="hand-hint">Tap a card to place it</em></div>
         <div id="hand" class="hand"></div>
       </div>
@@ -76,6 +75,13 @@
 
     <!-- Path resolution -->
     <div id="resolve-area" class="resolve-area hidden">
+      <!-- Shown only while a monster fight is playing out; same component as
+           the duel screen below, so a creep fight reads exactly as clearly. -->
+      <div id="path-fight-stage" class="duelists path-fight-stage hidden">
+        <div id="path-fight-me" class="duelist duelist-me"></div>
+        <div class="versus">VS</div>
+        <div id="path-fight-them" class="duelist duelist-them"></div>
+      </div>
       <div id="resolve-log" class="resolve-log"></div>
       <button id="btn-to-duel" class="btn btn-gold btn-big hidden">FACE THE GHOST</button>
     </div>
@@ -97,7 +103,6 @@
   <section id="screen-result" class="screen hidden">
     <h2 id="result-title" class="result-title">VICTORY</h2>
     <p id="result-sub" class="subtitle"></p>
-    <div id="result-spoils" class="result-spoils hidden"></div>
     <div id="result-stats" class="result-stats"></div>
     <button id="btn-next-round" class="btn btn-gold btn-big">NEXT ROUND</button>
   </section>
@@ -146,12 +151,6 @@
       <p>Path damage floors you at 1 HP. Arriving at the duel on 1 HP is punishment enough.
          <b>Hearts</b> — you have three — are only ever lost in the duel.</p>
 
-      <h3>Spoils and the Stash</h3>
-      <p>Some monsters drop a named <b>Spoil</b>. It doesn't attach itself: it goes to your
-         <b>Stash</b> and waits, through this round and every round after, until you spend a path
-         slot on it. Spoils cost no gold and never fizzle, but they compete for the same four
-         slots. The Stash holds three and empties at the start of every run.</p>
-
       <h3>The run</h3>
       <p><b>Five duel wins</b> completes a run. <b>Three losses</b> ends it. Between rounds you
          heal half your max HP; gold and ATK carry over in full.</p>
@@ -164,14 +163,6 @@
 <div id="detail" class="detail hidden" role="dialog" aria-modal="true">
   <div id="detail-card" class="detail-card"></div>
   <button id="detail-close" class="btn btn-ghost">Close</button>
-</div>
-
-<!-- Stash-full prompt (§7.2) -->
-<div id="stash-prompt" class="detail hidden" role="dialog" aria-modal="true">
-  <p class="prompt-title">STASH FULL</p>
-  <p id="stash-prompt-sub" class="prompt-sub"></p>
-  <div id="stash-prompt-cards" class="prompt-cards"></div>
-  <button id="stash-prompt-discard" class="btn btn-ghost">Discard the new one</button>
 </div>
 
 <!-- Floating card that follows a finger during a drag -->

@@ -1,7 +1,7 @@
 // Rendering. Every card face in the game is built by cardEl(), so a card looks
-// the same in your hand, in a path slot, in the Stash tray, and in the detail
-// sheet — only the size class changes. Nothing here decides anything; main.js
-// owns the flow and calls in.
+// the same in your hand, in a path slot, and in the detail sheet — only the
+// size class changes. Nothing here decides anything; main.js owns the flow
+// and calls in.
 
 import { card, cardText, keywordBadges } from './cards.js';
 import { costFor } from './engine.js';
@@ -30,10 +30,16 @@ export const ICON = {
   roadside_shrine: '⛩️', market_square: '🛒', blacksmith: '🔨', training_yard: '🎯',
   boneyard: '⚰️', watchtower: '🔭', ruined_chapel: '⛪', toll_bridge: '🌉',
   standing_stones: '🪨',
-  // spoils
-  wedge_of_cheese: '🧀', toxin_sac: '🧫', wolf_pelt_cloak: '🧣', stolen_purse: '👛',
-  troll_hide_mantle: '🧥', wraithglass_vial: '⚗️', warlords_horn: '🎺', golem_fist: '👊',
-  flaming_spear: '🔥', wyrmscale_aegis: '🪬', basilisk_eye: '👁️', chimera_fang: '🦴',
+};
+
+/** One monster glyph per fighting card, for the path-fight stage. */
+export const MONSTER_GLYPH = {
+  field_mouse: '🐭', sewer_rat: '🐀', wild_boar: '🐗', goblin_scrapper: '👺',
+  giant_spider: '🕷️', bandit_lookout: '🥷', bog_toad: '🐸', skeleton_picket: '💀',
+  feral_hound: '🐺', cave_troll: '🧌', marsh_wraith: '🌫️', bandit_captain: '🪖',
+  iron_golem: '⚙️', ogre_brute: '👹', wyvern_hatchling: '🥚', thornback_boar: '🦔',
+  hill_giant: '🏔️', basilisk: '🐍', stone_warden: '🗿', chimera: '🦁',
+  elder_wyrm: '🐉', flame_imp: '😈',
 };
 
 const el = (tag, cls, text) => {
@@ -51,7 +57,7 @@ export const $ = (sel) => document.querySelector(sel);
  * @param {string} id
  * @param {object} [opts]
  * @param {object} [opts.run]      the run, so gear shows *your* discounted price
- * @param {'hand'|'slot'|'stash'|'detail'} [opts.size]
+ * @param {'hand'|'slot'|'detail'} [opts.size]
  * @param {boolean} [opts.upgrade] the paid upgrade is armed
  * @param {boolean} [opts.dim]     fizzled / unaffordable
  */
@@ -69,8 +75,6 @@ export function cardEl(id, opts = {}) {
     // visible at planning time rather than a surprise during resolution.
     if (cost !== (c.cost || 0)) tag.classList.add('card-cost-cut');
     top.appendChild(tag);
-  } else if (c.type === 'spoil') {
-    top.appendChild(el('span', 'card-cost card-cost-free', 'SPOIL'));
   } else {
     top.appendChild(el('span', 'card-cost card-cost-free', c.type === 'monster' ? 'FIGHT' : 'FREE'));
   }
@@ -104,16 +108,6 @@ export function cardEl(id, opts = {}) {
     node.appendChild(btn);
   }
   if (opts.dim) node.classList.add('dim');
-  return node;
-}
-
-/** The small chip used for the Stash tray. */
-export function stashChip(id) {
-  const c = card(id);
-  const node = el('div', `chip tier-${c.tier}`);
-  node.dataset.id = id;
-  node.appendChild(el('span', 'chip-icon', ICON[id] || '❔'));
-  node.appendChild(el('span', 'chip-name', c.name));
   return node;
 }
 
@@ -155,9 +149,51 @@ export function renderHud(run, tierLabel) {
   kw.classList.toggle('hidden', !kw.childElementCount);
 }
 
-// ---- duel -----------------------------------------------------------------
+// ---- equipment panel --------------------------------------------------
+//
+// A fixed grid of equip slots — filled or empty, like OSRS's worn-equipment
+// screen or MapleStory's equip window — rather than a row of pill badges. The
+// whole point is that a fighter's kit reads as a shape at a glance: which
+// slots are lit tells you what they're carrying before you read a single
+// number. ATK is always filled (every fighter swings something); the rest
+// light up only if that fighter actually has the keyword.
+const EQUIP_SLOTS = [
+  { key: 'atk', kind: 'atk', icon: '⚔️', label: 'Weapon' },
+  { key: 'armour', kind: 'armour', icon: '🛡️', label: 'Armour' },
+  { key: 'poison', kind: 'poison', icon: '🧪', label: 'Poison' },
+  { key: 'thorns', kind: 'thorns', icon: '🧤', label: 'Thorns' },
+  { key: 'rally', kind: 'rally', icon: '🚩', label: 'Rally' },
+  { key: 'firstStrike', kind: 'first', icon: '👢', label: 'First Strike' },
+];
 
-/** One side of the duel: portrait, name, HP bar, live stat line. */
+/**
+ * Builds the slot grid for one fighter.
+ * @returns {{node: HTMLElement, cells: Record<string, HTMLElement>}}
+ */
+function equipGrid(fighter) {
+  const grid = el('div', 'equip-grid');
+  const cells = {};
+  for (const slot of EQUIP_SLOTS) {
+    const value = fighter[slot.key];
+    const active = slot.key === 'atk' ? true : Boolean(value);
+    const cell = el('div', `equip-slot equip-${slot.kind}${active ? ' filled' : ' empty'}`);
+    cell.appendChild(el('span', 'equip-icon', slot.icon));
+    if (active && slot.key !== 'firstStrike') cell.appendChild(el('span', 'equip-value', String(value)));
+    cell.title = active
+      ? (slot.key === 'firstStrike' ? slot.label : `${slot.label} ${value}`)
+      : `No ${slot.label}`;
+    grid.appendChild(cell);
+    cells[slot.key] = cell;
+  }
+  return { node: grid, cells };
+}
+
+// ---- fight stage ------------------------------------------------------
+//
+// One side of a fight: portrait, name, HP bar, equipment grid. Used for the
+// duel screen and, identically, for a path monster fight — same component,
+// same clarity, because §4's whole premise is that path and duel share one
+// resolver, so they should share one presentation too.
 export function duelistEl(mount, fighter, { glyph, sub }) {
   mount.textContent = '';
   mount.appendChild(el('div', 'duelist-glyph', glyph));
@@ -171,15 +207,8 @@ export function duelistEl(mount, fighter, { glyph, sub }) {
   bar.append(fill, text);
   mount.appendChild(bar);
 
-  const stats = el('div', 'duelist-stats');
-  stats.appendChild(el('span', 'stat stat-atk', `⚔ ${fighter.atk}`));
-  for (const k of keywordBadges({
-    armour: fighter.armour, thorns: fighter.thorns, poison: fighter.poison,
-    rally: fighter.rally, firstStrike: fighter.firstStrike,
-  })) {
-    stats.appendChild(el('span', `kw kw-${k.k}`, k.label));
-  }
-  mount.appendChild(stats);
+  const { node: equip, cells } = equipGrid(fighter);
+  mount.appendChild(equip);
 
   return {
     setHp(hp, maxHp) {
@@ -194,6 +223,15 @@ export function duelistEl(mount, fighter, { glyph, sub }) {
       // consecutive hit rather than being ignored as "already applied".
       void mount.offsetWidth;
       mount.classList.add(kind === 'poison' ? 'poisoned' : 'hit');
+    },
+    /** Pulse the equip slot responsible for a blow, so the source of every
+     *  point of damage is visibly traceable back to what's equipped. */
+    pulseSlot(key) {
+      const cell = cells[key];
+      if (!cell) return;
+      cell.classList.remove('pulse');
+      void cell.offsetWidth;
+      cell.classList.add('pulse');
     },
     float(text, kind) {
       const f = el('div', `floater floater-${kind}`, text);

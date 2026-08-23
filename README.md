@@ -6,9 +6,15 @@ duels a **ghost** — a snapshot of another character from the same point in the
 run. Five duel wins completes a run; three losses ends it.
 
 This is a playable prototype of [`docs/ghostwalk-design.md`](docs/ghostwalk-design.md)
-— the full 70-card pool, the five keywords, the shared combat resolver, Spoils
-and the Stash, and the whole run structure. It runs in a mobile browser and
-packages to an Android APK via Capacitor.
+— the 58-card pool, the five keywords, the shared combat resolver, and the
+whole run structure. It runs in a mobile browser and packages to an Android
+APK via Capacitor.
+
+Spoils and the Stash are cut from this pass: they were the only source of
+randomness in path resolution, and dropping them keeps a path's outcome a
+pure function of the four cards placed into it — one less thing to reconcile
+once ghosts and paths are real snapshots read over the network instead of
+local state.
 
 ---
 
@@ -35,20 +41,21 @@ its full text. Nothing commits until **Embark**.
 
 | | |
 |---|---|
-| **Cards** | All 70 — 22 monsters, 19 gear, 8 allies, 9 places, 12 Spoils |
+| **Cards** | All 58 — 22 monsters, 19 gear, 8 allies, 9 places |
 | **Keywords** | First Strike, Armour, Thorns, Poison, Rally. There is no sixth. |
 | **Combat** | One deterministic resolver, used identically for path fights and the duel |
+| **Animation** | Both fight types replay exchange-by-exchange, blow for blow, off the resolver's own log — a monster fight is no longer a compressed single number |
+| **Equipment panel** | An OSRS/MapleStory-style fixed slot grid (Weapon/Armour/Poison/Thorns/Rally/First Strike) on each duelist, filled or empty, pulsing the slot a hit actually came from |
 | **Path** | Four slots, fizzle on unpaid cost, paid upgrades armed at planning time |
-| **Spoils** | Drop rates, a 3-slot Stash that persists across rounds, the full-stash prompt |
 | **Ghosts** | Bucketed by `(round, wins)`, half generated bots and half your own past characters |
 | **Run** | 5 wins / 3 hearts, tier scaling by round, saved between rounds |
 
 ## What's deliberately out
 
 Card collection and deckbuilding, rarities beyond the tier system, energy or
-timers, social features, a sixth keyword, cross-run Stash persistence,
-cosmetics and monetisation. All of it is additive later; none of it makes round
-one better, and shipping without it means the core loop gets tested honestly.
+timers, social features, a sixth keyword, Spoils and the Stash, cosmetics and
+monetisation. All of it is additive later; none of it makes round one better,
+and shipping without it means the core loop gets tested honestly.
 
 ---
 
@@ -59,11 +66,11 @@ testable without a browser.
 
 ```
 js/engine.js     the rules: combat resolver, path resolution, run state
-js/cards.js      all 70 cards, as data
+js/cards.js      all 58 cards, as data
 js/ghosts.js     opponent generation, the four archetypes
 js/storage.js    localStorage: the run, ghost buckets, lifetime record
-js/main.js       flow control, gestures, the two animations
-js/ui.js         card faces, HUD, duel panels
+js/main.js       flow control, gestures, the shared exchange-by-exchange replay
+js/ui.js         card faces, HUD, duel panels, the equipment slot grid
 js/audio.js      music beds and synthesized SFX
 js/bg.js         the WebGL background (shared with GAMBIT)
 ```
@@ -94,7 +101,7 @@ from your last uploaded character, and it's marked as a placeholder in
 npm test
 ```
 
-49 tests over the rules. They assert the things a player is entitled to rely on
+45 tests over the rules. They assert the things a player is entitled to rely on
 when they plan a path: that combat is deterministic, that the §11 Cave Troll
 breakpoint table holds exactly, that the fizzle trap in the same section is
 reproducible, that you cannot die on the path, that mutual First Strike cancels,
@@ -115,7 +122,7 @@ keeps the single best-scoring one, every round — and scores the result
 against §12's tuning targets. `archetypes.mjs` asks whether each of the
 game's four named strategies (Aggro, Tank, Poison, Rally) is actually worth
 playing, not just a flavour label. `card-coverage.mjs` asks whether any of
-the 70 cards is dead weight nobody ever wants.
+the 58 cards is dead weight nobody ever wants.
 
 ### Ghosts are fixed snapshots, not opponents sized to fit
 
@@ -140,7 +147,7 @@ archetype keywords that make the fight against *that* character take a
 target number of exchanges (§12's own 3–6 window), the way Chronicle's own
 climactic "fight to the death" plays out over several real exchanges rather
 than one. A real player who's well above or below that canonical band — from
-skill, luck, or a good Spoil run — gets a fight that isn't perfectly matched
+skill or luck in what got dealt — gets a fight that isn't perfectly matched
 to them personally, the same way two real human players' snapshots wouldn't
 be either. That's normal variance in an async PvP game, not something ghost
 generation is responsible for erasing.
@@ -198,7 +205,7 @@ by enough to make committing to a theme feel like a trap.
 ### No dead cards
 
 `tools/card-coverage.mjs` runs the same six strategies and records which of
-the 70 cards each one ever actually chose. **All 70 get picked by at least
+the 58 cards each one ever actually chose. **All 58 get picked by at least
 one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever reach
 round 5, so those cards get fewer opportunities to be dealt at all — that's
 a sampling effect, not a balance problem) or cards that trade a resource

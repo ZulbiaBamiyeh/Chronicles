@@ -44,7 +44,6 @@
   --t-gear: #79a6ff;
   --t-ally: #5fd39a;
   --t-place: #b17ce0;
-  --t-spoil: #ffcf3f;
 
   --pixel: 'Silkscreen', ui-monospace, monospace;
   --body: 'Baloo 2', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -425,7 +424,6 @@ body.no-webgl #app {
 .card-gear    { --accent: var(--t-gear); }
 .card-ally    { --accent: var(--t-ally); }
 .card-place   { --accent: var(--t-place); }
-.card-spoil   { --accent: var(--t-spoil); box-shadow: 0 0 0 1px rgba(255, 207, 63, 0.35), 0 4px 14px rgba(0, 0, 0, 0.5); }
 
 .card.placed { opacity: 0.24; filter: saturate(0.3); pointer-events: none; }
 .card.dim { opacity: 0.5; }
@@ -564,41 +562,6 @@ body.is-dragging { cursor: grabbing; }
   padding-bottom: 0.2rem;
 }
 
-.stash-tray {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-  background: rgba(7, 10, 22, 0.6);
-  border: 1px solid var(--line);
-  border-radius: 0.55rem;
-  padding: 0.3rem 0.4rem;
-  min-height: 2rem;
-}
-.stash-label {
-  font-family: var(--pixel);
-  font-size: 0.5rem;
-  color: var(--gold);
-  letter-spacing: 0.06em;
-}
-.stash-empty { font-size: 0.62rem; color: var(--dim); opacity: 0.75; }
-
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 0.22rem;
-  padding: 0.2rem 0.4rem 0.2rem 0.28rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(255, 207, 63, 0.5);
-  background: linear-gradient(180deg, rgba(60, 48, 12, 0.8), rgba(20, 16, 6, 0.9));
-  font-size: 0.6rem;
-  color: var(--bone);
-  white-space: nowrap;
-}
-.chip.placed { opacity: 0.28; pointer-events: none; }
-.chip-icon { font-size: 0.85rem; }
-.chip-name { font-family: var(--pixel); font-size: 0.45rem; }
-
 .hand-label {
   display: flex;
   justify-content: space-between;
@@ -662,7 +625,6 @@ body.is-dragging { cursor: grabbing; }
 }
 .log-good { color: #a8e8c0; }
 .log-bad { color: #ff9aa8; }
-.log-spoil { color: var(--gold); font-weight: 600; }
 .log-ghost {
   color: var(--ghost);
   font-family: var(--pixel);
@@ -700,12 +662,6 @@ body.is-dragging { cursor: grabbing; }
 .floater-good { color: #a8e8c0; border-color: rgba(95, 211, 154, 0.6); }
 .floater-gold { color: var(--gold); border-color: rgba(255, 207, 63, 0.6); }
 .floater-poison { color: var(--venom); border-color: rgba(126, 217, 87, 0.6); }
-.floater-spoil {
-  color: var(--gold);
-  font-size: 1.1rem;
-  border-color: var(--gold);
-  box-shadow: 0 0 16px rgba(255, 207, 63, 0.6);
-}
 
 /* ===================== duel ===================== */
 
@@ -757,13 +713,64 @@ body.is-dragging { cursor: grabbing; }
   min-height: 1.4em;
 }
 .hpbar-duel { width: 100%; }
-.duelist-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  justify-content: center;
+
+/* Equipment grid — OSRS/MapleStory-style worn-equipment slots rather than a
+   row of stat pills, so a fighter's whole kit reads as a shape at a glance.
+   Fixed 3x2 layout: every fighter shows the same six slots, filled or empty,
+   so "what does this ghost actually have" is answerable in half a second. */
+.equip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.26rem;
+  width: 100%;
+  margin-top: 0.05rem;
 }
-.duelist-stats .stat { font-size: 0.56rem; padding: 0.12rem 0.28rem; }
+.equip-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.02rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.32);
+}
+.equip-slot.empty { border-style: dashed; opacity: 0.55; }
+.equip-slot.filled { background: rgba(0, 0, 0, 0.5); border-style: solid; }
+.equip-icon { font-size: clamp(0.8rem, 3.6vw, 1rem); line-height: 1; filter: grayscale(1); opacity: 0.4; }
+.equip-slot.filled .equip-icon { filter: none; opacity: 1; }
+.equip-value {
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  color: var(--dim);
+}
+.equip-slot.filled .equip-value { font-weight: 700; }
+
+/* One accent per keyword, matching the .kw-* palette used on card faces and
+   the HUD — the same colour means the same stat everywhere in the app. */
+.equip-atk.filled    { border-color: #ffb08a; }
+.equip-atk.filled .equip-value    { color: #ffb08a; }
+.equip-armour.filled { border-color: #9fc0ff; }
+.equip-armour.filled .equip-value { color: #9fc0ff; }
+.equip-poison.filled { border-color: var(--venom); }
+.equip-poison.filled .equip-value { color: var(--venom); }
+.equip-thorns.filled { border-color: #ffa07a; }
+.equip-thorns.filled .equip-value { color: #ffa07a; }
+.equip-rally.filled  { border-color: var(--gold); }
+.equip-rally.filled .equip-value  { color: var(--gold); }
+.equip-first.filled  { border-color: var(--ghost); }
+
+/* Pulses once when this slot is what just landed or answered a blow — the
+   thing that makes "the player's attack, armour, thorns" traceable moment
+   to moment, not just stated afterward in a log line. */
+.equip-slot.pulse { animation: equipPulse 0.5s ease; }
+@keyframes equipPulse {
+  0% { transform: scale(1); box-shadow: none; }
+  35% { transform: scale(1.32); box-shadow: 0 0 14px rgba(255, 244, 200, 0.85); }
+  100% { transform: scale(1); box-shadow: none; }
+}
 
 .versus {
   align-self: center;
@@ -785,6 +792,16 @@ body.is-dragging { cursor: grabbing; }
   0%, 100% { filter: none; }
   50% { filter: hue-rotate(65deg) brightness(1.25); }
 }
+
+/* A monster fight on the path reuses .duelists/.duelist wholesale (same
+   markup, same component) so it reads exactly as clearly as the duel — just
+   trimmed down since it shares the screen with the path row above and the
+   log below, and there can be up to four of these in one path. */
+.path-fight-stage { margin-bottom: 0.15rem; flex: none; }
+.path-fight-stage .duelist { padding: 0.4rem 0.32rem; gap: 0.16rem; }
+.path-fight-stage .duelist-glyph { font-size: clamp(1.2rem, 6.5vw, 1.7rem); }
+.path-fight-stage .duelist-sub { min-height: 0; }
+.path-fight-stage .equip-grid { gap: 0.2rem; }
 
 .duel-feed {
   flex: 0 1 auto;
@@ -815,19 +832,6 @@ body.is-dragging { cursor: grabbing; }
 /* ===================== result / over ===================== */
 
 #screen-result, #screen-over { justify-content: center; gap: 0.7rem; }
-
-.result-spoils {
-  width: min(340px, 100%);
-  text-align: center;
-}
-.spoils-label {
-  font-family: var(--pixel);
-  font-size: 0.5rem;
-  letter-spacing: 0.1em;
-  color: var(--gold);
-  margin: 0 0 0.35rem;
-}
-.spoils-row { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; }
 
 .result-stats {
   width: min(340px, 100%);
@@ -904,28 +908,6 @@ body.is-dragging { cursor: grabbing; }
   max-width: 30ch;
   margin: 0.5rem 0 0;
 }
-
-.prompt-title {
-  font-family: var(--pixel);
-  font-size: 0.9rem;
-  color: var(--gold);
-  letter-spacing: 0.08em;
-  margin: 0;
-}
-.prompt-sub {
-  font-size: 0.8rem;
-  color: var(--dim);
-  text-align: center;
-  max-width: 30ch;
-  margin: 0;
-}
-.prompt-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.4rem;
-  width: min(340px, 100%);
-}
-.prompt-cards .card { aspect-ratio: 3 / 4.2; height: auto; cursor: pointer; }
 
 /* Landscape and tall screens: the whole board is centred and capped so it
    never stretches into an unreadable strip on a tablet. */

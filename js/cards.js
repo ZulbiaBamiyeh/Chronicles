@@ -1,5 +1,4 @@
-// The whole card pool: 58 cards that can be dealt to a hand, plus 12 Spoils
-// that only ever arrive as monster drops.
+// The whole card pool: 58 cards that can be dealt to a hand.
 //
 // Cards are data, not behaviour. A card describes *what* it does with an `fx`
 // bag of stat deltas; the handful of cards whose value depends on the state of
@@ -14,36 +13,34 @@
 //
 // ctx passed to dyn():
 //   { slot, slots, gold, monstersDefeated, usedWatchtower, paidUpgrade }
+//
+// The design doc's §7 Spoils-and-Stash system (named item drops from
+// monsters, held until spent) is deliberately not implemented here — cut for
+// this prototype pass so the fight itself could get the attention instead.
+// See README.md.
 
-/** @typedef {'monster'|'gear'|'ally'|'place'|'spoil'} CardType */
+/** @typedef {'monster'|'gear'|'ally'|'place'} CardType */
 
 export const MONSTERS = [
   // ---- Tier 1 ----
-  { no: 1, id: 'field_mouse', name: 'Field Mouse', tier: 1, hp: 2, atk: 1, kw: {},
-    gold: 2, spoil: { id: 'wedge_of_cheese', rate: 0.20 } },
+  { no: 1, id: 'field_mouse', name: 'Field Mouse', tier: 1, hp: 2, atk: 1, kw: {}, gold: 2 },
   { no: 2, id: 'sewer_rat', name: 'Sewer Rat', tier: 1, hp: 3, atk: 1, kw: {}, gold: 3 },
   { no: 3, id: 'wild_boar', name: 'Wild Boar', tier: 1, hp: 5, atk: 2, kw: {}, gold: 4 },
   { no: 4, id: 'goblin_scrapper', name: 'Goblin Scrapper', tier: 1, hp: 4, atk: 2, kw: {},
     gold: 3, trophy: { atk: 1 } },
-  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 },
-    gold: 4, spoil: { id: 'toxin_sac', rate: 0.15 } },
-  { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 6, atk: 2, kw: {},
-    gold: 5, spoil: { id: 'stolen_purse', rate: 0.15 } },
+  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 }, gold: 4 },
+  { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 6, atk: 2, kw: {}, gold: 5 },
   { no: 7, id: 'bog_toad', name: 'Bog Toad', tier: 1, hp: 8, atk: 1, kw: {},
     gold: 4, trophy: { maxHp: 2 } },
   { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 5, atk: 3, kw: { armour: 1 }, gold: 6 },
-  { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 3, atk: 2, kw: { firstStrike: true },
-    gold: 4, spoil: { id: 'wolf_pelt_cloak', rate: 0.18 } },
+  { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 3, atk: 2, kw: { firstStrike: true }, gold: 4 },
 
   // ---- Tier 2 ----
-  { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 14, atk: 5, kw: {},
-    gold: 9, spoil: { id: 'troll_hide_mantle', rate: 0.14 } },
-  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 2 },
-    gold: 8, spoil: { id: 'wraithglass_vial', rate: 0.12 } },
+  { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 14, atk: 5, kw: {}, gold: 9 },
+  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 2 }, gold: 8 },
   { no: 12, id: 'bandit_captain', name: 'Bandit Captain', tier: 2, hp: 12, atk: 6, kw: {},
-    gold: 10, trophy: { atk: 1 }, spoil: { id: 'warlords_horn', rate: 0.12 } },
-  { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 },
-    gold: 11, spoil: { id: 'golem_fist', rate: 0.10 } },
+    gold: 10, trophy: { atk: 1 } },
+  { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 }, gold: 11 },
   { no: 14, id: 'ogre_brute', name: 'Ogre Brute', tier: 2, hp: 18, atk: 7, kw: {},
     gold: 12, trophy: { maxHp: 3 } },
   { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 11, atk: 5, kw: { firstStrike: true }, gold: 9 },
@@ -51,15 +48,12 @@ export const MONSTERS = [
 
   // ---- Tier 3 ----
   { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {}, gold: 16 },
-  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 4 },
-    gold: 15, spoil: { id: 'basilisk_eye', rate: 0.09 } },
+  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 4 }, gold: 15 },
   { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 30, atk: 8, kw: { armour: 5 }, gold: 18 },
-  { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true },
-    gold: 17, spoil: { id: 'chimera_fang', rate: 0.08 } },
+  { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true }, gold: 17 },
   { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 32, atk: 10, kw: { rally: 2 },
-    gold: 20, trophy: { atk: 2 }, spoil: { id: 'wyrmscale_aegis', rate: 0.08 } },
-  { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {},
-    gold: 14, spoil: { id: 'flaming_spear', rate: 0.10 } },
+    gold: 20, trophy: { atk: 2 } },
+  { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {}, gold: 14 },
 ].map((m) => ({ ...m, type: 'monster' }));
 
 export const GEAR = [
@@ -141,50 +135,11 @@ export const PLACES = [
     text: '+2 max HP and +1 ATK. Doubled if this is your fourth slot.' },
 ].map((p) => ({ ...p, type: 'place' }));
 
-// Spoils are never dealt. They drop from monsters, sit in the Stash until the
-// player spends a path slot on them, cost no gold, and never fizzle. They run
-// roughly 25% above a same-tier gear card, paid for by rarity plus either a
-// timing condition or a lean into a matchup-dependent keyword.
-export const SPOILS = [
-  // ---- Tier 1 ----
-  { no: 59, id: 'wedge_of_cheese', name: 'Wedge of Cheese', tier: 1, from: 'Field Mouse',
-    dyn: (ctx) => ({ heal: ctx.slot === 3 ? 14 : 8 }),
-    text: 'Heal 8. Heal 14 instead if this is your last path slot.' },
-  { no: 60, id: 'toxin_sac', name: 'Toxin Sac', tier: 1, from: 'Giant Spider',
-    dyn: (ctx) => ({ poison: ctx.usedWatchtower ? 6 : 3 }),
-    text: "Poison 3. Poison 6 instead if you've used Watchtower this round." },
-  { no: 61, id: 'wolf_pelt_cloak', name: 'Wolf Pelt Cloak', tier: 1, from: 'Feral Hound',
-    fx: { armour: 2, thorns: 2 }, text: 'Armour 2, Thorns 2.' },
-  { no: 62, id: 'stolen_purse', name: 'Stolen Purse', tier: 1, from: 'Bandit Lookout',
-    fx: { gold: 10 }, text: '+10 gold instantly, usable by later slots in the same path.' },
-
-  // ---- Tier 2 ----
-  { no: 63, id: 'troll_hide_mantle', name: 'Troll-Hide Mantle', tier: 2, from: 'Cave Troll',
-    fx: { armour: 3, maxHp: 8 }, text: 'Armour 3, +8 max HP.' },
-  { no: 64, id: 'wraithglass_vial', name: 'Wraithglass Vial', tier: 2, from: 'Marsh Wraith',
-    fx: { poison: 4, firstStrike: true }, text: 'Poison 4, First Strike.' },
-  { no: 65, id: 'warlords_horn', name: "Warlord's Horn", tier: 2, from: 'Bandit Captain',
-    fx: { rally: 3 }, text: 'Rally 3.' },
-  { no: 66, id: 'golem_fist', name: 'Golem Fist', tier: 2, from: 'Iron Golem',
-    dyn: (ctx) => ({ atk: ctx.gold === 0 ? 14 : 8 }),
-    text: '+8 ATK. +6 more (14 total) if played with 0 gold remaining.' },
-
-  // ---- Tier 3 ----
-  { no: 67, id: 'flaming_spear', name: 'Flaming Spear', tier: 3, from: 'Flame Imp',
-    fx: { atk: 12, poison: 3 }, text: '+12 ATK, Poison 3.' },
-  { no: 68, id: 'wyrmscale_aegis', name: 'Wyrmscale Aegis', tier: 3, from: 'Elder Wyrm',
-    fx: { armour: 6, rally: 2 }, text: 'Armour 6, Rally 2.' },
-  { no: 69, id: 'basilisk_eye', name: 'Basilisk Eye', tier: 3, from: 'Basilisk',
-    dyn: (ctx) => ({ poison: ctx.usedWatchtower ? 10 : 6 }),
-    text: "Poison 6. Poison 10 instead if you've used Watchtower this round." },
-  { no: 70, id: 'chimera_fang', name: 'Chimera Fang', tier: 3, from: 'Chimera',
-    fx: { atk: 10, firstStrike: true, thorns: 2 }, text: '+10 ATK, First Strike, Thorns 2.' },
-].map((s) => ({ ...s, type: 'spoil', cost: 0 }));
-
-/** Everything a hand can be dealt from. Spoils are deliberately excluded. */
+/** Everything a hand can be dealt from — the whole pool, since there's no
+ *  Spoils tier held back for monster drops. */
 export const DEAL_POOL = [...MONSTERS, ...GEAR, ...ALLIES, ...PLACES];
 
-export const ALL_CARDS = [...DEAL_POOL, ...SPOILS];
+export const ALL_CARDS = DEAL_POOL;
 
 const BY_ID = new Map(ALL_CARDS.map((c) => [c.id, c]));
 
