@@ -75,6 +75,95 @@ test('the presets carry the cards that read the rest of your build', () => {
   assert.deepEqual(orphans, [], 'these scaling cards are in no preset deck');
 });
 
+// ---------------------------------------------------------------------------
+// Cards that read the rest of your build. These are what make a path four
+// related decisions instead of four unrelated numbers, so the arithmetic
+// behind each one is worth pinning down.
+// ---------------------------------------------------------------------------
+
+// Plays one card into slot `at` of a four-slot path and returns what it gave.
+const played = (run, id, at = 0, path = []) => {
+  const slots = [null, null, null, null];
+  path.forEach((pid, i) => { if (pid) slots[i] = { id: pid, from: 'hand' }; });
+  slots[at] = { id, from: 'hand' };
+  const out = resolvePath({ ...run, hand: [...slots.filter(Boolean).map((s) => s.id)] }, slots);
+  return out.events.find((e) => e.id === id && e.kind === 'card')?.fx || {};
+};
+
+test('cross-keyword cards pay out of what you already built', () => {
+  const base = { ...newRun(900), gold: 99 };
+
+  // Bramblelord turns Armour into Thorns, so an Armour investment is worth
+  // something to a build that never bought a Thorns item.
+  assert.equal(played({ ...base, kw: { ...base.kw, armour: 5 } }, 'bramblelord').thorns, 5);
+  assert.equal(played({ ...base, kw: { ...base.kw, armour: 0 } }, 'bramblelord').thorns, 0);
+
+  // Warden's Oath pays the other direction, at half rate rounded up.
+  assert.equal(played({ ...base, kw: { ...base.kw, thorns: 5 } }, 'wardens_oath').armour, 3);
+  assert.equal(played({ ...base, kw: { ...base.kw, thorns: 4 } }, 'wardens_oath').armour, 2);
+
+  // Toxinsmith counts Poison *items*, not the Poison stat — so it rewards
+  // having committed to the theme rather than a single big vial.
+  assert.equal(played({ ...base, gear: [] }, 'toxinsmith').poison, 1);
+  assert.equal(played({ ...base, gear: ['venom_flask', 'plague_censer'] }, 'toxinsmith').poison, 3);
+
+  // Ironblood Rite converts Armour into a bigger, fuller HP pool.
+  const rite = played({ ...base, kw: { ...base.kw, armour: 4 } }, 'ironblood_rite');
+  assert.equal(rite.maxHp, 4);
+  assert.equal(rite.heal, 4);
+});
+
+test('the weapon cards read the blade actually in your hand', () => {
+  const base = { ...newRun(901), gold: 99 };
+
+  // Master's Forge is worth exactly the weapon you committed to — nothing at
+  // all bare-handed, which is what makes trading up an arc rather than a sum.
+  assert.equal(played({ ...base, gear: [] }, 'masters_forge').atk, 0);
+  assert.equal(played({ ...base, gear: ['rusty_sword'] }, 'masters_forge').atk, 3);
+  assert.equal(played({ ...base, gear: ['runed_greatsword'] }, 'masters_forge').atk, 11);
+  // Only the weapon that wins the slot counts, so hoarding cheap blades is not
+  // a substitute for carrying one great one.
+  assert.equal(played({ ...base, gear: ['rusty_sword', 'runed_greatsword'] }, 'masters_forge').atk, 11);
+
+  assert.equal(played({ ...base, gear: [] }, 'grindstone').atk, 2);
+  assert.equal(played({ ...base, gear: ['rusty_sword'] }, 'grindstone').atk, 4);
+
+  // Armsmaster counts the arsenal instead, so it rewards the opposite habit.
+  assert.equal(played({ ...base, gear: [] }, 'armsmaster').atk, 2);
+  assert.equal(played({ ...base, gear: ['rusty_sword', 'hunting_bow'] }, 'armsmaster').atk, 6);
+});
+
+test('adjacency cards read where they were placed, so ordering is a real choice', () => {
+  const base = { ...newRun(902), gold: 99 };
+
+  // Same card, same hand, different order — worth 5 ATK beside a monster and 2
+  // on its own. This is the whole reason a path is laid out rather than piled.
+  assert.equal(played(base, 'flanking_strike', 1, ['wild_boar']).atk, 5);
+  assert.equal(played(base, 'flanking_strike', 1, ['roadside_shrine']).atk, 2);
+  assert.equal(played(base, 'flanking_strike', 0).atk, 2, 'nothing to the left of slot one');
+
+  assert.equal(played(base, 'scavengers_cache', 1, ['wild_boar']).gold, 8);
+  assert.equal(played(base, 'scavengers_cache', 1, ['roadside_shrine']).gold, 3);
+
+  // Ambusher's Nook looks *forward*, so it has to be planned before the fight
+  // rather than reacted to after one.
+  assert.equal(played(base, 'ambushers_nook', 0, [null, 'wild_boar']).thorns, 5);
+  assert.equal(played(base, 'ambushers_nook', 0, [null, 'roadside_shrine']).thorns, 2);
+
+  const flanked = played(base, 'ritual_circle', 1, ['roadside_shrine', null, 'market_square']);
+  assert.equal(flanked.atk, 4);
+  assert.equal(flanked.maxHp, 4);
+  const alone = played(base, 'ritual_circle', 1, ['wild_boar', null, 'market_square']);
+  assert.equal(alone.atk, 2);
+});
+
+test("Berserker's Rite pays for hearts you've lost, so a losing series is fightable", () => {
+  const base = { ...newRun(903), gold: 99 };
+  assert.equal(played({ ...base, hearts: 3 }, 'berserkers_rite').atk, 0);
+  assert.equal(played({ ...base, hearts: 2 }, 'berserkers_rite').atk, 3);
+  assert.equal(played({ ...base, hearts: 1 }, 'berserkers_rite').atk, 6);
+});
+
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
   assert.equal(ids.size, 119);
