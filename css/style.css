@@ -289,15 +289,15 @@ body.no-webgl #app {
 .hud-top { display: flex; align-items: center; gap: 0.5rem; }
 .pill {
   font-family: var(--pixel);
-  font-size: 0.55rem;
+  font-size: 0.72rem;
   letter-spacing: 0.04em;
   color: var(--ghost);
   border: 1px solid var(--line-hot);
   border-radius: 0.4rem;
-  padding: 0.22rem 0.4rem;
+  padding: 0.24rem 0.44rem;
   white-space: nowrap;
 }
-.hearts { font-size: 0.9rem; letter-spacing: 0.06em; color: var(--blood); }
+.hearts { font-size: 1.05rem; letter-spacing: 0.06em; color: var(--blood); }
 .heart.spent { color: rgba(255, 255, 255, 0.16); }
 .wins { display: flex; gap: 0.22rem; margin-left: auto; }
 .pip {
@@ -337,7 +337,7 @@ body.no-webgl #app {
   display: block;
   text-align: center;
   font-family: var(--pixel);
-  font-size: 0.55rem;
+  font-size: 0.76rem;
   line-height: 1.15rem;
   color: #fff;
   paint-order: stroke fill;
@@ -347,16 +347,16 @@ body.no-webgl #app {
 .stat {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.24rem;
   font-family: var(--pixel);
-  font-size: 0.65rem;
-  padding: 0.16rem 0.34rem;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.42rem;
   border-radius: 0.4rem;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--line);
   white-space: nowrap;
 }
-.stat i { font-style: normal; opacity: 0.85; }
+.stat i { font-style: normal; font-size: 0.9em; opacity: 0.85; }
 .stat-atk { color: #ffb08a; }
 .stat-gold { color: var(--gold); }
 
@@ -471,20 +471,20 @@ body.no-webgl #app {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.04rem;
-  min-width: 1.02rem;
-  height: 1.02rem;
-  padding: 0 0.12rem;
+  gap: 0.05rem;
+  min-width: 1.32rem;
+  height: 1.32rem;
+  padding: 0 0.14rem;
   border-radius: 50%;
   font-family: var(--pixel);
-  font-size: 0.52rem;
+  font-size: 0.72rem;
   line-height: 1;
   color: #10142a;
   border: 1px solid rgba(0, 0, 0, 0.5);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
 }
-.gem-icon { font-size: 0.36rem; opacity: 0.75; }
+.gem-icon { font-size: 0.46rem; opacity: 0.8; }
 .gem-value { font-weight: 700; }
 
 .gem-cost {
@@ -546,7 +546,7 @@ body.no-webgl #app {
 
 .card-name {
   font-family: var(--pixel);
-  font-size: 0.48rem;
+  font-size: 0.6rem;
   line-height: 1.25;
   text-align: center;
   color: var(--bone);
@@ -560,8 +560,8 @@ body.no-webgl #app {
 }
 .card-kw { display: flex; flex-wrap: wrap; gap: 0.14rem; justify-content: center; }
 .card-text {
-  font-size: 0.62rem;
-  line-height: 1.22;
+  font-size: 0.7rem;
+  line-height: 1.24;
   text-align: center;
   color: var(--dim);
   overflow: hidden;
@@ -571,14 +571,14 @@ body.no-webgl #app {
    effect text and show keywords as bare colour chips. The detail sheet (long
    press) is where the full wording lives. */
 .card-slot { padding: 0.26rem 0.16rem; gap: 0.05rem; justify-content: space-evenly; }
-.card-slot .card-name { font-size: 0.44rem; }
+.card-slot .card-name { font-size: 0.58rem; }
 .card-slot .card-art { margin-top: 0.6rem; aspect-ratio: 1 / 0.62; }
 .card-slot .card-art-glyph { font-size: clamp(1.1rem, 5.5vw, 1.6rem); }
 .card-slot .card-text { display: none; }
 .card-slot .card-gem {
-  min-width: 0.86rem;
-  height: 0.86rem;
-  font-size: 0.44rem;
+  min-width: 1.08rem;
+  height: 1.08rem;
+  font-size: 0.58rem;
 }
 .card-slot .gem-icon { display: none; }
 .card-slot .card-kw .kw {
@@ -973,12 +973,12 @@ body.is-dragging { cursor: grabbing; }
 .rival-id { flex: 1; min-width: 0; }
 .rival-name {
   font-family: var(--pixel);
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   color: var(--ghost);
   line-height: 1.2;
 }
 .rival-arch {
-  font-size: 0.56rem;
+  font-size: 0.7rem;
   color: var(--dim);
   text-transform: capitalize;
   line-height: 1.3;
@@ -986,33 +986,33 @@ body.is-dragging { cursor: grabbing; }
 .rival-score {
   display: flex;
   align-items: baseline;
-  gap: 0.12rem;
+  gap: 0.14rem;
   font-family: var(--pixel);
-  font-size: 0.8rem;
-  padding: 0.14rem 0.36rem;
+  font-size: 0.95rem;
+  padding: 0.16rem 0.4rem;
   border-radius: 0.35rem;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--line);
 }
 .score-me { color: var(--gold); }
-.score-sep { color: var(--dim); font-size: 0.6rem; }
+.score-sep { color: var(--dim); font-size: 0.72rem; }
 .score-them { color: var(--blood); }
 
-.rival-stats { display: flex; flex-wrap: wrap; gap: 0.26rem; }
+.rival-stats { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .rival-stat {
   display: flex;
   align-items: baseline;
-  gap: 0.16rem;
+  gap: 0.2rem;
   font-family: var(--pixel);
-  font-size: 0.5rem;
-  padding: 0.14rem 0.3rem;
+  font-size: 0.68rem;
+  padding: 0.18rem 0.38rem;
   border-radius: 0.3rem;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--line);
   color: var(--dim);
 }
 .rival-stat i { font-style: normal; opacity: 0.8; }
-.rival-stat b { font-size: 0.56rem; }
+.rival-stat b { font-size: 0.76rem; }
 .rs-atk    { border-color: rgba(255, 176, 138, 0.5); color: #ffb08a; }
 .rs-hp     { border-color: rgba(126, 227, 154, 0.45); color: #7ee39a; }
 .rs-armour { border-color: rgba(159, 192, 255, 0.5); color: #9fc0ff; }
@@ -1216,38 +1216,67 @@ body.is-dragging { cursor: grabbing; }
    row of stat pills, so a fighter's whole kit reads as a shape at a glance.
    Fixed 3x2 layout: every fighter shows the same six slots, filled or empty,
    so "what does this ghost actually have" is answerable in half a second. */
+/* A framed equipment window, MapleStory-style: a beveled panel with the
+   weapon slot drawn as the hero cell (2x2) since it's the one thing every
+   fighter has, and five supporting slots reading around it. Not a literal
+   paperdoll — a fighter's silhouette already sits above this panel — but the
+   same "here's your kit, at a glance" grammar: filled slots are lit and
+   coloured by keyword, empty ones sit dashed and dim. */
 .equip-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.26rem;
+  grid-template-rows: repeat(3, 1fr);
+  grid-template-areas:
+    "atk    atk    armour"
+    "atk    atk    poison"
+    "thorns rally  first";
+  gap: 0.3rem;
   width: 100%;
-  margin-top: 0.05rem;
+  margin-top: 0.15rem;
+  padding: 0.32rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--line-hot);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%),
+    rgba(3, 5, 14, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
+.equip-atk    { grid-area: atk; }
+.equip-armour { grid-area: armour; }
+.equip-poison { grid-area: poison; }
+.equip-thorns { grid-area: thorns; }
+.equip-rally  { grid-area: rally; }
+.equip-first  { grid-area: first; }
+
 .equip-slot {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.02rem;
+  gap: 0.06rem;
   aspect-ratio: 1 / 1;
-  border-radius: 0.4rem;
+  border-radius: 0.42rem;
   border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.32);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.34);
+  box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  cursor: pointer;
 }
-.equip-slot.empty { border-style: dashed; opacity: 0.4; }
+.equip-atk.equip-slot { aspect-ratio: auto; }
+.equip-slot.empty { border-style: dashed; opacity: 0.42; }
 .equip-slot.filled {
   border-style: solid;
   background:
-    radial-gradient(circle at 50% 32%, color-mix(in srgb, currentColor 20%, transparent), transparent 70%),
-    rgba(0, 0, 0, 0.5);
+    radial-gradient(circle at 50% 32%, color-mix(in srgb, currentColor 22%, transparent), transparent 70%),
+    rgba(0, 0, 0, 0.52);
 }
-.equip-icon { font-size: clamp(0.8rem, 3.6vw, 1rem); line-height: 1; filter: grayscale(1); opacity: 0.4; }
+.equip-atk .equip-icon { font-size: clamp(1.5rem, 7vw, 2.1rem); }
+.equip-icon { font-size: clamp(1.05rem, 4.6vw, 1.35rem); line-height: 1; filter: grayscale(1); opacity: 0.4; }
 .equip-slot.filled .equip-icon { filter: none; opacity: 1; }
+.equip-atk .equip-value { font-size: 0.9rem; }
 .equip-value {
   font-family: var(--pixel);
-  font-size: 0.46rem;
+  font-size: 0.66rem;
   color: var(--dim);
 }
 .equip-slot.filled .equip-value { font-weight: 700; }
@@ -1271,6 +1300,66 @@ body.is-dragging { cursor: grabbing; }
   35% { transform: scale(1.32); box-shadow: 0 0 14px rgba(255, 244, 200, 0.85); }
   100% { transform: scale(1); box-shadow: none; }
 }
+
+/* The equip-slot breakdown popover: "Armour 4" on its own doesn't say why —
+   this does, itemised. Positioned in JS (top/left set inline); this just
+   handles look, entrance, and the above/below flip. */
+.equip-tip {
+  position: fixed;
+  z-index: 80;
+  min-width: 8.5rem;
+  max-width: 15rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line-hot);
+  background: rgba(6, 8, 20, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  pointer-events: auto;
+  animation: tipIn 0.12s ease;
+}
+@keyframes tipIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.equip-tip.flip { animation-name: tipInFlip; }
+@keyframes tipInFlip {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.equip-tip-title {
+  font-family: var(--pixel);
+  font-size: 0.7rem;
+  color: var(--bone);
+  margin-bottom: 0.3rem;
+}
+.equip-tip-empty {
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+.equip-tip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+.equip-tip-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--bone);
+}
+.equip-tip-amount {
+  font-family: var(--pixel);
+  font-size: 0.68rem;
+  color: var(--gold);
+  flex: none;
+}
+.equip-tip-rest {
+  color: var(--dim);
+  font-style: italic;
+}
+.equip-tip-rest .equip-tip-amount { color: var(--dim); }
 
 .versus {
   align-self: center;
@@ -1530,79 +1619,6 @@ body.is-dragging { cursor: grabbing; }
 .path-fight-stage .duelist-sub { min-height: 0; }
 .path-fight-stage .equip-grid { gap: 0.2rem; }
 
-.duel-feed {
-  flex: 0 1 auto;
-  width: 100%;
-  min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: rgba(7, 10, 22, 0.66);
-  border: 1px solid var(--line);
-  border-radius: 0.6rem;
-  padding: 0.5rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.28rem;
-}
-/* An exchange is a hard divider, not a whisper — it's the unit the whole
-   fight is counted in. */
-.feed-ex {
-  font-family: var(--pixel);
-  font-size: 0.56rem;
-  letter-spacing: 0.2em;
-  color: var(--bone);
-  text-align: center;
-  margin-top: 0.5rem;
-  padding: 0.24rem 0;
-  border-top: 1px solid var(--line-hot);
-  border-bottom: 1px solid var(--line-hot);
-  background: rgba(255, 255, 255, 0.035);
-}
-.feed-ex:first-child { margin-top: 0; }
-
-/* The phase heading. This is the line that makes a fight readable: it says
-   *why* the next numbers are about to move, before they move. */
-.feed-phase {
-  display: flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  margin-top: 0.34rem;
-  padding-left: 0.1rem;
-}
-.phase-icon { font-size: 0.62rem; line-height: 1; }
-.phase-label {
-  font-family: var(--pixel);
-  font-size: 0.5rem;
-  letter-spacing: 0.1em;
-}
-.phase-note { font-size: 0.54rem; color: var(--dim); opacity: 0.8; }
-.phase-poison .phase-label { color: var(--venom); }
-.phase-thorns .phase-label { color: #ffa07a; }
-.phase-attack .phase-label { color: #ffd0b4; }
-.phase-firstStrike .phase-label { color: var(--ghost); }
-
-/* A single blow. The damage is pushed to the right edge and given its own
-   weight so a column of hits can be scanned down rather than read. */
-.feed-line {
-  display: flex;
-  align-items: baseline;
-  gap: 0.18rem;
-  padding-left: 0.85rem;
-}
-.hit-who { color: var(--bone); }
-.hit-verb { color: var(--dim); }
-.hit-whom { color: var(--bone); }
-.hit-amount {
-  margin-left: auto;
-  font-family: var(--pixel);
-  font-size: 0.6rem;
-  padding-left: 0.4rem;
-}
-.hit-attack .hit-amount, .hit-firstStrike .hit-amount { color: #ff9aa8; }
-.hit-poison .hit-amount { color: var(--venom); }
-.hit-thorns .hit-amount { color: #ffa07a; }
-
 .duel-bar {
   width: 100%;
   display: flex;
@@ -1624,8 +1640,10 @@ body.is-dragging { cursor: grabbing; }
   cursor: pointer;
 }
 .btn-speed:active { background: rgba(255, 255, 255, 0.1); }
-.feed-win { color: var(--gold); font-family: var(--pixel); font-size: 0.66rem; margin-top: 0.3rem; }
-.feed-loss { color: var(--blood); font-family: var(--pixel); font-size: 0.66rem; margin-top: 0.3rem; }
+
+/* The duel's outcome is announced by the heading itself, not a log line. */
+.duel-heading.win { color: var(--gold); text-shadow: 0 0 14px rgba(255, 207, 63, 0.6); }
+.duel-heading.loss { color: var(--blood); text-shadow: 0 0 14px rgba(239, 74, 109, 0.5); }
 
 /* ===================== result / over ===================== */
 
@@ -1711,7 +1729,7 @@ body.is-dragging { cursor: grabbing; }
    never stretches into an unreadable strip on a tablet. */
 @media (min-width: 620px) {
   .screen { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
-  .hud, .path-wrap, .plan-area, .resolve-area, .duelists, .duel-feed { max-width: 520px; }
+  .hud, .path-wrap, .plan-area, .resolve-area, .duelists { max-width: 520px; }
   .path { gap: 0.5rem; }
 }
 
@@ -1767,11 +1785,10 @@ body.is-dragging { cursor: grabbing; }
     margin: 0 auto;
     padding-top: var(--top);
   }
-  #screen-duel .duelists, #screen-duel .duel-feed, #screen-duel .duel-secrets { max-width: none; width: 100%; }
+  #screen-duel .duelists, #screen-duel .duel-secrets { max-width: none; width: 100%; }
   .duelists { grid-template-columns: 1fr auto 1fr; column-gap: 1.4rem; }
   .duelist { padding: 0.9rem 0.8rem; }
   .duelist-glyph { font-size: clamp(2.4rem, 6vw, 3.6rem); }
-  .duel-feed { max-height: 40vh; }
 
   /* -- the deck builder: pool and the chosen list side by side -- */
   #screen-deck { max-width: 1080px; width: 100%; margin: 0 auto; padding-top: var(--top); }

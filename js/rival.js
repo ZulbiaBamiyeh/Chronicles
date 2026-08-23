@@ -40,11 +40,16 @@ export { RUN_DAYS };
 const secretsOnDay = (day) => (day <= 1 ? 0 : day >= RUN_DAYS ? 2 : 1);
 
 /**
- * Whether the rival ambushes the player's path on a given day. Same clean-day-
- * one rhythm as secrets, for the same reason: day one is where a player learns
- * a rival's shape, not where they're punished for not knowing it yet.
+ * Whether the rival ambushes the player's path on a given day.
+ *
+ * Pulled from live play: turned off entirely for now, pending a UI and
+ * balance pass — see README.md's "Invasion, on hold" note. The engine side
+ * (resolveAmbush, pickInvasion, the reveal gate in intel()) is untouched and
+ * still fully correct; this is the single switch that keeps it out of an
+ * actual run without deleting or half-finishing any of that work. Flip it
+ * back to `day > 1` to re-enable the original day-two-through-five rhythm.
  */
-export const hasInvasion = (day) => day > 1;
+export const hasInvasion = (_day) => false;
 
 /**
  * Generate a rival's whole run: one build per day, each with the secrets they

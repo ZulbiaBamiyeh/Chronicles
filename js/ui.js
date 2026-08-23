@@ -3,7 +3,7 @@
 // size class changes. Nothing here decides anything; main.js owns the flow
 // and calls in.
 
-import { card, cardText, keywordBadges, equipment, counterText } from './cards.js';
+import { card, cardText, keywordBadges, equipment, counterText, contributionsFor } from './cards.js';
 import { costFor } from './engine.js';
 
 // One glyph per card. Emoji rather than 70 pieces of commissioned art is an
@@ -217,11 +217,90 @@ const EQUIP_SLOTS = [
   { key: 'firstStrike', kind: 'first', icon: '👢', label: 'First Strike' },
 ];
 
+// ---- equipment tooltip --------------------------------------------------
+//
+// One tooltip open at a time, positioned next to whichever slot it belongs
+// to and flipped to stay on screen. Opens on hover where hover exists, and
+// on tap everywhere — a phone has no hover, so tap is the real interaction,
+// not a fallback for it.
+const CAN_HOVER = window.matchMedia?.('(hover: hover)').matches ?? false;
+let openTip = null;
+
+function closeTip() {
+  if (openTip) { openTip.remove(); openTip = null; }
+}
+
+function showTip(anchor, key, build) {
+  if (openTip?.dataset.for === key && openTip.dataset.anchor === anchor.dataset.tipId) return;
+  closeTip();
+  const tip = el('div', 'equip-tip');
+  tip.dataset.for = key;
+  tip.dataset.anchor = anchor.dataset.tipId;
+  build(tip);
+  document.body.appendChild(tip);
+
+  const r = anchor.getBoundingClientRect();
+  const tr = tip.getBoundingClientRect();
+  let left = r.left + r.width / 2 - tr.width / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+  let top = r.top - tr.height - 10;
+  let flipped = false;
+  if (top < 8) { top = r.bottom + 10; flipped = true; }
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  tip.classList.toggle('flip', flipped);
+  openTip = tip;
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if (openTip && !openTip.contains(e.target) && !e.target.closest('[data-tip-id]')) closeTip();
+}, true);
+window.addEventListener('scroll', closeTip, true);
+
+let tipSeq = 0;
+
 /**
- * Builds the slot grid for one fighter. Where the fighter is actually carrying
- * a named item for a slot, the slot shows *that item* — the Runed Greatsword
- * you bought, not a generic sword — which is what makes the panel read as
- * "here's what they're wearing" rather than a second copy of the statline.
+ * The breakdown popover for one equip slot: the total, then every owned
+ * card actually contributing to it, each with its own amount — "Armour 4"
+ * on its own doesn't say *why*; this does. Anything not traceable to a
+ * specific card (base stats, monster trophies, recurring ally perks) is
+ * summed into one remainder line rather than guessed at item by item.
+ */
+function buildTipContent(tip, fighter, slot, value, item) {
+  tip.appendChild(el('div', 'equip-tip-title', slot.key === 'firstStrike' ? slot.label : `${slot.label} ${value ?? 0}`));
+  if (!value && slot.key !== 'atk') {
+    tip.appendChild(el('div', 'equip-tip-empty', `No ${slot.label}`));
+    return;
+  }
+  if (slot.key === 'firstStrike') {
+    tip.appendChild(el('div', 'equip-tip-empty', item ? `Granted by ${item.name}` : 'Granted by something in this kit'));
+    return;
+  }
+  const contributions = contributionsFor(fighter.gear || [], slot.key);
+  const list = el('div', 'equip-tip-list');
+  for (const { name, amount } of contributions) {
+    const row = el('div', 'equip-tip-row');
+    row.append(el('span', null, name), el('span', 'equip-tip-amount', `+${amount}`));
+    list.appendChild(row);
+  }
+  const accounted = contributions.reduce((sum, c) => sum + c.amount, 0);
+  const rest = value - accounted;
+  if (rest > 0) {
+    const row = el('div', 'equip-tip-row equip-tip-rest');
+    row.append(el('span', null, 'Base, trophies & perks'), el('span', 'equip-tip-amount', `+${rest}`));
+    list.appendChild(row);
+  }
+  tip.appendChild(list);
+}
+
+/**
+ * Builds the equipment panel for one fighter. Where the fighter is actually
+ * carrying a named item for a slot, the slot shows *that item* — the Runed
+ * Greatsword you bought, not a generic sword — which is what makes the panel
+ * read as "here's what they're wearing" rather than a second copy of the
+ * statline. The weapon slot is drawn larger, MapleStory-equip-window style:
+ * the one thing every fighter has is the one thing worth seeing first.
+ * Tap or hover any slot for exactly what's adding up to that number.
  *
  * @returns {{node: HTMLElement, cells: Record<string, HTMLElement>}}
  */
@@ -234,13 +313,26 @@ function equipGrid(fighter) {
     const item = worn[slot.key];
     const active = slot.key === 'atk' ? true : Boolean(value);
     const cell = el('div', `equip-slot equip-${slot.kind}${active ? ' filled' : ' empty'}`);
+    cell.dataset.tipId = `t${++tipSeq}`;
     cell.appendChild(glyphEl('equip-icon', (active && item && ICON[item.id]) || slot.icon, slot.label));
     if (active && slot.key !== 'firstStrike') cell.appendChild(el('span', 'equip-value', String(value)));
 
-    const what = item ? item.name : slot.label;
-    cell.title = active
-      ? (slot.key === 'firstStrike' ? what : `${what} · ${slot.label} ${value}`)
-      : `No ${slot.label}`;
+    const build = (tip) => buildTipContent(tip, fighter, slot, value, item);
+    // A device that can hover gets it for free; a click there just re-fires
+    // the same tip hover already opened, so treating that as a second
+    // "toggle" would close it right back — the tip would flash open and
+    // shut. So: hover owns it on a mouse, tap owns it everywhere else.
+    if (CAN_HOVER) {
+      cell.addEventListener('mouseenter', () => showTip(cell, slot.key, build));
+      cell.addEventListener('mouseleave', closeTip);
+    } else {
+      cell.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (openTip?.dataset.anchor === cell.dataset.tipId) closeTip();
+        else showTip(cell, slot.key, build);
+      });
+    }
+
     grid.appendChild(cell);
     cells[slot.key] = cell;
   }

@@ -369,6 +369,31 @@ export function attackAnim(ids = []) {
   return equipment(ids).atk?.anim || 'punch';
 }
 
+/**
+ * Every owned card that actually contributes to one stat, individually —
+ * "Armour 4" on its own says nothing about *why*; this is the answer. Used
+ * by the equipment panel's tooltip so mousing over a slot shows exactly
+ * which items are adding to it, not just the total.
+ *
+ * Only counts what's traceable to a specific card: base stats, monster
+ * trophies, and recurring ally perks all feed the same total but aren't
+ * card-shaped, so they're summarised as a single remainder line by the
+ * caller rather than guessed at here.
+ *
+ * @param {string[]} ids
+ * @param {string} key  'atk' | 'armour' | 'poison' | 'thorns' | 'rally' | 'firstStrike'
+ * @returns {{id: string, name: string, amount: number|true}[]}
+ */
+export function contributionsFor(ids = [], key) {
+  const out = [];
+  for (const id of ids) {
+    const c = card(id);
+    const amount = c?.fx?.[key];
+    if (amount) out.push({ id, name: c.name, amount });
+  }
+  return out.sort((a, b) => (b.amount === true ? 1 : b.amount) - (a.amount === true ? 1 : a.amount));
+}
+
 /** Keyword badges to draw on a card face. */
 export function keywordBadges(kw = {}) {
   const out = [];

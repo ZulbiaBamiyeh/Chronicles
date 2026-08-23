@@ -260,6 +260,20 @@ a sampling effect, not a balance problem) or cards that trade a resource
 directly for their effect, like Ruined Chapel spending 2 ATK to heal to
 full, which a strategy actively optimizing ATK correctly avoids.
 
+### Invasion, on hold
+
+`js/rival.js` still has a full ambush mechanic — the rival forcing a fight on
+your path on a day of its choosing, resolved with `resolveAmbush`, revealed
+through `intel()` — but `hasInvasion(day)` currently returns `false`
+unconditionally, so no run ever draws one. It's switched off pending a UI
+pass (a forced fight needs its own on-screen framing, not just reusing the
+path-fight stage) and a fresh balance check once that framing exists — it
+was a real gold/trophy swing for an optimizing planner, which is why the
+ghost target bands in `TARGETS` were tuned assuming it ran and had to be
+reverted when it was switched off. Nothing about the mechanic itself is
+unfinished; `hasInvasion` is the one switch that turns it back on, and the
+engine underneath is exercised directly by its own tests either way.
+
 ---
 
 ## Building the APK

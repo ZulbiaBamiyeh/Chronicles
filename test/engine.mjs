@@ -709,20 +709,20 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   // same (round, wins).
   const scenarios = [
     { label: 'round 1, low band', round: 1, wins: 0, atk: 3, maxHp: 20, kw: {}, band: [0.25, 0.75] },
-    { label: 'round 3, mid band', round: 3, wins: 1, atk: 14, maxHp: 33, kw: { armour: 1 }, band: [0.25, 0.78] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 32, maxHp: 49, kw: { armour: 3 }, band: [0.25, 0.8] },
+    { label: 'round 3, mid band', round: 3, wins: 1, atk: 12, maxHp: 30, kw: { armour: 1 }, band: [0.25, 0.78] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 26, maxHp: 43, kw: { armour: 3 }, band: [0.25, 0.82] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 32, maxHp: 49, kw: { armour: 4, rally: 2 }, band: [0.55, 0.98] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 26, maxHp: 43, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more
     // than a mid-band one — just not be an unloseable lock.
-    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 16, maxHp: 35, kw: { firstStrike: true }, band: [0.55, 0.97] },
+    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 13, maxHp: 32, kw: { firstStrike: true }, band: [0.55, 0.97] },
   ];
   for (const { label, round, wins, atk, maxHp, kw, band } of scenarios) {
     let exchanges = 0, winCount = 0;
@@ -911,35 +911,21 @@ test('winning a day pays, and pays more the deeper into the series it is', () =>
   assert.equal(lost.gold, 0, 'losing pays nothing');
 });
 
-test('a rival ambushes days two through five, never day one', () => {
-  for (let seed = 1; seed <= 100; seed++) {
+test('invasions are switched off for now — no rival carries one, any day', () => {
+  // Pulled from live play pending a UI and balance pass (README.md's
+  // "Invasion, on hold"). hasInvasion(day) is the single switch; this locks
+  // in that switching it back off is enough to keep it out of a run
+  // end-to-end, without anything downstream (drawRival, intel) needing to
+  // know why. resolveAmbush itself — the part that actually resolves a
+  // fight — is still tested directly below, since that machinery is correct
+  // and untouched; only the "does a rival have one today" decision changed.
+  for (let seed = 1; seed <= 50; seed++) {
     const rv = drawRival(seed * 977);
-    assert.equal(rivalOnDay(rv, 1).invasion, null, 'day one should be a clean read');
-    for (let day = 2; day <= RUN_DAYS; day++) {
-      const inv = rivalOnDay(rv, day).invasion;
-      assert.ok(card(inv), `day ${day}: ${inv} is not a real monster`);
-      assert.equal(card(inv).type, 'monster');
-      assert.ok(tiersForRound(day).includes(card(inv).tier), `day ${day} invasion is off-tier`);
+    for (let day = 1; day <= RUN_DAYS; day++) {
+      assert.equal(rivalOnDay(rv, day).invasion, null, `day ${day} should carry no invasion while this is off`);
+      assert.equal(intel(rv, day, true).hasInvasion, false);
     }
   }
-});
-
-test('an invasion is fixed the moment the rival is drawn, like everything else about them', () => {
-  const a = drawRival(4242);
-  const b = drawRival(4242);
-  assert.deepEqual(a.days.map((d) => d.invasion), b.days.map((d) => d.invasion));
-});
-
-test('intel hides which monster is coming until scouted, but never that one is', () => {
-  const rv = drawRival(321);
-  for (let day = 2; day <= RUN_DAYS; day++) {
-    const blind = intel(rv, day, false);
-    const scout = intel(rv, day, true);
-    assert.equal(blind.hasInvasion, true);
-    assert.equal(blind.invasion, null, 'unscouted intel must not leak which monster');
-    assert.equal(scout.invasion, rivalOnDay(rv, day).invasion);
-  }
-  assert.equal(intel(rv, 1, false).hasInvasion, false);
 });
 
 test('resolveAmbush pays off exactly like a monster from the path would', () => {

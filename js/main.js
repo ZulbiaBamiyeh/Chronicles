@@ -693,7 +693,6 @@ async function playPathFight(ev, c) {
   });
   await sleep(400);
   await replayLog({
-    feed: $('#resolve-log'),
     side: { a: me, b: monster },
     fighter: { a: ev.me, b: ev.monster },
     log: ev.log,
@@ -723,7 +722,6 @@ async function playAmbush(ev, c) {
   });
   await sleep(500);
   await replayLog({
-    feed: $('#resolve-log'),
     side: { a: me, b: monster },
     fighter: { a: ev.me, b: ev.monster },
     log: ev.log,
@@ -777,19 +775,19 @@ function phasesOf(log) {
 }
 
 /**
- * Replays a resolved fight, phase by phase.
- *
- * Pacing is deliberately unhurried, and grouped: everything that happens for
- * one reason resolves together, under a heading that says what that reason is.
- * The previous version stepped one log entry at a time at a fixed interval,
- * which meant a four-keyword exchange was eight numbers in two seconds — all
- * technically shown, none of it legible. `duelSpeed` lets a player who has
- * already read it wind the whole thing forward.
+ * Replays a resolved fight, phase by phase — visually only. No text log:
+ * what's happening is read off the animation itself — a strike shaped like
+ * the weapon that threw it, a poison bubble rising off whoever it's eating,
+ * an equip slot pulsing to say which stat did this — not narrated in a
+ * scrolling feed alongside it. Pacing is unchanged and still does the real
+ * work of legibility: everything that happens for one reason still lands
+ * together, with a beat before and after, so a four-keyword exchange still
+ * reads as four distinct things happening rather than a blur. `duelSpeed`
+ * lets a player who's internalised the rules wind the whole thing forward.
  */
-async function replayLog({ feed, side, fighter, log, speed = 1 }) {
+async function replayLog({ side, fighter, log, speed = 1 }) {
   const hp = { a: fighter.a.hp, b: fighter.b.hp };
   const maxHp = { a: fighter.a.maxHp, b: fighter.b.maxHp };
-  const who = { a: fighter.a.name, b: fighter.b.name };
   const pace = (ms) => sleep((ms * speed) / duelSpeed);
 
   let ex = 0;
@@ -797,19 +795,8 @@ async function replayLog({ feed, side, fighter, log, speed = 1 }) {
     if (phase.ex !== ex) {
       ex = phase.ex;
       await pace(520);
-      feedLine(feed, `EXCHANGE ${ex}`, 'feed-ex');
       await pace(360);
     }
-
-    const meta = PHASE[phase.source] || { label: phase.source, note: '', icon: '•' };
-    const head = el('div', `feed-phase phase-${phase.source}`);
-    head.append(
-      el('span', 'phase-icon', meta.icon),
-      el('span', 'phase-label', meta.label),
-      el('span', 'phase-note', meta.note),
-    );
-    feed.appendChild(head);
-    feed.scrollTop = feed.scrollHeight;
     await pace(440);
 
     // Everything in a phase happens for the same reason, so it lands together
@@ -847,15 +834,6 @@ async function replayLog({ feed, side, fighter, log, speed = 1 }) {
       else if (entry.source === 'firstStrike') audio.firstStrike();
       else audio.hit(Math.min(1, entry.amount / Math.max(4, maxHp[entry.target] / 3)));
 
-      const line = el('div', `feed-line hit-${entry.source}`);
-      line.append(
-        el('span', 'hit-who', who[dealer]),
-        el('span', 'hit-verb', ` ${VERB[entry.source]} `),
-        el('span', 'hit-whom', who[entry.target]),
-        el('span', 'hit-amount', `−${entry.amount}`),
-      );
-      feed.appendChild(line);
-      feed.scrollTop = feed.scrollHeight;
       await pace(entry === phase.entries[phase.entries.length - 1] ? 620 : 380);
     }
   }
@@ -959,14 +937,14 @@ async function runDuel() {
     mine: outcome.secrets,
     theirs: ghost.secrets,
   });
-  const feed = $('#duel-feed');
-  feed.textContent = '';
 
   const isFinal = run.round >= RUN_DAYS;
-  $('#duel-heading').textContent = isFinal
+  const heading = $('#duel-heading');
+  heading.textContent = isFinal
     ? `DAY ${run.round} — THE LAST DAY`
     : `DAY ${run.round} OF ${RUN_DAYS}`;
-  $('#duel-heading').classList.toggle('final', isFinal);
+  heading.classList.toggle('final', isFinal);
+  heading.classList.remove('win', 'loss');
 
   const meSub = result.bonusArmour
     ? `untouched on the path · +${result.bonusArmour} Armour`
@@ -985,22 +963,24 @@ async function runDuel() {
   await sleep(900);
   await playSecrets(result, me, them);
 
-  const who = { a: result.me.name, b: result.them.name };
   await replayLog({
-    feed,
     side: { a: me, b: them },
     fighter: { a: result.me, b: result.them },
     log: result.log,
   });
 
   await sleep(700);
+  // No log line for this — the heading itself announces it, the way the
+  // day count did a moment ago.
   if (result.won) {
     audio.victory();
     bg.pulse();
-    feedLine(feed, `${who.a} wins the duel.`, 'feed-win');
+    heading.textContent = `${result.me.name} WINS`;
+    heading.classList.add('win');
   } else {
     audio.defeat();
-    feedLine(feed, `${who.b} wins the duel.`, 'feed-loss');
+    heading.textContent = `${result.them.name} WINS`;
+    heading.classList.add('loss');
   }
 
   duelResult = result;
