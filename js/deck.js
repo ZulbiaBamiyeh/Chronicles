@@ -82,64 +82,75 @@ export const deckTier = (ids, tier) => ids.filter((id) => card(id)?.tier === tie
 // who has never played. These are five legal, coherent starting points — one
 // per archetype plus a generalist — that a player can take as-is, or open in
 // the builder and start changing a card at a time.
+//
+// Every deck below deliberately carries the cards that read the rest of your
+// build (see the scaling and adjacency sections of js/cards.js). That isn't
+// flavour: a preset made only of flat stat sticks plays as four unrelated
+// numbers a day, and since these are what almost everyone actually plays with,
+// a synergy absent from them is a synergy that effectively doesn't exist. Each
+// deck is built so its own theme has something to compound into — the Bulwark
+// can turn Armour into Thorns and back, the Duellist can grow one blade all
+// run, the Alchemist's Poison feeds itself.
 
 const PRESETS = {
   balanced: {
     name: 'The Wanderer',
     blurb: 'A little of everything. The deck to learn the game with.',
     cards: [
-      // T1
-      'sewer_rat', 'wild_boar', 'goblin_scrapper', 'bandit_lookout',
-      'whetstone', 'rusty_sword', 'leather_jerkin',
-      'roadside_shrine', 'blacksmith', 'caltrops',
+      // T1 — a weapon to start sharpening, and the two adjacency cards, so the
+      // first thing a new player learns is that order changes what a path pays.
+      'sewer_rat', 'wild_boar', 'goblin_scrapper',
+      'grindstone', 'rusty_sword', 'leather_jerkin',
+      'roadside_shrine', 'blacksmith', 'flanking_strike', 'scavengers_cache',
       // T2
-      'cave_troll', 'bandit_captain', 'ogre_brute', 'grave_knight',
-      'steel_longsword', 'chainmail', 'war_pick',
-      'toll_bridge', 'hidden_cache', 'hamstring',
-      // T3
-      'hill_giant', 'flame_imp', 'chimera', 'warlord_of_ash',
-      'runed_greatsword', 'dragonplate', 'titan_maul',
-      'war_camp', 'sacred_spring', 'sabotage',
+      'cave_troll', 'bandit_captain', 'grave_knight',
+      'steel_longsword', 'chainmail', 'armsmaster',
+      'toll_bridge', 'hidden_cache', 'ritual_circle', 'hamstring',
+      // T3 — the payoff end of the weapon arc.
+      'hill_giant', 'flame_imp', 'chimera',
+      'runed_greatsword', 'dragonplate', 'masters_forge',
+      'war_camp', 'sacred_spring', 'bloodforge', 'sabotage',
     ],
   },
   aggro: {
     name: 'The Duellist',
-    blurb: 'Hit first, hit hardest. Weapons, First Strike, and no patience.',
+    blurb: 'Hit first, hit hardest. One blade, sharpened all run.',
     cards: [
-      'feral_hound', 'goblin_scrapper', 'wild_boar', 'bandit_lookout',
-      'hunting_bow', 'sling', 'rusty_sword', 'hunting_knife', 'whetstone', 'blacksmith',
+      'feral_hound', 'goblin_scrapper', 'wild_boar',
+      'hunting_bow', 'rusty_sword', 'hunting_knife', 'grindstone',
+      'blacksmith', 'training_yard', 'flanking_strike',
       'dire_wolf', 'wyvern_hatchling', 'bandit_captain', 'grave_knight',
-      'twin_daggers', 'steel_longsword', 'war_pick', 'assassins_kris',
+      'twin_daggers', 'steel_longsword', 'assassins_kris', 'armsmaster',
       'the_arena', 'hamstring',
       'chimera', 'flame_imp', 'warlord_of_ash', 'hill_giant',
-      'executioners_blade', 'runed_greatsword', 'titan_maul', 'shadowsteel_blade',
+      'executioners_blade', 'runed_greatsword', 'shadowsteel_blade', 'masters_forge',
       'war_camp', 'sabotage',
     ],
   },
   tank: {
     name: 'The Bulwark',
-    blurb: 'Armour, Thorns, and more HP than anyone wants to chew through.',
+    blurb: 'Armour into Thorns and back. Nothing gets through, everything bleeds.',
     cards: [
       'bog_toad', 'skeleton_picket', 'wild_boar', 'sewer_rat',
       'buckler', 'leather_jerkin', 'iron_cap', 'spiked_vambrace',
       'travellers_boots', 'roadside_shrine',
       'iron_golem', 'forest_troll', 'thornback_boar', 'cave_troll',
-      'chainmail', 'tower_shield', 'kite_shield', 'barbed_cuirass',
-      'scale_hauberk', 'toll_bridge',
-      'stone_warden', 'bog_horror', 'frost_wraith', 'hill_giant',
-      'dragonplate', 'aegis_of_dawn', 'bramble_aegis', 'reaver_plate',
-      'shield_maiden', 'sacred_spring',
+      'chainmail', 'tower_shield', 'kite_shield',
+      'bramblelord', 'wardens_oath', 'ambushers_nook',
+      'stone_warden', 'bog_horror', 'hill_giant',
+      'dragonplate', 'aegis_of_dawn', 'bramble_aegis', 'ironblood_rite',
+      'shield_maiden', 'sacred_spring', 'standing_stones',
     ],
   },
   poison: {
     name: 'The Alchemist',
-    blurb: 'Poison ignores Armour. Let it do the work while you stay alive.',
+    blurb: 'Poison ignores Armour, and every vial you carry makes the next one worse.',
     cards: [
       'giant_spider', 'bog_toad', 'sewer_rat', 'wild_boar',
       'venom_flask', 'leather_jerkin', 'buckler', 'travellers_boots',
       'roadside_shrine', 'rust_powder',
       'marsh_wraith', 'cave_troll', 'thornback_boar', 'grave_knight',
-      'plague_censer', 'coated_blade', 'venom_alchemist', 'chainmail',
+      'plague_censer', 'coated_blade', 'venom_alchemist', 'toxinsmith',
       'hidden_cache', 'barb_file',
       'basilisk', 'bog_horror', 'hill_giant', 'stone_warden',
       'wyrmvenom_vial', 'wyrmfang_spear', 'shadowsteel_blade', 'dragonplate',
@@ -148,17 +159,21 @@ const PRESETS = {
   },
   rally: {
     name: 'The Warlord',
-    blurb: 'Weak on the first exchange. Terrifying by the fourth.',
+    blurb: 'Weak on the first exchange. Terrifying by the fourth — and worse when losing.',
     cards: [
-      'bog_toad', 'skeleton_picket', 'wild_boar', 'bandit_lookout',
+      'bog_toad', 'skeleton_picket', 'wild_boar',
       'battle_drum', 'leather_jerkin', 'buckler', 'travellers_boots',
-      'roadside_shrine', 'snare_wire',
+      'roadside_shrine', 'boneyard', 'snare_wire',
       'cave_troll', 'ogre_brute', 'iron_golem', 'grave_knight',
-      'warhorn', 'rally_standard', 'chainmail', 'scale_hauberk',
-      'toll_bridge', 'dousing_rain',
+      'warhorn', 'rally_standard',
+      'berserkers_rite', 'ritual_circle', 'dousing_rain',
+      // Banner Squire is Tier 2, not Tier 3 — it sits here because it reads as
+      // a late-game card, which is exactly how this deck ended up 11/9 and
+      // illegal. Counted where it actually belongs, the tier blocks below are
+      // nine Tier 2 above and ten Tier 3 here.
       'elder_wyrm', 'stone_warden', 'hill_giant', 'warlord_of_ash',
       'banner_of_the_vanguard', 'crown_of_command', 'berserkers_axe', 'banner_squire',
-      'sacred_spring', 'ambush_pit',
+      'dragonplate', 'sacred_spring', 'ambush_pit',
     ],
   },
 };

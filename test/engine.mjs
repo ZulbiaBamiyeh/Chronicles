@@ -46,6 +46,35 @@ test('the pool is 119 cards, all of them dealable', () => {
   assert.equal(SECRETS.length, 10);
 });
 
+test('every preset deck is actually legal', () => {
+  // The Warlord shipped 11 Tier 2 / 9 Tier 3 and nobody noticed, because
+  // presets were never checked against the same rules the deck builder
+  // enforces on the player. Banner Squire is a Tier 2 ally that reads like a
+  // late-game card, so it was written into the Tier 3 block and counted there
+  // by eye. A preset is the deck almost everyone actually plays; an illegal
+  // one is worse than a bad one.
+  for (const key of deckLib.PRESET_KEYS) {
+    const ids = deckLib.presetCards(key);
+    assert.deepEqual(deckLib.problems(ids), [], `preset "${key}" is not legal`);
+    assert.equal(ids.length, deckLib.DECK_SIZE, `preset "${key}" is not ${deckLib.DECK_SIZE} cards`);
+    for (const tier of deckLib.TIERS) {
+      assert.equal(deckLib.deckTier(ids, tier).length, deckLib.PER_TIER,
+        `preset "${key}" is short of ${deckLib.PER_TIER} tier-${tier} cards`);
+    }
+  }
+});
+
+test('the presets carry the cards that read the rest of your build', () => {
+  // A synergy nobody is dealt is a synergy that doesn't exist. Almost everyone
+  // plays a preset, so a scaling or adjacency card absent from all five is
+  // effectively not in the game — which is exactly what happened when these
+  // were added to the pool and not to any deck.
+  const scaling = ALL_CARDS.filter((c) => c.dyn).map((c) => c.id);
+  const dealt = new Set(deckLib.PRESET_KEYS.flatMap((k) => deckLib.presetCards(k)));
+  const orphans = scaling.filter((id) => !dealt.has(id));
+  assert.deepEqual(orphans, [], 'these scaling cards are in no preset deck');
+});
+
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
   assert.equal(ids.size, 119);
