@@ -526,19 +526,24 @@ body.no-webgl #app {
 .card.placed { opacity: 0.24; filter: saturate(0.3); pointer-events: none; }
 .card.dim { opacity: 0.5; }
 
-/* --- corner gems, Hearthstone-style -------------------------------------
-   Cost top-left, ATK bottom-left, HP/Armour bottom-right. Putting the three
-   numbers that decide a card in fixed corners means you read a hand by
-   scanning positions rather than parsing four different layouts. */
-.card-gem {
+/* --- the card frame ------------------------------------------------------
+   ATK and HP/Armour ride the shoulders of the art frame as their own badges
+   — the two numbers a fight actually turns on, read before the name even
+   loads. Gold and tier drop to a footer row below the text, since they're
+   about whether the card fits *today's* path, not what it does once it's in
+   play. Every shape below (the kite-cut art frame, the notched name banner)
+   is drawn with CSS clip-path — no imported art, no traced artwork, just
+   geometry in this project's own palette. */
+.card-badge {
   position: absolute;
+  top: 0.1rem;
   z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.05rem;
-  min-width: 1.32rem;
-  height: 1.32rem;
+  min-width: 1.3rem;
+  height: 1.3rem;
   padding: 0 0.14rem;
   border-radius: 50%;
   font-family: var(--pixel);
@@ -549,58 +554,46 @@ body.no-webgl #app {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
 }
-.gem-icon { font-size: 0.46rem; opacity: 0.8; }
-.gem-value { font-weight: 700; }
+.badge-icon { font-size: 0.46rem; opacity: 0.8; }
+.badge-value { font-weight: 700; }
 
-.gem-cost {
-  top: 0.16rem;
-  left: 0.16rem;
-  background: radial-gradient(circle at 34% 28%, #ffe9a8, var(--gold) 62%, #b9821a);
-}
-.gem-cost.cut { background: radial-gradient(circle at 34% 28%, #d8ffbe, var(--venom) 62%, #4e8f2c); }
-.gem-atk {
-  bottom: 0.16rem;
-  left: 0.16rem;
+.badge-atk {
+  left: 0.1rem;
   background: radial-gradient(circle at 34% 28%, #ffd0b4, #f08a5d 62%, #a24a22);
 }
-.gem-hp {
-  bottom: 0.16rem;
-  right: 0.16rem;
+.badge-hp {
+  right: 0.1rem;
   background: radial-gradient(circle at 34% 28%, #ffc2c8, #ef4a6d 62%, #8f1f38);
 }
-.gem-def {
-  bottom: 0.16rem;
-  right: 0.16rem;
+.badge-def {
+  right: 0.1rem;
   background: radial-gradient(circle at 34% 28%, #cfe0ff, #79a6ff 62%, #2d4f9e);
 }
 
-.card-tier {
-  position: absolute;
-  top: 0.2rem;
-  right: 0.24rem;
-  z-index: 3;
-  font-family: var(--pixel);
-  font-size: 0.4rem;
-  letter-spacing: 0.02em;
-  color: var(--dim);
-  opacity: 0.55;
+/* A hexagonal "kite" cut rather than the plain rounded well this used to be
+   — wide shoulders for the ATK/HP badges to sit on, tapering to a point top
+   and bottom. Framed by a beveled ring in the card's own type colour so the
+   art reads as set into the card rather than pasted on top of it. */
+.card-frame {
+  width: 100%;
+  flex: 0 0 auto;
+  aspect-ratio: 1 / 0.86;
+  margin-top: 0.75rem;
+  padding: 0.1rem;
+  clip-path: polygon(50% 0%, 100% 22%, 100% 78%, 50% 100%, 0% 78%, 0% 22%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 55%, var(--bone) 10%), color-mix(in srgb, var(--accent) 30%, black 40%));
 }
-
-/* The art well: a tinted recess the glyph sits in, so a card reads as
-   frame-around-portrait instead of an emoji floating on a gradient. */
 .card-art {
   position: relative;
   width: 100%;
-  flex: 0 0 auto;
-  aspect-ratio: 1 / 0.72;
-  margin-top: 0.7rem;
-  border-radius: 0.4rem;
+  height: 100%;
+  clip-path: polygon(50% 0%, 100% 22%, 100% 78%, 50% 100%, 0% 78%, 0% 22%);
   display: grid;
   place-items: center;
   background:
-    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 68%),
-    linear-gradient(180deg, rgba(4, 7, 18, 0.55), rgba(4, 7, 18, 0.2));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 6px 14px rgba(0, 0, 0, 0.45);
+    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 68%),
+    linear-gradient(180deg, rgba(4, 7, 18, 0.6), rgba(4, 7, 18, 0.25));
+  box-shadow: inset 0 6px 14px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 .card-art-glyph {
@@ -609,6 +602,18 @@ body.no-webgl #app {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
 }
 
+/* The name plate: a banner cut with pointed ends, laid across the card like
+   a ribbon under the portrait — every fixed-shape card frame reads this way,
+   from a temple stele to a shop sign, so it's the one motif here closest to
+   Chronicle's own without being a copy of any specific piece of its art. */
+.card-banner {
+  width: 108%;
+  margin: 0.2rem 0 0.05rem;
+  padding: 0.16rem 0.5rem;
+  clip-path: polygon(0% 15%, 6% 0%, 94% 0%, 100% 15%, 100% 85%, 94% 100%, 6% 100%, 0% 85%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 40%, #1a1428 40%), color-mix(in srgb, var(--accent) 20%, black 55%));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+}
 .card-name {
   font-family: var(--pixel);
   font-size: 0.6rem;
@@ -623,6 +628,13 @@ body.no-webgl #app {
   -webkit-box-orient: vertical;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
+.card-type {
+  font-size: 0.44rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.8;
+}
 .card-kw { display: flex; flex-wrap: wrap; gap: 0.14rem; justify-content: center; }
 .card-text {
   font-size: 0.7rem;
@@ -632,20 +644,69 @@ body.no-webgl #app {
   overflow: hidden;
 }
 
+/* Footer: gold coin bottom-left, tier as a small diamond gem beside it — the
+   two things that decide whether a card belongs in *today's* path, kept
+   apart from the ATK/HP badges above since they're a different question. */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-top: auto;
+}
+.card-coin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  font-family: var(--pixel);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #10142a;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: radial-gradient(circle at 34% 28%, #ffe9a8, var(--gold) 62%, #b9821a);
+}
+.card-coin.cut { background: radial-gradient(circle at 34% 28%, #d8ffbe, var(--venom) 62%, #4e8f2c); }
+.card-coin-free {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--dim);
+  border-color: var(--line);
+  box-shadow: none;
+  font-size: 0.7rem;
+}
+.card-rarity {
+  width: 0.7rem;
+  height: 0.7rem;
+  transform: rotate(45deg);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.card-rarity.tier-1 { background: linear-gradient(160deg, #c98a52, #7a4d26); }
+.card-rarity.tier-2 { background: linear-gradient(160deg, #c9d3e0, #7c8aa0); }
+.card-rarity.tier-3 { background: linear-gradient(160deg, #ffe9a8, var(--gold) 70%); }
+
 /* Slot-sized cards are roughly a quarter of the screen wide, so they drop the
    effect text and show keywords as bare colour chips. The detail sheet (long
    press) is where the full wording lives. */
 .card-slot { padding: 0.26rem 0.16rem; gap: 0.05rem; justify-content: space-evenly; }
-.card-slot .card-name { font-size: 0.58rem; }
-.card-slot .card-art { margin-top: 0.6rem; aspect-ratio: 1 / 0.62; }
+.card-slot .card-name { font-size: 0.5rem; }
+.card-slot .card-type { display: none; }
+.card-slot .card-frame { margin-top: 0.55rem; aspect-ratio: 1 / 0.78; }
 .card-slot .card-art-glyph { font-size: clamp(1.1rem, 5.5vw, 1.6rem); }
+.card-slot .card-banner { padding: 0.1rem 0.3rem; }
 .card-slot .card-text { display: none; }
-.card-slot .card-gem {
+.card-slot .card-badge {
   min-width: 1.08rem;
   height: 1.08rem;
   font-size: 0.58rem;
 }
-.card-slot .gem-icon { display: none; }
+.card-slot .badge-icon { display: none; }
+.card-slot .card-footer { gap: 0.22rem; }
+.card-slot .card-coin { width: 0.95rem; height: 0.95rem; font-size: 0.48rem; }
+.card-slot .card-rarity { width: 0.56rem; height: 0.56rem; }
 .card-slot .card-kw .kw {
   font-size: 0;
   width: 0.4rem;

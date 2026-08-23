@@ -46,6 +46,11 @@ export const ICON = {
   roadside_shrine: '⛩️', market_square: '🛒', blacksmith: '🔨', training_yard: '🎯',
   boneyard: '⚰️', watchtower: '🔭', ruined_chapel: '⛪', toll_bridge: '🌉',
   standing_stones: '🪨',
+  // build-scaling & adjacency
+  bramblelord: '🥀', wardens_oath: '📜', toxinsmith: '☣️', ironblood_rite: '🫀',
+  grindstone: '🌀', armsmaster: '🧑‍🏫', masters_forge: '🛠️',
+  flanking_strike: '🤺', scavengers_cache: '🦝', ambushers_nook: '🦉',
+  ritual_circle: '⭕', berserkers_rite: '💢', bloodforge: '🌋',
 };
 
 /** One monster glyph per fighting card, for the path-fight stage. */
@@ -100,31 +105,35 @@ export const $ = (sel) => document.querySelector(sel);
  * @param {boolean} [opts.upgrade] the paid upgrade is armed
  * @param {boolean} [opts.dim]     fizzled / unaffordable
  */
+const TYPE_LABEL = { monster: 'Monster', gear: 'Gear', ally: 'Ally', place: 'Place', secret: 'Secret' };
+
 export function cardEl(id, opts = {}) {
   const c = card(id);
   const size = opts.size || 'hand';
   const node = el('div', `card card-${c.type} tier-${c.tier} card-${size}`);
   node.dataset.id = id;
 
-  // Cost sits top-left where a Hearthstone mana gem does — the number you read
-  // first, because it's the one that decides whether the card is playable at
-  // all. Free cards show no gem rather than a zero: an empty corner reads as
-  // "nothing to pay" faster than a digit does.
-  const cost = opts.run ? costFor(opts.run, c) : c.cost || 0;
-  if (cost > 0) {
-    const gem = el('div', 'card-gem gem-cost', String(cost));
-    // A gear card the Quartermaster has marked down says so, so the discount is
-    // visible at planning time rather than a surprise during resolution.
-    if (cost !== (c.cost || 0)) gem.classList.add('cut');
-    node.appendChild(gem);
-  }
-  node.appendChild(el('div', 'card-tier', `T${c.tier}`));
+  // ATK and HP/Armour sit as badges on the shoulders of the art frame, the
+  // way a duel-card's own two headline numbers do — the ones a fight is
+  // actually decided by, read before anything else on the card. A monster
+  // shows its real ATK and HP; a piece of gear shows what it grants you,
+  // which is the same question asked from the other side.
+  const fx = c.fx || {};
+  const atkVal = c.type === 'monster' ? c.atk : fx.atk;
+  const defVal = c.type === 'monster' ? c.hp : fx.armour;
+  if (atkVal) node.appendChild(badge('atk', '⚔', atkVal));
+  if (defVal) node.appendChild(badge(c.type === 'monster' ? 'hp' : 'def', c.type === 'monster' ? '♥' : '🛡', defVal));
 
+  const frame = el('div', 'card-frame');
   const art = el('div', 'card-art');
   art.appendChild(glyphEl('card-art-glyph', ICON[id] || '❔', c.name));
-  node.appendChild(art);
+  frame.appendChild(art);
+  node.appendChild(frame);
 
-  node.appendChild(el('div', 'card-name', c.name));
+  const banner = el('div', 'card-banner');
+  banner.appendChild(el('div', 'card-name', c.name));
+  node.appendChild(banner);
+  node.appendChild(el('div', 'card-type', TYPE_LABEL[c.type] || c.type));
 
   const kws = keywordBadges(c.kw || c.fx || {});
   if (kws.length) {
@@ -135,15 +144,23 @@ export function cardEl(id, opts = {}) {
 
   node.appendChild(el('div', 'card-text', cardText(c)));
 
-  // Bottom corners, Hearthstone-style: what it hits for on the left, what it
-  // can take on the right. A monster shows its real ATK and HP; a piece of
-  // gear shows what it grants you, which is the same question asked from the
-  // other side ("what will this put in those corners for me?").
-  const fx = c.fx || {};
-  const atkVal = c.type === 'monster' ? c.atk : fx.atk;
-  const defVal = c.type === 'monster' ? c.hp : fx.armour;
-  if (atkVal) node.appendChild(gem('atk', '⚔', atkVal));
-  if (defVal) node.appendChild(gem(c.type === 'monster' ? 'hp' : 'def', c.type === 'monster' ? '♥' : '🛡', defVal));
+  // The footer row: gold at the bottom-left where a coin sits, tier as a
+  // small gem beside it — the two things that decide whether a card belongs
+  // in *this* path today, read last because they're about affordability, not
+  // about what the card does.
+  const footer = el('div', 'card-footer');
+  const cost = opts.run ? costFor(opts.run, c) : c.cost || 0;
+  if (cost > 0) {
+    const coin = el('div', 'card-coin', String(cost));
+    // A gear card the Quartermaster has marked down says so, so the discount is
+    // visible at planning time rather than a surprise during resolution.
+    if (cost !== (c.cost || 0)) coin.classList.add('cut');
+    footer.appendChild(coin);
+  } else {
+    footer.appendChild(el('div', 'card-coin card-coin-free', '—'));
+  }
+  footer.appendChild(el('div', `card-rarity tier-${c.tier}`, `T${c.tier}`));
+  node.appendChild(footer);
 
   if (c.option) {
     const btn = el('button', `card-option${opts.upgrade ? ' on' : ''}`, c.option.label);
@@ -155,11 +172,11 @@ export function cardEl(id, opts = {}) {
   return node;
 }
 
-function gem(kind, icon, value) {
-  const g = el('div', `card-gem gem-${kind}`);
-  g.appendChild(el('span', 'gem-icon', icon));
-  g.appendChild(el('span', 'gem-value', String(value)));
-  return g;
+function badge(kind, icon, value) {
+  const b = el('div', `card-badge badge-${kind}`);
+  b.appendChild(el('span', 'badge-icon', icon));
+  b.appendChild(el('span', 'badge-value', String(value)));
+  return b;
 }
 
 // ---- HUD ------------------------------------------------------------------
