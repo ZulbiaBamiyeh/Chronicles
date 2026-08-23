@@ -18,7 +18,7 @@
 // building that way would actually do, and it's worth being able to re-run
 // after any card change.
 import {
-  newRun, startRound, deal, resolvePath, duel, settleRound, rng, PATH_SLOTS,
+  newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
 
@@ -42,12 +42,15 @@ const STRATEGIES = {
  */
 function bestPath(run, hand, score, rivalDay) {
   const available = hand.map((id) => ({ id, from: 'hand' }));
+  const target = Math.min(PATH_SLOTS, available.length);
   let best = null;
   const chosen = [];
   const used = new Set();
   const walk = () => {
-    if (chosen.length === PATH_SLOTS) {
-      const out = resolvePath(run, chosen.slice());
+    if (chosen.length === target) {
+      const slots = [...chosen];
+      while (slots.length < PATH_SLOTS) slots.push(null);
+      const out = resolvePath(run, slots);
       const d = duel(out.state, rivalDay, out.cleanPath, {
         mine: out.secrets, theirs: rivalDay.secrets,
       });
@@ -75,8 +78,9 @@ function simulate(strategyName, runs) {
     while (!run.over && guard++ < 40) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
-      const hand = deal(run.round, rng(roundSeed));
-      const chosen = bestPath(run, hand, score, rivalOnDay(rival, run.round));
+      const { hand, seenCards } = refillHand(run, rng(roundSeed));
+      run = { ...run, hand, seenCards };
+      const chosen = bestPath(run, run.hand, score, rivalOnDay(rival, run.round));
       const out = chosen.out;
       (finalByRound[run.round] ||= []).push(out.state);
       const d = chosen.duel;

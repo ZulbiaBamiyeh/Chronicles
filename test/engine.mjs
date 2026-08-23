@@ -8,8 +8,10 @@ import assert from 'node:assert/strict';
 import {
   resolveCombat, tiebreak, newRun, startRound, deal, resolvePath, duel,
   settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter, applySecrets,
-  PATH_SLOTS, HAND_SIZE, START,
+  PATH_SLOTS, HAND_SIZE, HAND_REFILL, MIN_HAND_MONSTERS, START,
+  refillHand, mulligan, MULLIGAN_LIMIT,
 } from '../js/engine.js';
+import * as deckLib from '../js/deck.js';
 import {
   card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES, SECRETS,
   equipment, attackAnim,
@@ -447,6 +449,105 @@ test('a monster fight event carries a full, replayable exchange log', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The persisted hand — Chronicle's own shape: a 6-card opener, then 3 fresh
+// cards refilling whatever's left in hand every day after.
+// ---------------------------------------------------------------------------
+
+test('day one refills an empty hand up to six cards', () => {
+  const run = newRun(70);
+  const { hand } = refillHand(run, rng(1));
+  assert.equal(hand.length, HAND_SIZE);
+});
+
+test('later days add three, on top of whatever is left in hand', () => {
+  let run = { ...newRun(71), round: 2, hand: ['field_mouse', 'wild_boar'], seenCards: ['field_mouse', 'wild_boar'] };
+  const { hand } = refillHand(run, rng(2));
+  assert.equal(hand.length, 5, '2 leftover + 3 fresh');
+  assert.ok(hand.includes('field_mouse') && hand.includes('wild_boar'), 'leftover cards must survive a refill');
+});
+
+test('a refill never deals the same card twice in one run', () => {
+  let run = newRun(72);
+  const seen = new Set();
+  for (let round = 1; round <= 5; round++) {
+    run = { ...run, round };
+    const { hand, seenCards, drawn } = refillHand(run, rng(round * 97));
+    for (const id of drawn) {
+      assert.ok(!seen.has(id), `${id} was dealt twice in the same run`);
+      seen.add(id);
+    }
+    run = { ...run, hand, seenCards };
+  }
+});
+
+test('the floor holds across a refill, not just within one draw', () => {
+  // A hand with zero monsters and zero spendables left over must come out of
+  // a refill with the floor met by the *combined* hand — this is the failure
+  // mode that would make a day literally unplayable: no way to earn gold, no
+  // way to spend it, through no fault of the player.
+  for (let round = 1; round <= 5; round++) {
+    for (let seed = 1; seed <= 200; seed++) {
+      const run = { ...newRun(seed), round, hand: [], seenCards: [] };
+      const { hand } = refillHand(run, rng(seed * 31 + round));
+      const kinds = hand.map((id) => card(id).type);
+      assert.ok(kinds.filter((t) => t === 'monster').length >= MIN_HAND_MONSTERS || hand.length < MIN_HAND_MONSTERS,
+        `round ${round} seed ${seed}: gold unreachable`);
+      assert.ok(kinds.some((t) => t === 'gear' || t === 'place') || hand.length === 0,
+        `round ${round} seed ${seed}: gold unspendable`);
+    }
+  }
+});
+
+test('a refill can come back short once a tier runs dry, without throwing', () => {
+  // A 10-card tier pool drawn from on three separate days (up to 6+3+3=12
+  // potential T1 draws) can run out before the third day's request is filled.
+  // That has to degrade to a shorter hand, never crash and never repeat a card.
+  const deck = deckLib.presetCards('balanced');
+  let run = { ...newRun(73, 'x', deck), round: 1 };
+  for (let round = 1; round <= 2; round++) {
+    run = { ...run, round };
+    const { hand, seenCards } = refillHand(run, rng(round * 41));
+    run = { ...run, hand, seenCards };
+  }
+  assert.ok(run.hand.length <= HAND_SIZE + HAND_REFILL);
+});
+
+test('a played card leaves the hand; an unplayed one carries into the next day', () => {
+  const run = { ...newRun(74), hand: ['wild_boar', 'rusty_sword', 'buckler'], gold: 20 };
+  const out = resolvePath(run, [{ id: 'wild_boar', from: 'hand' }, { id: 'rusty_sword', from: 'hand' }, null, null]);
+  assert.deepEqual(out.state.hand, ['buckler'], 'only the two played cards should leave the hand');
+});
+
+test('a fizzled card still leaves the hand — spent, not refunded', () => {
+  const run = { ...newRun(75), hand: ['rusty_sword'], gold: 0 };
+  const out = resolvePath(run, [{ id: 'rusty_sword', from: 'hand' }, null, null, null]);
+  assert.equal(out.events[0].kind, 'fizzle');
+  assert.deepEqual(out.state.hand, [], 'a card you could not afford is still gone');
+});
+
+test('mulligan swaps one card, is capped, and only works on day one', () => {
+  const base = { ...newRun(76), hand: ['field_mouse', 'wild_boar'], seenCards: ['field_mouse', 'wild_boar'] };
+  const after = mulligan(base, 'field_mouse', rng(9));
+  assert.notEqual(after.hand[0], 'field_mouse');
+  assert.ok(after.hand.includes('wild_boar'), 'only the targeted card should change');
+  assert.equal(after.mulligansLeft, MULLIGAN_LIMIT - 1);
+
+  const exhausted = { ...base, mulligansLeft: 0 };
+  assert.deepEqual(mulligan(exhausted, 'wild_boar', rng(9)), exhausted, 'no swaps left');
+
+  const lateRun = { ...base, round: 2 };
+  assert.deepEqual(mulligan(lateRun, 'wild_boar', rng(9)), lateRun, 'day one only');
+});
+
+test('mulligan never deals a card the run has already seen', () => {
+  let run = { ...newRun(77), hand: ['field_mouse'], seenCards: ['field_mouse', 'wild_boar', 'sewer_rat'] };
+  for (let i = 0; i < MULLIGAN_LIMIT; i++) {
+    run = mulligan(run, run.hand[0], rng(i * 7 + 1));
+    assert.ok(!['wild_boar', 'sewer_rat'].includes(run.hand[0]), 'must not redeal an already-seen card');
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Dealing and run structure
 // ---------------------------------------------------------------------------
 
@@ -608,20 +709,20 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   // same (round, wins).
   const scenarios = [
     { label: 'round 1, low band', round: 1, wins: 0, atk: 3, maxHp: 20, kw: {}, band: [0.25, 0.75] },
-    { label: 'round 3, mid band', round: 3, wins: 1, atk: 17, maxHp: 34, kw: { armour: 1 }, band: [0.25, 0.75] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 38, maxHp: 50, kw: { armour: 3 }, band: [0.25, 0.8] },
+    { label: 'round 3, mid band', round: 3, wins: 1, atk: 12, maxHp: 30, kw: { armour: 1 }, band: [0.25, 0.75] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 27, maxHp: 44, kw: { armour: 2 }, band: [0.25, 0.8] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 38, maxHp: 50, kw: { armour: 4, rally: 3 }, band: [0.55, 0.98] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 27, maxHp: 44, kw: { armour: 3, rally: 2 }, band: [0.55, 0.98] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more
     // than a mid-band one — just not be an unloseable lock.
-    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 19, maxHp: 37, kw: { firstStrike: true }, band: [0.55, 0.97] },
+    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 13, maxHp: 32, kw: { firstStrike: true }, band: [0.55, 0.97] },
   ];
   for (const { label, round, wins, atk, maxHp, kw, band } of scenarios) {
     let exchanges = 0, winCount = 0;

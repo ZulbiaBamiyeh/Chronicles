@@ -41,10 +41,10 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 // change, not tuned once and forgotten.
 const TARGETS = {
   1: { atk: [3, 5], maxHp: [20, 24] },
-  2: { atk: [8, 12], maxHp: [24, 31] },
-  3: { atk: [14, 20], maxHp: [30, 38] },
-  4: { atk: [21, 30], maxHp: [36, 45] },
-  5: { atk: [31, 44], maxHp: [43, 56] },
+  2: { atk: [6, 9], maxHp: [22, 28] },
+  3: { atk: [10, 14], maxHp: [27, 33] },
+  4: { atk: [15, 21], maxHp: [32, 40] },
+  5: { atk: [22, 32], maxHp: [38, 49] },
 };
 
 // ---------------------------------------------------------------------------

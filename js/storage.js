@@ -85,10 +85,12 @@ export function recordRunEnd(completed) {
 }
 
 /**
- * Store a ghost in its (round, wins) bucket. Buckets are capped so a long-lived
- * save doesn't grow without bound, and new entries push out old ones — the
- * cheap version of the rolling window §14.5 asks for, so a ghost built against
- * an older balance pass eventually ages out.
+ * Store a ghost in its (round, wins) bucket. Once fed real opponent
+ * generation before js/rival.js switched every run to one fixed rival drawn
+ * from a seed rather than a per-round bucket draw — the bucket now exists
+ * only to feed `ghostReport()` below, which still wants *some* record of a
+ * character you finished a round with to name-drop on the title screen.
+ * Buckets are capped so a long-lived save doesn't grow without bound.
  */
 export function uploadGhost(ghost) {
   const s = read();
@@ -97,13 +99,6 @@ export function uploadGhost(ghost) {
   bucket.push(ghost);
   if (bucket.length > 12) bucket.splice(0, bucket.length - 12);
   write();
-}
-
-/** A stored ghost from the bucket, or null if the bucket is thin. */
-export function drawStoredGhost(round, wins, r) {
-  const bucket = read().ghosts[`${round}:${wins}`];
-  if (!bucket || !bucket.length) return null;
-  return structuredClone(bucket[Math.floor(r() * bucket.length)]);
 }
 
 /**

@@ -660,6 +660,36 @@ body.is-dragging { cursor: grabbing; }
   justify-items: center;
   gap: 0.4rem;
 }
+.hand-card { position: relative; width: 100%; }
+
+.mulligan-bar {
+  width: 100%;
+  text-align: center;
+  padding: 0.2rem 0;
+}
+.mulligan-label {
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  letter-spacing: 0.04em;
+  color: var(--t-secret);
+}
+.mulligan-btn {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  z-index: 6;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  font-size: 0.6rem;
+  line-height: 1;
+  border: 1px solid var(--t-secret);
+  background: rgba(255, 122, 209, 0.22);
+  color: var(--bone);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.mulligan-btn:active { transform: scale(0.9); }
 
 .btn-embark { flex: none; align-self: center; }
 

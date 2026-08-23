@@ -7,8 +7,9 @@ import { ShaderBackground } from './bg.js';
 import { AudioEngine } from './audio.js';
 import { card, cardText, fxText, attackAnim, counterText } from './cards.js';
 import {
-  newRun, startRound, deal, resolvePath, duel, settleRound, toGhost,
+  newRun, startRound, resolvePath, duel, settleRound, toGhost,
   tiersForRound, rng, costFor, PATH_SLOTS, RUN_DAYS,
+  refillHand, mulligan, MULLIGAN_LIMIT,
 } from './engine.js';
 import { randomName } from './ghosts.js';
 import { drawRival, rivalOnDay, intel } from './rival.js';
@@ -24,7 +25,6 @@ const bg = new ShaderBackground(document.getElementById('bg-canvas'));
 // ---- run + round state ----------------------------------------------------
 
 let run = null;          // the persisted run (see storage.js)
-let dealt = [];          // this round's six card ids
 let slots = [];          // PATH_SLOTS entries of {id, from, upgrade} | null
 let roundSeed = 0;       // seeds this round's deal
 let outcome = null;      // the resolved path, kept for the duel and the result
@@ -183,7 +183,13 @@ function saveDeck() {
 function beginRound() {
   run = startRound(run);   // no-op if this round's upkeep already ran (a resumed save)
   roundSeed = (run.seed + run.round * 7919 + run.wins * 104729 + run.losses * 15485863) >>> 0;
-  dealt = deal(run.round, rng(roundSeed), run.deck);
+  // Idempotent the same way startRound() is: a hand already refilled for this
+  // round (a resumed save) isn't drawn again — the opener you got is the
+  // opener you keep, not a chance to reroll by leaving and coming back.
+  if (run.handDrawnForRound !== run.round) {
+    const { hand, seenCards } = refillHand(run, rng(roundSeed ^ 0x1357bd91));
+    run = { ...run, hand, seenCards, handDrawnForRound: run.round };
+  }
   slots = new Array(PATH_SLOTS).fill(null);
   outcome = null;
   scouted = false;
@@ -210,11 +216,34 @@ function renderPlan() {
   renderRival();
   renderPath();
   renderHand();
-  const full = slots.every(Boolean);
+  renderMulligan();
+  // A day's hand can legitimately come back thinner than the path is long —
+  // late in a run, once a deck's tier pool is running dry — so embarking only
+  // needs every placeable card placed, not literally four full slots.
+  const placed = slots.filter(Boolean).length;
+  const unplaced = run.hand.length;
+  const full = slots.every(Boolean) || (placed > 0 && unplaced === 0);
   $('#btn-embark').disabled = !full;
   $('#hand-hint').textContent = full
     ? 'Drag slots to reorder'
-    : `Tap to place · ${slots.filter(Boolean).length}/${PATH_SLOTS}`;
+    : `Tap to place · ${placed}/${PATH_SLOTS}`;
+}
+
+/**
+ * The mulligan strip: day one only, a limited number of swaps for whoever
+ * doesn't like their opener. Chronicle's own mercy on a bad opening hand,
+ * capped so it thins a hand rather than becoming "reroll until perfect."
+ */
+function renderMulligan() {
+  const bar = $('#mulligan-bar');
+  if (run.round > 1 || (run.mulligansLeft ?? 0) <= 0) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+  bar.textContent = '';
+  bar.appendChild(el('span', 'mulligan-label',
+    `Swap unwanted cards · ${run.mulligansLeft} left`));
 }
 
 /**
@@ -250,16 +279,37 @@ function renderHand() {
   mount.textContent = '';
   const placed = slots.filter((s) => s && s.from === 'hand').map((s) => s.id);
   const spent = new Set();
-  dealt.forEach((id) => {
+  const canMulligan = run.round === 1 && (run.mulligansLeft ?? 0) > 0;
+  run.hand.forEach((id) => {
     const node = cardEl(id, { run, size: 'hand' });
     // A dealt card that's already in the path stays in place, greyed out, so
     // the grid never reflows under a finger mid-plan.
-    if (placed.includes(id) && !spent.has(id)) {
+    const isPlaced = placed.includes(id) && !spent.has(id);
+    if (isPlaced) {
       spent.add(id);
       node.classList.add('placed');
     }
-    mount.appendChild(node);
+    const wrap = el('div', 'hand-card');
+    wrap.appendChild(node);
+    if (canMulligan && !isPlaced) {
+      const swap = el('button', 'mulligan-btn', '↻');
+      swap.type = 'button';
+      swap.dataset.role = 'mulligan';
+      swap.dataset.id = id;
+      swap.title = 'Swap for a new card';
+      wrap.appendChild(swap);
+    }
+    mount.appendChild(wrap);
   });
+}
+
+function mulliganCard(id) {
+  if (run.round > 1 || (run.mulligansLeft ?? 0) <= 0) return;
+  const spin = (roundSeed ^ 0x1357bd91 ^ ((run.mulligansLeft ?? 0) << 8)) >>> 0;
+  run = mulligan(run, id, rng(spin));
+  store.saveRun(run);
+  audio.lift2();
+  renderPlan();
 }
 
 /** Put a card in the first free slot. Returns false if the path is full. */
@@ -321,6 +371,12 @@ function onPointerDown(ev) {
   // Planning only — during resolution and on every other screen the path is
   // a readout, not a board.
   if (current !== 'run' || $('#plan-area').classList.contains('hidden')) return;
+
+  if (ev.target.closest('[data-role="mulligan"]')) {
+    mulliganCard(ev.target.closest('[data-role="mulligan"]').dataset.id);
+    ev.preventDefault();
+    return;
+  }
 
   // The paid-upgrade toggle on a placed Place card is a button, not a handle.
   if (ev.target.closest('[data-role="upgrade"]')) {

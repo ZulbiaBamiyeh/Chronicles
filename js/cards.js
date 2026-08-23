@@ -186,19 +186,28 @@ export const ALLIES = [
     text: 'Your first attack in every fight gains First Strike.' },
   { no: 48, id: 'quartermaster', name: 'Quartermaster', tier: 2, cost: 12,
     perk: { gearDiscount: 3 }, text: 'Gear costs 3 less (minimum 1).' },
-  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 3, cost: 12, fx: { rally: 2 }, slot: 'rally',
-    perk: { roundStart: { rally: 1 } }, text: 'Rally 2. +1 Rally at the start of each future day.' },
+  // A recurring roundStart perk needs at least one future day to ever pay
+  // off — and Tier 3 only unlocks on day five, the run's last day, where it
+  // pays off nothing at all. These four were originally Tier 3 and were
+  // genuinely worthless there once hands got tighter and every gold coin had
+  // to earn its keep; Tier 2 (days 3-5) gives the recurring ones one or two
+  // real future days to compound into.
+  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 2, cost: 11, fx: { rally: 1 }, slot: 'rally',
+    perk: { roundStart: { rally: 1 } }, text: 'Rally 1. +1 Rally at the start of each future day.' },
+  { no: 98, id: 'venom_alchemist', name: 'Venom Alchemist', tier: 2, cost: 10, fx: { poison: 2 }, slot: 'poison',
+    perk: { roundStart: { poison: 1 } }, text: 'Poison 2. +1 Poison at the start of each future day.' },
+  { no: 99, id: 'war_priest', name: 'War Priest', tier: 2, cost: 10, fx: { heal: 8 },
+    perk: { roundStart: { heal: 4 } }, text: 'Heal 8 now. Heal 4 at the start of each future day.' },
+  { no: 100, id: 'master_smith', name: 'Master Smith', tier: 2, cost: 11,
+    perk: { roundStart: { atk: 1 } }, text: '+1 ATK at the start of each future day.' },
 
   { no: 97, id: 'scout', name: 'Scout', tier: 1, cost: 3, fx: { gold: 1 }, scout: true,
     text: "Reveal your rival's secrets this day. +1 gold." },
-  { no: 98, id: 'venom_alchemist', name: 'Venom Alchemist', tier: 2, cost: 10, fx: { poison: 2 }, slot: 'poison',
-    perk: { roundStart: { poison: 1 } }, text: 'Poison 2. +1 Poison at the start of each future day.' },
-  { no: 99, id: 'war_priest', name: 'War Priest', tier: 3, cost: 13, fx: { heal: 10 },
-    perk: { roundStart: { heal: 5 } }, text: 'Heal 10 now. Heal 5 at the start of each future day.' },
-  { no: 100, id: 'master_smith', name: 'Master Smith', tier: 3, cost: 15,
-    perk: { roundStart: { atk: 2 } }, text: '+2 ATK at the start of each future day.' },
-  { no: 101, id: 'shield_maiden', name: 'Shield Maiden', tier: 3, cost: 14, fx: { armour: 2 }, slot: 'armour',
-    perk: { cleanPathArmour: 3 }, text: 'Armour 2. Before each duel, +3 Armour if you took no path damage.' },
+  // Shield Maiden's problem wasn't timing, it was value: Armour 2 for 14 gold
+  // at Tier 3 loses outright to a Tier 2 Tower Shield (Armour 3 for 9). Kept
+  // at Tier 3 but strengthened to actually compete there.
+  { no: 101, id: 'shield_maiden', name: 'Shield Maiden', tier: 3, cost: 11, fx: { armour: 4 }, slot: 'armour',
+    perk: { cleanPathArmour: 3 }, text: 'Armour 4. Before each duel, +3 Armour if you took no path damage.' },
 ].map((a) => ({ ...a, type: 'ally' }));
 
 // Places are free to enter. Two of them (`option`) offer a paid upgrade the

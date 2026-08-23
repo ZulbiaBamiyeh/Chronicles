@@ -6,8 +6,8 @@
 //   node tools/balance.mjs [runs]
 
 import {
-  newRun, startRound, deal, resolvePath, duel, settleRound,
-  rng, PATH_SLOTS,
+  newRun, startRound, resolvePath, duel, settleRound,
+  rng, PATH_SLOTS, refillHand,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
 
@@ -25,22 +25,30 @@ const RUNS = Number(process.argv[2] || 600);
  * score at all — a secret adds nothing to your own statline, so a planner
  * that only weighed stats would correctly conclude it was a wasted slot and
  * the whole mechanic would go unmeasured.
+ *
+ * The hand is no longer always six: it's whatever refillHand() left after
+ * carrying yesterday's leftovers forward, which can run short late in a run
+ * as a deck's tier pool empties. The planner fills as many slots as the hand
+ * allows and leaves the rest empty, same as a real player would.
  */
 function bestPath(run, hand, score, ctx) {
   const available = hand.map((id) => ({ id, from: 'hand' }));
+  const target = Math.min(PATH_SLOTS, available.length);
   let best = null;
   const chosen = [];
   const used = new Set();
 
   const walk = () => {
-    if (chosen.length === PATH_SLOTS) {
-      const out = resolvePath(run, chosen.slice());
+    if (chosen.length === target) {
+      const slots = [...chosen];
+      while (slots.length < PATH_SLOTS) slots.push(null);
+      const out = resolvePath(run, slots);
       const d = duel(out.state, ctx.rivalDay, out.cleanPath, {
         mine: out.secrets,
         theirs: ctx.rivalDay.secrets,
       });
       const value = score(out, d);
-      if (!best || value > best.value) best = { value, slots: chosen.slice(), out, duel: d };
+      if (!best || value > best.value) best = { value, slots, out, duel: d };
       return;
     }
     for (let i = 0; i < available.length; i++) {
@@ -92,9 +100,10 @@ function simulate(style) {
     while (!run.over && guard++ < 40) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
-      const hand = deal(run.round, rng(roundSeed));
+      const { hand, seenCards } = refillHand(run, rng(roundSeed));
+      run = { ...run, hand, seenCards };
       const rivalDay = rivalOnDay(rival, run.round);
-      const chosen = bestPath(run, hand, score, { rivalDay });
+      const chosen = bestPath(run, run.hand, score, { rivalDay });
       const out = chosen.out;
       const d = chosen.duel;
 

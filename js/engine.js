@@ -207,6 +207,13 @@ export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer'
     // equipment panel and the attack animations do, so the fight can show the
     // weapon you're really holding rather than a generic sword.
     gear: [],
+    // The cards currently held, unplayed — persisted across days, refilled by
+    // refillHand() rather than re-dealt from scratch every round. `seenCards`
+    // is the full draw history (everything ever dealt, played or not), so
+    // nothing is ever handed to the same run twice.
+    hand: [],
+    seenCards: [],
+    mulligansLeft: MULLIGAN_LIMIT,
     perks: { healPerKill: 0, gearDiscount: 0, cleanPathArmour: 0, roundStart: {} },
     // Marks that this round's upkeep (the between-rounds heal and every
     // recurring ally) has already been applied, so resuming a save mid-round
@@ -225,42 +232,118 @@ export function tiersForRound(round) {
   return [2, 3];
 }
 
+export const MIN_HAND_MONSTERS = 2;
+export const MIN_HAND_SPENDABLE = 1;
+/** After the opening hand, later days draw this many fresh cards — Chronicle's
+ *  own shape: a full 6-card opener, then 3 new cards refilling whatever's
+ *  left in hand every chapter after. */
+export const HAND_REFILL = 3;
+/** How many cards of the opening hand a player may swap for a fresh draw. */
+export const MULLIGAN_LIMIT = 3;
+
 /**
- * Six cards from the round's tier pool, guaranteed to contain at least two
- * monsters (so gold is always reachable) and at least one gear or place (so
- * gold is always spendable). Without that floor a hand can be unplayable
- * through no fault of the player, which is the one kind of unfair this game
- * can't afford — every other bad outcome here is a decision.
+ * Draws `count` new cards from the tiers a day allows, topping up whatever the
+ * hand is short of — at least two monsters (so gold is always reachable) and
+ * at least one gear or place (so gold is always spendable). `already` is what
+ * the hand already has of each, so refilling on top of a hand that's still
+ * holding two monsters doesn't force a third: the floor is a property of the
+ * whole hand across the run, not a rule about any one draw.
+ *
+ * A hand can come back short of `count` if the tier's pool has run dry — a
+ * 10-card tier deck drawn from on three separate days can empty out — and
+ * that's fine: a short hand is still legal to plan from, just with fewer
+ * choices, and never an unplayable one, since the floor is still honoured
+ * with whatever's left.
  */
-export function deal(round, r, deck = null) {
-  const tiers = tiersForRound(round);
-  // Draw from the player's own deck when they have one — that's the whole
-  // point of building it. Falling back to the full pool keeps every tool and
-  // test that predates deckbuilding meaningful, and is what a player who has
-  // never opened the builder effectively has anyway.
-  const source = deck && deck.length
-    ? deck.map((id) => card(id)).filter(Boolean)
-    : DEAL_POOL;
-  const pool = source.filter((c) => tiers.includes(c.tier));
+function drawCards(tiers, deck, exclude, r, count, already) {
+  const source = deck && deck.length ? deck.map((id) => card(id)).filter(Boolean) : DEAL_POOL;
+  const pool = source.filter((c) => tiers.includes(c.tier) && !exclude.has(c.id));
   const monsters = pool.filter((c) => c.type === 'monster');
   const spendable = pool.filter((c) => c.type === 'gear' || c.type === 'place');
 
-  const hand = [];
+  const drawn = [];
   const taken = new Set();
-  const take = (c) => { hand.push(c.id); taken.add(c.id); };
+  const take = (c) => { drawn.push(c.id); taken.add(c.id); };
   const draw = (from) => {
     const options = from.filter((c) => !taken.has(c.id));
     return options.length ? pick(options, r) : null;
   };
 
-  for (let i = 0; i < 2; i++) { const c = draw(monsters); if (c) take(c); }
-  { const c = draw(spendable); if (c) take(c); }
-  while (hand.length < HAND_SIZE) {
+  const needMonsters = Math.max(0, MIN_HAND_MONSTERS - already.monsters);
+  const needSpendable = Math.max(0, MIN_HAND_SPENDABLE - already.spendable);
+  for (let i = 0; i < needMonsters && drawn.length < count; i++) {
+    const c = draw(monsters); if (c) take(c);
+  }
+  for (let i = 0; i < needSpendable && drawn.length < count; i++) {
+    const c = draw(spendable); if (c) take(c);
+  }
+  while (drawn.length < count) {
     const c = draw(pool);
     if (!c) break;
     take(c);
   }
-  return shuffle(hand, r);
+  return shuffle(drawn, r);
+}
+
+const handCounts = (hand) => ({
+  monsters: hand.filter((id) => card(id)?.type === 'monster').length,
+  spendable: hand.filter((id) => ['gear', 'place'].includes(card(id)?.type)).length,
+});
+
+/**
+ * A standalone opening hand: six cards from the round's tier pool, with the
+ * floor guaranteed from nothing. This is what a day-1 hand is, and it's also
+ * the tool used throughout tools/ and test/ wherever a single, stateless hand
+ * is all that's needed rather than a whole run's worth of persisted state.
+ */
+export function deal(round, r, deck = null) {
+  return drawCards(tiersForRound(round), deck, new Set(), r, HAND_SIZE, { monsters: 0, spendable: 0 });
+}
+
+/**
+ * Refills a run's persisted hand for the day about to be played: the opening
+ * 6 on day one, or 3 fresh cards added to whatever's left in hand on every
+ * day after. Cards are never dealt twice in the same run — `run.seenCards` is
+ * the full history of everything ever drawn, so a card that's sitting unused
+ * in hand, or one that's already been played and discarded, is equally off
+ * the table for a future refill.
+ *
+ * @param {object} run
+ * @param {function} r
+ */
+export function refillHand(run, r) {
+  const tiers = tiersForRound(run.round);
+  const hand = [...(run.hand || [])];
+  const seen = new Set(run.seenCards || []);
+  const want = run.round <= 1 ? Math.max(0, HAND_SIZE - hand.length) : HAND_REFILL;
+  const drawn = drawCards(tiers, run.deck, seen, r, want, handCounts(hand));
+  return {
+    hand: shuffle([...hand, ...drawn], r),
+    seenCards: [...seen, ...drawn],
+    drawn,
+  };
+}
+
+/**
+ * Swaps one card out of the opening hand for a fresh draw from the same
+ * eligible pool — Chronicle's own mulligan, capped at `MULLIGAN_LIMIT` swaps
+ * so it thins a bad opener without turning into "reroll until perfect."
+ */
+export function mulligan(run, cardId, r) {
+  if (run.round > 1 || (run.mulligansLeft ?? MULLIGAN_LIMIT) <= 0) return run;
+  const at = (run.hand || []).indexOf(cardId);
+  if (at < 0) return run;
+  const seen = new Set(run.seenCards || []);
+  const [fresh] = drawCards(tiersForRound(run.round), run.deck, seen, r, 1, { monsters: 99, spendable: 99 });
+  if (!fresh) return run;
+  const hand = [...run.hand];
+  hand[at] = fresh;
+  return {
+    ...run,
+    hand,
+    seenCards: [...seen, fresh],
+    mulligansLeft: (run.mulligansLeft ?? MULLIGAN_LIMIT) - 1,
+  };
 }
 
 /** Start-of-round upkeep: heal 50% of max, then apply every recurring ally. */
@@ -315,6 +398,7 @@ export function resolvePath(run, slots) {
     ...run,
     kw: { ...run.kw },
     gear: [...(run.gear || [])],
+    hand: [...(run.hand || [])],
     perks: { ...run.perks, roundStart: { ...run.perks.roundStart } },
   };
   const startHp = s.hp;
@@ -333,6 +417,11 @@ export function resolvePath(run, slots) {
     if (!slot) { push({ slot: i, kind: 'empty' }); return; }
     const c = card(slot.id);
     if (!c) { push({ slot: i, kind: 'empty' }); return; }
+    // Every card that occupies a slot leaves the hand, win, lose, or fizzle —
+    // a card you tried to play and couldn't afford is still spent, the same
+    // as it would be at a real table.
+    const at = s.hand.indexOf(slot.id);
+    if (at >= 0) s.hand.splice(at, 1);
 
     const ctx = {
       slot: i,
