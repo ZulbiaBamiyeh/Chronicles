@@ -53,10 +53,29 @@
           <div id="hud-hp-fill" class="hpbar-fill"></div>
           <span id="hud-hp-text" class="hpbar-text">20 / 20</span>
         </div>
-        <div class="stat stat-atk"><i>⚔</i><b id="hud-atk">1</b></div>
-        <div class="stat stat-gold"><i>◉</i><b id="hud-gold">3</b></div>
+      </div>
+      <!-- The two numbers every decision on this screen is made against: what
+           you hit for, and what you can afford. They were pill-sized chips
+           tucked beside the HP bar and were the first thing players said they
+           couldn't read. -->
+      <div class="hud-readouts">
+        <div class="readout readout-atk" aria-label="Attack">
+          <span class="readout-icon">⚔</span>
+          <b class="readout-val" id="hud-atk">1</b>
+          <span class="readout-label">ATK</span>
+        </div>
+        <div class="readout readout-gold" aria-label="Gold">
+          <span class="readout-icon">◉</span>
+          <b class="readout-val" id="hud-gold">3</b>
+          <span class="readout-label">GOLD</span>
+        </div>
       </div>
       <div id="hud-kw" class="hud-kw"></div>
+      <!-- What you're actually carrying, on the screen where you're deciding
+           what to buy. The equipment panel only ever existed on the fight
+           screens, so while planning there was nothing telling you what you
+           already had. -->
+      <div id="hud-gear" class="hud-gear"></div>
     </header>
 
     <div class="path-wrap">

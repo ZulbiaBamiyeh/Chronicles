@@ -360,7 +360,72 @@ body.no-webgl #app {
 .stat-atk { color: #ffb08a; }
 .stat-gold { color: var(--gold); }
 
+/* The two numbers every planning decision is made against. These were
+   pill-sized chips beside the HP bar and were the first thing that turned out
+   to be unreadable — what you hit for and what you can afford deserve to be
+   the largest things in the HUD after your health. */
+.hud-readouts { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.readout-icon { font-size: 1rem; line-height: 1; align-self: center; }
+.readout-val {
+  font-family: var(--pixel);
+  font-size: 1.2rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.readout-label {
+  font-family: var(--pixel);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+.readout-atk { color: #ffb08a; border-color: rgba(255, 176, 138, 0.35); }
+.readout-gold {
+  color: var(--gold);
+  border-color: rgba(255, 207, 63, 0.42);
+  background:
+    linear-gradient(180deg, rgba(255, 207, 63, 0.12), transparent 60%),
+    rgba(0, 0, 0, 0.42);
+  text-shadow: 0 0 10px rgba(255, 207, 63, 0.35);
+}
+
 .hud-kw { display: flex; flex-wrap: wrap; gap: 0.22rem; }
+
+/* What you're carrying, on the screen where you choose what to buy. */
+.hud-gear { display: flex; flex-wrap: wrap; gap: 0.28rem; }
+.gear-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.26rem;
+  max-width: 100%;
+  padding: 0.2rem 0.4rem 0.2rem 0.28rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.4);
+}
+.gear-chip-icon { font-size: 0.95rem; line-height: 1; }
+.gear-chip-name {
+  font-size: 0.66rem;
+  color: var(--bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gear-atk    { border-color: rgba(255, 176, 138, 0.5); }
+.gear-armour { border-color: rgba(159, 192, 255, 0.5); }
+.gear-poison { border-color: rgba(122, 231, 106, 0.5); }
+.gear-thorns { border-color: rgba(255, 160, 122, 0.5); }
+.gear-rally  { border-color: rgba(255, 207, 63, 0.5); }
+.gear-first  { border-color: rgba(139, 233, 255, 0.5); }
 
 /* ===================== the path ===================== */
 
@@ -963,6 +1028,24 @@ body.is-dragging { cursor: grabbing; }
     linear-gradient(180deg, rgba(18, 28, 54, 0.85), rgba(7, 10, 22, 0.85));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
+/* Names the panel. Without it the rival's statline reads as a second,
+   unexplained copy of your own sitting beside your hand. */
+.rival-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-bottom: 0.28rem;
+  border-bottom: 1px solid var(--line);
+}
+.rival-title-label {
+  font-family: var(--pixel);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--ghost);
+}
+.rival-title-note { font-size: 0.64rem; color: var(--dim); }
+
 .rival-head { display: flex; align-items: center; gap: 0.45rem; }
 .rival-glyph {
   font-size: 1.35rem;
@@ -1021,14 +1104,25 @@ body.is-dragging { cursor: grabbing; }
 .rs-rally  { border-color: rgba(255, 207, 63, 0.5); color: var(--gold); }
 .rs-first  { border-color: rgba(139, 233, 255, 0.5); color: var(--ghost); }
 
-.rival-kit { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.rival-kit { display: flex; flex-wrap: wrap; gap: 0.22rem; }
 .kit-item {
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  max-width: 100%;
   line-height: 1;
-  padding: 0.16rem;
-  border-radius: 0.28rem;
+  padding: 0.18rem 0.36rem 0.18rem 0.24rem;
+  border-radius: 0.3rem;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--line);
+}
+.kit-item-icon { font-size: 0.86rem; line-height: 1; }
+.kit-item-name {
+  font-size: 0.64rem;
+  color: var(--bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The one thing the panel withholds. An unknown secret is a visible blank,
@@ -1751,7 +1845,7 @@ body.is-dragging { cursor: grabbing; }
   /* -- the run screen: path/hand on the left, the rival pinned on the right -- */
   #screen-run {
     display: grid;
-    grid-template-columns: minmax(0, 640px) minmax(300px, 380px);
+    grid-template-columns: minmax(0, 820px) minmax(300px, 360px);
     grid-template-areas:
       "hud   hud"
       "path  rival"
@@ -1759,7 +1853,7 @@ body.is-dragging { cursor: grabbing; }
     column-gap: 1.6rem;
     row-gap: 0.6rem;
     align-content: start;
-    max-width: 1080px;
+    max-width: 1240px;
     width: 100%;
     margin: 0 auto;
     padding-top: var(--top);
@@ -1776,7 +1870,13 @@ body.is-dragging { cursor: grabbing; }
   #screen-run .resolve-area, #screen-run #rival-panel { max-width: none; width: 100%; }
   #screen-run .resolve-area .duelists { max-width: 760px; margin: 0 auto; }
   #screen-run .path { gap: 0.65rem; }
-  #screen-run .hand { grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+  /* One row of six. The phone stacks the hand 3×2 because it has no width to
+     spend; wrapping it to a second row here is what pushed the screen past the
+     viewport and put a scrollbar inside the hand — on a layout that has a whole
+     empty column to spare. A single row fits, and keeps every card visible
+     without scrolling to compare them, which is the entire act of planning. */
+  #screen-run .hand { grid-template-columns: repeat(6, 1fr); gap: 0.45rem; }
+  #screen-run .plan-scroll { overflow: visible; }
 
   /* -- the duel screen: real room for the strike animations to travel -- */
   #screen-duel {

@@ -198,6 +198,32 @@ export function renderHud(run, tierLabel) {
   }
   if (run.kw.firstStrike) kw.appendChild(el('span', 'kw kw-first', 'First Strike'));
   kw.classList.toggle('hidden', !kw.childElementCount);
+
+  renderGearStrip($('#hud-gear'), run.gear || []);
+}
+
+/**
+ * The kit you're carrying, drawn where you're deciding what to buy. Shows the
+ * item actually worn in each slot — the Runed Greatsword, not "ATK 11" — so
+ * "do I already have a weapon" is answerable without opening anything, which
+ * is the question half the gear cards in the pool turn on.
+ */
+function renderGearStrip(mount, gear) {
+  if (!mount) return;
+  mount.textContent = '';
+  const worn = equipment(gear);
+  const items = EQUIP_SLOTS
+    .map((slot) => ({ slot, item: worn[slot.key] }))
+    .filter(({ item }) => item);
+  mount.classList.toggle('hidden', !items.length);
+  if (!items.length) return;
+  for (const { slot, item } of items) {
+    const chip = el('span', `gear-chip gear-${slot.kind}`);
+    chip.appendChild(glyphEl('gear-chip-icon', ICON[item.id] || slot.icon, item.name));
+    chip.appendChild(el('span', 'gear-chip-name', item.name));
+    chip.title = `${item.name} — ${cardText(item)}`;
+    mount.appendChild(chip);
+  }
 }
 
 // ---- equipment panel --------------------------------------------------
@@ -359,6 +385,15 @@ const KW_SHORT = {
 export function rivalPanel(mount, info, series) {
   mount.textContent = '';
 
+  // Say what this panel is. It shows a character you have never met, drawn
+  // from a bucket, who you will fight at the end of today's path — without a
+  // line saying so it reads as a second copy of your own statline sitting
+  // inexplicably beside your hand.
+  const title = el('div', 'rival-title');
+  title.appendChild(el('span', 'rival-title-label', "TODAY'S RIVAL"));
+  title.appendChild(el('span', 'rival-title-note', 'you duel them after the path'));
+  mount.appendChild(title);
+
   const head = el('div', 'rival-head');
   head.appendChild(el('span', 'rival-glyph', '👻'));
   const id = el('div', 'rival-id');
@@ -376,8 +411,8 @@ export function rivalPanel(mount, info, series) {
   mount.appendChild(head);
 
   const stats = el('div', 'rival-stats');
-  stats.appendChild(statChip('⚔', info.atk, 'atk'));
-  stats.appendChild(statChip('♥', `${info.hp}/${info.maxHp}`, 'hp'));
+  stats.appendChild(statChip('ATK', info.atk, 'atk'));
+  stats.appendChild(statChip('HP', `${info.hp}/${info.maxHp}`, 'hp'));
   for (const [k, label] of Object.entries(KW_SHORT)) {
     if (info.keywords[k]) stats.appendChild(statChip(label, info.keywords[k], k));
   }
@@ -391,8 +426,14 @@ export function rivalPanel(mount, info, series) {
     for (const itemId of info.inventory) {
       const c = card(itemId);
       if (!c) continue;
-      const chip = glyphEl('kit-item', ICON[itemId] || '❔', c.name);
-      chip.title = c.name;
+      // Named, not just a glyph. Reading a counter off the kit is the whole
+      // reason it's shown, and a row of unlabelled icons is a puzzle rather
+      // than intel — you can't decide whether Rust Powder is worth a slot from
+      // a shape you can't identify.
+      const chip = el('span', 'kit-item');
+      chip.appendChild(glyphEl('kit-item-icon', ICON[itemId] || '❔', c.name));
+      chip.appendChild(el('span', 'kit-item-name', c.name));
+      chip.title = `${c.name} — ${cardText(c)}`;
       kit.appendChild(chip);
     }
     mount.appendChild(kit);
