@@ -50,7 +50,12 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 const TARGETS = {
   1: { atk: [4, 6], maxHp: [23, 28] },
   2: { atk: [7, 11], maxHp: [26, 33] },
-  3: { atk: [12, 17], maxHp: [32, 39] },
+  // Day three is the step where Tier 2 unlocks, and it used to be the hardest
+  // day of the run — harder than four or five — because the ghost jumps a tier
+  // on the same day the player *starts* drawing one, with no Tier 2 gear bought
+  // yet and a purse still sized for Tier 1. Eased so the curve climbs instead
+  // of spiking and then relaxing.
+  3: { atk: [12, 16], maxHp: [31, 38] },
   4: { atk: [19, 26], maxHp: [37, 47] },
   5: { atk: [27, 40], maxHp: [44, 57] },
 };

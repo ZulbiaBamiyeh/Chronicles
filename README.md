@@ -154,9 +154,32 @@ Trophies made characters climb faster than §9's table assumed, so the ghost
 band is nudged up from round 3 to match. In the shipped game that corrects
 itself for free — ghosts *are* real players, who collected the same trophies —
 so this is the bot pool standing in for that, not a difficulty thumb on the
-scale. After both changes: 31.0% run completion for the brute-force planner
-(inside §9's own 25–35%), 39.9% duel win rate, 4.05 mean exchanges with 79.6%
+scale. After both changes: 32.0% run completion for the brute-force planner
+(inside §9's own 25–35%), 40.9% duel win rate, 4.03 mean exchanges with 79.7%
 of duels inside §12's 3–6 window.
+
+### The shape of a run, not just its average
+
+`balance.mjs` also reports duel win rate broken down by day, because an
+aggregate hides the thing players actually feel. Day one is the day the whole
+game gets judged on, and a series is only tense if the early days are winnable
+and the late ones aren't a formality either way.
+
+That breakdown immediately turned up a real fault: **day three used to be the
+hardest day of the run**, at 28.7% against 39.9% on day four and 38.6% on day
+five. A difficulty curve that spikes and then relaxes reads as unfair rather
+than hard. The cause was structural — day three is when Tier 2 unlocks, so the
+ghost jumps a tier on the same day the player *starts* drawing one, with no
+Tier 2 gear bought yet and a purse still sized for Tier 1. Easing the day-three
+band leaves the curve at:
+
+```
+d1 58.4%   d2 36.8%   d3 32.0%   d4 38.5%   d5 35.1%
+```
+
+A winnable opener, then a steady 32–38% grind. Worth re-checking whenever the
+tier schedule or the gear pool moves, since the spike came from the interaction
+between the two rather than from either one being wrong.
 
 ### The hand used to shrink every day
 

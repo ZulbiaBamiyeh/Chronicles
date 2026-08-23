@@ -102,6 +102,11 @@ function simulate(style) {
     flooredAtOne: 0, rounds: 0,
     secretsPlayed: 0, secretRounds: 0, scoutRounds: 0,
     invasionRounds: 0, invasionDamagePct: [],
+    // Duels split by which day of the series they were, because an aggregate
+    // win rate hides the shape of a run. Losing the opening duel most of the
+    // time is a different — and much worse — game than losing the last one,
+    // however similar the average looks.
+    duelsOnDay: {}, winsOnDay: {},
   };
 
   for (let seed = 1; seed <= RUNS; seed++) {
@@ -137,6 +142,8 @@ function simulate(style) {
 
       stats.duels++;
       if (d.won) stats.duelWins++;
+      stats.duelsOnDay[run.round] = (stats.duelsOnDay[run.round] || 0) + 1;
+      if (d.won) stats.winsOnDay[run.round] = (stats.winsOnDay[run.round] || 0) + 1;
       stats.exchanges.push(d.exchanges);
 
       run = settleRound(out.state, d.won);
@@ -194,6 +201,13 @@ function report(style) {
   for (const [label, value, want, ok] of rows) {
     console.log(`${target(ok)} ${label.padEnd(32)} ${String(value).padStart(9)}   want ${want}`);
   }
+
+  // The shape of a run, not just its average. Day one is the one a new player
+  // judges the whole game on, and a series is only tense if the early days are
+  // winnable and the late ones are not a formality either way.
+  const byDay = Object.keys(s.duelsOnDay).map(Number).sort((a, b) => a - b)
+    .map((d) => `d${d} ${pct((s.winsOnDay[d] || 0) / s.duelsOnDay[d])}`);
+  console.log(`       duel win rate by day             ${byDay.join('  ')}`);
   return s;
 }
 
