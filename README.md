@@ -6,7 +6,7 @@ duels a **ghost** — a snapshot of another character from the same point in the
 run. Five duel wins completes a run; three losses ends it.
 
 This is a playable prototype of [`docs/ghostwalk-design.md`](docs/ghostwalk-design.md)
-— the 63-card pool, the five keywords, the shared combat resolver, and the
+— the card pool, the five keywords, the shared combat resolver, and the
 whole run structure. It runs in a mobile browser and packages to an Android
 APK via Capacitor.
 
@@ -41,7 +41,9 @@ its full text. Nothing commits until **Embark**.
 
 | | |
 |---|---|
-| **Cards** | All 63 — 22 monsters, 24 gear, 8 allies, 9 places |
+| **Cards** | 119 — 28 monsters, 48 gear, 13 allies, 20 places, 10 secrets |
+| **Builds** | Cards that read the rest of your character: Armour paid out as Thorns, a weapon you sharpen all run, payoffs that scale with what you already committed to |
+| **Ordering** | Cards that read their neighbours in the path, so the same four cards are worth more in the right order |
 | **Keywords** | First Strike, Armour, Thorns, Poison, Rally. There is no sixth. |
 | **Combat** | One deterministic resolver, used identically for path fights and the duel |
 | **Card faces** | Hearthstone's corner grammar: cost top-left, ATK bottom-left, HP/Armour bottom-right, art in a tinted well between them |
@@ -68,7 +70,7 @@ testable without a browser.
 
 ```
 js/engine.js     the rules: combat resolver, path resolution, run state
-js/cards.js      all 63 cards, as data
+js/cards.js      all 119 cards, as data
 js/ghosts.js     opponent generation, the four archetypes
 js/storage.js    localStorage: the run, ghost buckets, lifetime record
 js/main.js       flow control, gestures, the shared exchange-by-exchange replay
@@ -103,12 +105,15 @@ from your last uploaded character, and it's marked as a placeholder in
 npm test
 ```
 
-53 tests over the rules. They assert the things a player is entitled to rely on
+88 tests over the rules. They assert the things a player is entitled to rely on
 when they plan a path: that combat is deterministic, that the §11 Cave Troll
 breakpoint table holds exactly, that the fizzle trap in the same section is
 reproducible, that you cannot die on the path, that mutual First Strike cancels,
 that Thorns answer attacks and not poison, that every dealt hand can always
 reach and spend gold, and that a thousand random runs finish without stalling.
+They also pin down what each build-scaling card is actually worth, that every
+day opens with more cards than the path has slots, that all five preset decks
+are legal, and that no scaling card is left sitting in a deck nobody plays.
 
 ## Balance
 
@@ -124,7 +129,7 @@ keeps the single best-scoring one, every round — and scores the result
 against §12's tuning targets. `archetypes.mjs` asks whether each of the
 game's four named strategies (Aggro, Tank, Poison, Rally) is actually worth
 playing, not just a flavour label. `card-coverage.mjs` asks whether any of
-the 63 cards is dead weight nobody ever wants.
+the 119 cards is dead weight nobody ever wants.
 
 ### Why the harder monsters are worth fighting
 
@@ -149,8 +154,37 @@ Trophies made characters climb faster than §9's table assumed, so the ghost
 band is nudged up from round 3 to match. In the shipped game that corrects
 itself for free — ghosts *are* real players, who collected the same trophies —
 so this is the bot pool standing in for that, not a difficulty thumb on the
-scale. After both changes: 31% run completion for the brute-force planner
-(inside §9's own 25–35%), 46% duel win rate, 4.25 mean exchanges.
+scale. After both changes: 31.0% run completion for the brute-force planner
+(inside §9's own 25–35%), 39.9% duel win rate, 4.05 mean exchanges with 79.6%
+of duels inside §12's 3–6 window.
+
+### The hand used to shrink every day
+
+The single worst bug the prototype had, and it hid in plain sight behind a
+comment describing the intended shape. A day drew a fixed three cards against
+a four-slot path, so a run went 6, 5, 4, 3 — and from day four on you held
+*fewer cards than the path had slots*. The back half of every run asked you
+nothing: you placed what you had because it was all you had. The draw now tops
+the hand back up to a full six each day, so the choice-to-slots ratio is the
+same on day five as on day one.
+
+Fixing it made a real character enormously stronger — four *chosen* cards a
+day instead of whatever remained — and took the brute-force planner from 31%
+run completion to 75%. The ghost band absorbed that (up ~24% ATK, ~17% max HP)
+rather than the fix being walked back.
+
+### Why the path is easy and the duel is hard
+
+`balance.mjs` reports path damage at ~12% of max HP against §12's 30–50%
+target, and that MISS is deliberate. Path damage and duel outcome are the same
+dial: §3 carries path damage *into* the duel, so every point the path takes is
+a point you fight the ghost without. Sweeping monster ATK and HP upward to hit
+the path-damage target drags run completion from 31% to 11% and starts
+flooring runs at 1 HP — a game where the path mauls you and the duel is then a
+formality. The current split (an easy path, a 39.9% duel) makes the run
+difficulty land where §9 wants it, and the target was written before trophies
+and the deeper gear pool existed. Re-measure it if monsters change; don't
+chase it on its own.
 
 ### What a fighter is holding, and how it hits
 
@@ -203,15 +237,15 @@ Where the numbers land, over 1000 runs of a greedy (brute-force) player:
 - **Rounds ending floored at 1 HP: under 1%.** The doc calls starting max HP
   (20) the single riskiest number and asks for this to be checked before
   anything else. Tier 3 monsters are not routinely flooring players.
-- **Duels run 4.25 exchanges on average, with ~83% landing in the §12 window.**
+- **Duels run 4.06 exchanges on average, with ~80% landing in the §12 window.**
   Short duels (2.6 exchanges, well under half in-window) were the prototype's
   clearest early miss; fixed by the canonical-band pacing above.
-- **Run completion: 31% for the maximizer, 12% for a cautious style** —
+- **Run completion: 32% for the maximizer, 23% for a cautious style** —
   inside §9's own 25–35%, without needing ghosts to bend around whoever's
   fighting them. Skill and playstyle produce a real, sensible spread; a
   perfect optimizer beating typical ghosts more than a cautious player does
   is the point, not a leak.
-- **Duel win rate: 46%** — near even against a pool the player never gets to
+- **Duel win rate: 40%** — near even against a pool the player never gets to
   pick from.
 - **Path damage is lighter than the 30–50% target**, which is partly the
   planner being better at ordering than a person will be.
@@ -253,12 +287,53 @@ by enough to make committing to a theme feel like a trap.
 ### No dead cards
 
 `tools/card-coverage.mjs` runs the same six strategies and records which of
-the 63 cards each one ever actually chose. **All 63 get picked by at least
+the 119 cards each one ever actually chose. **All 119 get picked by at least
 one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever reach
 round 5, so those cards get fewer opportunities to be dealt at all — that's
 a sampling effect, not a balance problem) or cards that trade a resource
 directly for their effect, like Ruined Chapel spending 2 ATK to heal to
 full, which a strategy actively optimizing ATK correctly avoids.
+
+Four cards used to be picked by nobody. They aren't dead any more, and the fix
+wasn't to the cards: a hand that stays full has room to spend a slot on a
+secret or a situational Tier 3, where a shrinking one never could.
+
+### Cards that read the rest of your build
+
+The pool was, for a long time, entirely flat: every card printed a number and
+gave that number to everyone, in every deck, on every day. A path of four was
+four unrelated numbers, and no amount of tuning makes that feel like a build
+coming together, because nothing ever *comes together* — it only adds up.
+
+Three kinds of card fix that, and all three are in `js/cards.js` under their
+own headings:
+
+- **Cross-keyword payoffs.** Bramblelord pays Thorns out of your Armour;
+  Warden's Oath pays Armour out of your Thorns; Ironblood Rite turns Armour
+  into a bigger HP pool. They deliberately convert one investment into a
+  *different* axis rather than compounding a stat into itself — Poison that
+  doubles Poison leaves the game's own maths behind in about two buys.
+- **The weapon arc.** Grindstone, Armsmaster and Master's Forge read the blade
+  actually in your hand rather than the sum of every weapon you ever bought, so
+  trading up to something enormous has a payoff at the end of it and carrying
+  one great weapon beats hoarding four mediocre ones.
+- **Adjacency.** Flanking Strike, Scavenger's Cache, Ambusher's Nook and Ritual
+  Circle read their neighbours in the path. Before these, ordering only ever
+  decided what you could *afford*; now the same four cards are worth
+  measurably more in the right order, which is the difference between an
+  accounting problem and a puzzle.
+
+`dyn(ctx)` is what makes this possible: a card's effect can read the character
+(keywords, ATK, max HP, owned gear, hearts lost) and its immediate neighbours.
+Neighbours are read from where cards were *placed*, not from what survived
+resolving, so an adjacency payoff is visible while you're still planning.
+
+One trap worth naming: a synergy that isn't in a deck doesn't exist. These were
+added to the pool and to no preset, which made them worth nothing — and three
+of the four scaling cards the game already had (Training Yard, Boneyard,
+Standing Stones) turned out to be in no preset either. Every preset now carries
+the synergies its own theme compounds into, and a test fails if a scaling card
+is left out of all of them.
 
 ### Invasion, on hold
 

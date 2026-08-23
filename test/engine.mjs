@@ -456,11 +456,16 @@ test('an upgrade you did not arm never fires', () => {
   assert.equal(out.state.gold, 20);
 });
 
-test('Toll Bridge does nothing at all unless you pay', () => {
+test('Toll Bridge is worth a little unpaid and a lot paid — never nothing', () => {
+  // It used to give back zero if you didn't arm the upgrade, which made it the
+  // only card that could eat a path slot and pay nothing at all: a trap rather
+  // than a decision. No card should be dead weight in the slot it occupies.
   const run = { ...newRun(22), gold: 20, hp: 10, maxHp: 30 };
   const skipped = resolvePath(run, [{ id: 'toll_bridge', from: 'hand' }, null, null, null]);
-  assert.equal(skipped.state.maxHp, 30);
+  assert.equal(skipped.state.maxHp, 32, 'the base effect lands whether or not you pay');
   assert.equal(skipped.state.hp, 10);
+  assert.equal(skipped.state.gold, 20, 'and nothing is taken for an upgrade you did not arm');
+
   const paid = resolvePath(run, [{ id: 'toll_bridge', from: 'hand', upgrade: true }, null, null, null]);
   assert.equal(paid.state.maxHp, 38);
   assert.equal(paid.state.hp, 18);

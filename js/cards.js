@@ -277,9 +277,14 @@ export const PLACES = [
     text: "Reveal this round's opponent's HP and ATK. +3 gold." },
   { no: 56, id: 'ruined_chapel', name: 'Ruined Chapel', tier: 2, cost: 0, fx: { healFull: true, atk: -2 },
     text: 'Heal to full. −2 ATK.' },
+  // Used to be worth literally nothing if you didn't arm the upgrade, which
+  // made it the one card in the pool that could eat a path slot and give
+  // back zero — a trap rather than a decision, and it read as one in play.
+  // The floor is small enough that paying is still clearly the point.
   { no: 57, id: 'toll_bridge', name: 'Toll Bridge', tier: 2, cost: 0,
-    option: { cost: 5, label: 'Pay 5 for +8 max HP', fx: { maxHp: 8, heal: 8 } },
-    text: 'May pay 5 gold: +8 max HP and heal 8. Otherwise nothing.' },
+    fx: { maxHp: 2 },
+    option: { cost: 5, label: 'Pay 5 for +6 max HP', fx: { maxHp: 6, heal: 8 } },
+    text: '+2 max HP. May pay 5 gold for +6 more max HP and heal 8.' },
   { no: 58, id: 'standing_stones', name: 'Standing Stones', tier: 3, cost: 0,
     dyn: (ctx) => (ctx.slot === 3 ? { maxHp: 4, atk: 2 } : { maxHp: 2, atk: 1 }),
     text: '+2 max HP and +1 ATK. Doubled if this is your fourth slot.' },
