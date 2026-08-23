@@ -65,6 +65,29 @@ const el = (tag, cls, text) => {
   return n;
 };
 
+/**
+ * Renders one glyph slot — everywhere a card's art, a monster portrait, or an
+ * equip-slot icon shows up. Every glyph in this file is an emoji today, but
+ * `ICON`/`MONSTER_GLYPH` are plain data, so the day real art replaces them
+ * this is the one place that needs to change: a value that looks like a path
+ * (starts with `/`, `./`, or `http`, or ends in an image extension) renders
+ * as an `<img>` instead of text, and every call site above keeps working
+ * without edits. Swapping in art is then a data change in cards.js/ui.js's
+ * icon maps, not a rendering-code change.
+ */
+const IMG_LIKE = /^(\.{0,2}\/|https?:\/\/)|\.(png|jpe?g|svg|webp|gif)(\?.*)?$/i;
+function glyphEl(cls, glyph, alt = '') {
+  if (IMG_LIKE.test(glyph || '')) {
+    const img = document.createElement('img');
+    img.className = cls;
+    img.src = glyph;
+    img.alt = alt;
+    img.loading = 'lazy';
+    return img;
+  }
+  return el('span', cls, glyph);
+}
+
 export const $ = (sel) => document.querySelector(sel);
 
 /**
@@ -98,7 +121,7 @@ export function cardEl(id, opts = {}) {
   node.appendChild(el('div', 'card-tier', `T${c.tier}`));
 
   const art = el('div', 'card-art');
-  art.appendChild(el('span', 'card-art-glyph', ICON[id] || '❔'));
+  art.appendChild(glyphEl('card-art-glyph', ICON[id] || '❔', c.name));
   node.appendChild(art);
 
   node.appendChild(el('div', 'card-name', c.name));
@@ -211,7 +234,7 @@ function equipGrid(fighter) {
     const item = worn[slot.key];
     const active = slot.key === 'atk' ? true : Boolean(value);
     const cell = el('div', `equip-slot equip-${slot.kind}${active ? ' filled' : ' empty'}`);
-    cell.appendChild(el('span', 'equip-icon', (active && item && ICON[item.id]) || slot.icon));
+    cell.appendChild(glyphEl('equip-icon', (active && item && ICON[item.id]) || slot.icon, slot.label));
     if (active && slot.key !== 'firstStrike') cell.appendChild(el('span', 'equip-value', String(value)));
 
     const what = item ? item.name : slot.label;
@@ -276,7 +299,7 @@ export function rivalPanel(mount, info, series) {
     for (const itemId of info.inventory) {
       const c = card(itemId);
       if (!c) continue;
-      const chip = el('span', 'kit-item', ICON[itemId] || '❔');
+      const chip = glyphEl('kit-item', ICON[itemId] || '❔', c.name);
       chip.title = c.name;
       kit.appendChild(chip);
     }
@@ -317,7 +340,9 @@ function secretRow(info) {
     row.appendChild(el('span', 'secret-label', 'Scouted:'));
     for (const id of info.secrets) {
       const c = card(id);
-      const chip = el('span', 'secret-chip known', `${ICON[id] || '❔'} ${c.name}`);
+      const chip = el('span', 'secret-chip known');
+      chip.appendChild(glyphEl('secret-chip-icon', ICON[id] || '❔', c.name));
+      chip.appendChild(document.createTextNode(` ${c.name}`));
       chip.title = `You: ${counterText(c.counter)}`;
       row.appendChild(chip);
     }
@@ -355,7 +380,7 @@ const EFFECT_GLYPH = {
 export function duelistEl(mount, fighter, { glyph, sub, facing = 'right' }) {
   mount.textContent = '';
   const portrait = el('div', 'duelist-portrait');
-  portrait.appendChild(el('div', 'duelist-glyph', glyph));
+  portrait.appendChild(glyphEl('duelist-glyph', glyph, fighter.name));
   // Every blow, status tick and pickup animation is drawn into this layer,
   // over the portrait of whoever it happened to.
   const fx = el('div', 'fx-layer');
@@ -461,4 +486,4 @@ export function feedLine(mount, text, cls = '') {
   return line;
 }
 
-export { el };
+export { el, glyphEl };

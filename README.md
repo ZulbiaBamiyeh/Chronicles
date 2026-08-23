@@ -292,6 +292,17 @@ background (`js/bg.js`) is the same domain-warped noise shader. Card art is
 emoji: it reads instantly at thumb size, costs nothing, and is the easiest
 thing in the project to replace.
 
+**Replacing it doesn't touch rendering code.** `js/ui.js`'s `glyphEl()` is
+the one place every icon in the game passes through — card art, duelist
+portraits, equip-panel slots, the rival's kit chips. It renders an emoji as
+text today, but the moment an `ICON`/`MONSTER_GLYPH` map value looks like an
+asset path (starts with `/`, `./`, `http`, or ends in `.png`/`.svg`/etc.) it
+renders an `<img>` instead, sized to the same em-based footprint the emoji
+had — no other file needs to change. Dropping in real art (OSRS-style
+equipment icons, monster portraits, whatever) is a data edit in those two
+maps, one card or monster at a time; nothing about the layout, the animation
+system, or any other component needs to know art has arrived.
+
 ---
 
 ## Where the implementation reads the design document

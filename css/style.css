@@ -3,6 +3,22 @@
    phone and a tablet without a pile of breakpoints. The shader background from
    GAMBIT sits behind everything; the whole UI is translucent panels over it. */
 
+/* Every glyph class below (.card-art-glyph, .duelist-glyph, .equip-icon,
+   .kit-item, .secret-chip-icon, .invasion-icon) sets its own font-size —
+   that's the size an emoji renders at today. js/ui.js's glyphEl() swaps to an
+   <img> the moment an icon map value looks like an asset path rather than an
+   emoji, and this rule is the only thing that needs to exist for that image
+   to size itself correctly: width/height in `em` resolve against the same
+   font-size the class already declares, so real art drops in at the emoji's
+   footprint with no other CSS to touch. */
+img.card-art-glyph, img.duelist-glyph, img.equip-icon,
+img.kit-item, img.secret-chip-icon, img.invasion-icon, img.secret-fire-icon {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
 @font-face {
   font-family: 'Silkscreen';
   font-style: normal;

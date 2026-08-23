@@ -16,7 +16,7 @@ import { drawRival, rivalOnDay, intel } from './rival.js';
 import * as deckLib from './deck.js';
 import * as store from './storage.js';
 import {
-  $, el, cardEl, renderHud, duelistEl, feedLine, rivalPanel, MONSTER_GLYPH, ICON,
+  $, el, glyphEl, cardEl, renderHud, duelistEl, feedLine, rivalPanel, MONSTER_GLYPH, ICON,
 } from './ui.js';
 
 const audio = new AudioEngine();
@@ -858,7 +858,7 @@ async function playSecrets(result, me, them) {
       const c = card(id);
       const row = el('div', `secret-fire secret-${who}`);
       row.append(
-        el('span', 'secret-fire-icon', ICON[id] || '✦'),
+        glyphEl('secret-fire-icon', ICON[id] || '✦', c.name),
         el('span', 'secret-fire-name', c.name),
         el('span', 'secret-fire-effect', counterText(c.counter)),
       );
