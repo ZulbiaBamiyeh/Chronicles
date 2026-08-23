@@ -234,10 +234,20 @@ export function tiersForRound(round) {
 
 export const MIN_HAND_MONSTERS = 2;
 export const MIN_HAND_SPENDABLE = 1;
-/** After the opening hand, later days draw this many fresh cards — Chronicle's
- *  own shape: a full 6-card opener, then 3 new cards refilling whatever's
- *  left in hand every chapter after. */
-export const HAND_REFILL = 3;
+/**
+ * Every day opens on a full hand: whatever you didn't play carries over, and
+ * the draw tops it back up to this many.
+ *
+ * This is a *target*, not a fixed number of cards drawn, and that distinction
+ * is the whole point. A fixed draw of 3 against a path that spends 4 shrinks
+ * the hand by one every day — 6, 5, 4, 3 — so by day four you hold fewer cards
+ * than the path has slots and the game stops asking you anything: you place
+ * what you have because it's all you have. Topping up to a target instead
+ * keeps the choice/slots ratio constant across all five days, which is what
+ * makes a late day still a decision rather than a formality. Cards you kept
+ * are still kept; you simply always come into a day with a real hand.
+ */
+export const HAND_TARGET = HAND_SIZE;
 /** How many cards of the opening hand a player may swap for a fresh draw. */
 export const MULLIGAN_LIMIT = 3;
 
@@ -301,12 +311,11 @@ export function deal(round, r, deck = null) {
 }
 
 /**
- * Refills a run's persisted hand for the day about to be played: the opening
- * 6 on day one, or 3 fresh cards added to whatever's left in hand on every
- * day after. Cards are never dealt twice in the same run — `run.seenCards` is
- * the full history of everything ever drawn, so a card that's sitting unused
- * in hand, or one that's already been played and discarded, is equally off
- * the table for a future refill.
+ * Refills a run's persisted hand for the day about to be played, topping
+ * whatever's left in hand back up to `HAND_TARGET`. Cards are never dealt
+ * twice in the same run — `run.seenCards` is the full history of everything
+ * ever drawn, so a card that's sitting unused in hand, or one that's already
+ * been played and discarded, is equally off the table for a future refill.
  *
  * @param {object} run
  * @param {function} r
@@ -315,7 +324,7 @@ export function refillHand(run, r) {
   const tiers = tiersForRound(run.round);
   const hand = [...(run.hand || [])];
   const seen = new Set(run.seenCards || []);
-  const want = run.round <= 1 ? Math.max(0, HAND_SIZE - hand.length) : HAND_REFILL;
+  const want = Math.max(0, HAND_TARGET - hand.length);
   const drawn = drawCards(tiers, run.deck, seen, r, want, handCounts(hand));
   return {
     hand: shuffle([...hand, ...drawn], r),
@@ -476,6 +485,14 @@ export function resolvePath(run, slots) {
     const at = s.hand.indexOf(slot.id);
     if (at >= 0) s.hand.splice(at, 1);
 
+    // What a `dyn` card gets to read. The path-local fields (slot, neighbours,
+    // monstersDefeated) are what make ordering a puzzle; the character fields
+    // (kw, atk, maxHp, gear, heartsLost) are what let a card pay off an
+    // investment you've been making all run. A card that can only read its own
+    // printed numbers can never be part of a build — it's the same card in
+    // every deck, on every day, for every player. These are the hooks that let
+    // one card mean something different in an Armour run than in a Poison one.
+    const neighbour = (at) => (slots[at] ? card(slots[at].id) : null);
     const ctx = {
       slot: i,
       slots,
@@ -483,6 +500,18 @@ export function resolvePath(run, slots) {
       monstersDefeated,
       usedWatchtower,
       paidUpgrade: Boolean(slot.upgrade),
+      // Neighbours are read from where cards were *placed*, not from what
+      // survived resolving, so an adjacency payoff is something the player can
+      // see and plan for while building the path rather than a surprise.
+      left: neighbour(i - 1),
+      right: neighbour(i + 1),
+      kw: { ...s.kw },
+      atk: s.atk,
+      hp: s.hp,
+      maxHp: s.maxHp,
+      gear: [...s.gear],
+      heartsLost: START.hearts - s.hearts,
+      round: s.round,
     };
 
     // Fizzle: the cost can't be paid when the slot resolves, so the slot does

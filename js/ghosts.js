@@ -39,12 +39,20 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 // gear — so this is the bot pool standing in for that, not a difficulty
 // thumb: it exists to be re-measured with tools/balance.mjs after every pool
 // change, not tuned once and forgotten.
+//
+// Re-measured again after the hand fix (a day used to draw 3 cards against a
+// 4-slot path, so hands shrank 6/5/4/3 and the back half of a run had fewer
+// cards than slots — no choices left to make). Restoring a full hand every day
+// made a real character enormously stronger, since every day now gets four
+// *chosen* cards instead of whatever happened to remain: run completion for
+// the brute-force planner jumped to 75% against §9's 25–35% window. These
+// numbers put it back at 31%.
 const TARGETS = {
-  1: { atk: [3, 5], maxHp: [20, 24] },
-  2: { atk: [6, 9], maxHp: [22, 28] },
-  3: { atk: [10, 14], maxHp: [27, 33] },
-  4: { atk: [15, 21], maxHp: [32, 40] },
-  5: { atk: [22, 32], maxHp: [38, 49] },
+  1: { atk: [4, 6], maxHp: [23, 28] },
+  2: { atk: [7, 11], maxHp: [26, 33] },
+  3: { atk: [12, 17], maxHp: [32, 39] },
+  4: { atk: [19, 26], maxHp: [37, 47] },
+  5: { atk: [27, 40], maxHp: [44, 57] },
 };
 
 // ---------------------------------------------------------------------------
@@ -289,20 +297,27 @@ function flavourInventory(g, round, r) {
   // version of it this round could have produced.
   for (const key of ['armour', 'poison', 'thorns', 'rally']) {
     if (!g.keywords[key]) continue;
-    const options = affordable.filter((c) => c.slot === key);
+    // Printed values only, for the same reason as the weapon below: an item
+    // whose stack is computed from its holder's own build can't be fitted to a
+    // statline that already exists, and a ghost drawn wearing one would be
+    // shown carrying something that doesn't account for the number beside it.
+    const options = affordable.filter((c) => c.slot === key && c.fx?.[key]);
     if (!options.length) continue;
-    const best = options.reduce((a, b) => ((b.fx?.[key] || 0) > (a.fx?.[key] || 0) ? b : a));
+    const best = options.reduce((a, b) => (b.fx[key] > a.fx[key] ? b : a));
     // The strongest fitting item, or a weaker one when the ghost's stack is
     // small — so an Armour 1 ghost isn't drawn wearing Dragonplate.
-    const fit = options.filter((c) => (c.fx?.[key] || 0) <= g.keywords[key]);
+    const fit = options.filter((c) => c.fx[key] <= g.keywords[key]);
     worn.push((fit.length ? pick(fit, r) : best).id);
   }
 
-  // A weapon whose ATK is the closest match to what this ghost hits for.
-  const weapons = affordable.filter((c) => c.slot === 'atk');
+  // A weapon whose ATK is the closest match to what this ghost hits for. Only
+  // weapons with a *printed* ATK can be matched against a number — a card
+  // whose effect is computed from the holder's own build has no fixed value to
+  // compare, and this is presentation, not resolution.
+  const weapons = affordable.filter((c) => c.slot === 'atk' && c.fx?.atk);
   if (weapons.length) {
     const closest = weapons.reduce((a, b) =>
-      Math.abs((b.fx.atk || 0) - g.atk) < Math.abs((a.fx.atk || 0) - g.atk) ? b : a);
+      Math.abs(b.fx.atk - g.atk) < Math.abs(a.fx.atk - g.atk) ? b : a);
     worn.push(closest.id);
   }
 

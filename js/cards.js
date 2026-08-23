@@ -163,6 +163,54 @@ export const GEAR = [
   { no: 94, id: 'aegis_of_dawn', name: 'Aegis of Dawn', tier: 3, cost: 19, fx: { armour: 4, maxHp: 8, thorns: 2 }, slot: 'armour' },
   { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 3, maxHp: 6 }, slot: 'rally' },
   { no: 96, id: 'reaver_plate', name: 'Reaver Plate', tier: 3, cost: 20, fx: { armour: 4, atk: 3 }, slot: 'armour' },
+
+  // ---- Cards that read the character you've been building -----------------
+  //
+  // Everything above is a flat stat stick: it gives the same number in every
+  // deck, on every day, to every player. That's why a path of four of them is
+  // four unrelated numbers rather than a build. These pay off *in proportion
+  // to what you've already committed to*, which is what makes a keyword a
+  // direction worth going in rather than a label.
+  //
+  // They deliberately convert one investment into a *different* axis rather
+  // than compounding a stat into itself. Poison that doubles Poison spirals
+  // out of the game's own maths in two buys; Thorns paid out of Armour makes
+  // the Armour you bought mean something new without ever running away.
+  { no: 107, id: 'bramblelord', name: 'Bramblelord', tier: 2, cost: 10,
+    dyn: (ctx) => ({ thorns: ctx.kw.armour }), slot: 'thorns',
+    text: 'Thorns equal to your Armour.' },
+  { no: 108, id: 'wardens_oath', name: "Warden's Oath", tier: 2, cost: 10,
+    dyn: (ctx) => ({ armour: Math.ceil(ctx.kw.thorns / 2) }), slot: 'armour',
+    text: 'Armour equal to half your Thorns, rounded up.' },
+  { no: 109, id: 'toxinsmith', name: 'Toxinsmith', tier: 2, cost: 9,
+    dyn: (ctx) => ({ poison: 1 + itemsWith(ctx.gear, 'poison') }), slot: 'poison',
+    text: 'Poison 1, and 1 more for each Poison item you carry.' },
+  { no: 110, id: 'ironblood_rite', name: 'Ironblood Rite', tier: 3, cost: 12,
+    dyn: (ctx) => ({ maxHp: ctx.kw.armour, heal: ctx.kw.armour }),
+    text: '+1 max HP and heal 1 for each point of Armour you have.' },
+
+  // ---- The weapon you carry -----------------------------------------------
+  //
+  // A weapon was previously interchangeable: every one you bought added its
+  // ATK and the panel drew whichever was biggest, so "trading up to a great
+  // blade" was arithmetic, not an arc. These three read the weapon actually in
+  // your hand, so committing to one and making it enormous is a real strategy
+  // with a real payoff — and carrying one great weapon beats hoarding four
+  // mediocre ones.
+  { no: 111, id: 'grindstone', name: 'Grindstone', tier: 1, cost: 3,
+    dyn: (ctx) => ({ atk: weaponAtk(ctx.gear) > 0 ? 4 : 2 }),
+    text: '+2 ATK, or +4 instead if you are carrying a weapon.' },
+  // Deliberately not a weapon itself. A weapon whose ATK is dynamic has no
+  // printed number for `weaponAtk()` to read, so if it ever won the weapon
+  // slot it would silently zero out every card that pays off the blade you're
+  // holding. A trainer who makes your whole arsenal count sidesteps that and
+  // reads better anyway.
+  { no: 112, id: 'armsmaster', name: 'Armsmaster', tier: 2, cost: 8,
+    dyn: (ctx) => ({ atk: 2 + 2 * weaponCount(ctx.gear) }),
+    text: '+2 ATK, and 2 more for each weapon you own.' },
+  { no: 113, id: 'masters_forge', name: "Master's Forge", tier: 3, cost: 14,
+    dyn: (ctx) => ({ atk: weaponAtk(ctx.gear) }),
+    text: 'ATK equal to the weapon you are carrying.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -247,6 +295,44 @@ export const PLACES = [
   { no: 106, id: 'dragon_altar', name: 'Dragon Altar', tier: 3, cost: 0,
     option: { cost: 8, label: 'Pay 8 for Rally 2', fx: { rally: 2 } },
     fx: { atk: 2 }, text: '+2 ATK. May pay 8 gold for Rally 2.' },
+
+  // ---- Cards that read their neighbours in the path ------------------------
+  //
+  // The path resolves left to right, but until now that order only ever
+  // decided what you could *afford* — sequencing was an accounting problem.
+  // These make a slot's value depend on what sits beside it, so laying out a
+  // path becomes a puzzle with a right answer worth finding: the same four
+  // cards can be worth noticeably more in a different order.
+  //
+  // Neighbours are read from where cards were placed rather than from what
+  // survived resolving, so the payoff is visible while you're still planning
+  // instead of being a surprise at the end.
+  { no: 114, id: 'flanking_strike', name: 'Flanking Strike', tier: 1, cost: 0,
+    dyn: (ctx) => ({ atk: 2 + (ctx.left?.type === 'monster' ? 3 : 0) }),
+    text: '+2 ATK. +3 more if the card to its left is a monster.' },
+  { no: 115, id: 'scavengers_cache', name: "Scavenger's Cache", tier: 1, cost: 0,
+    dyn: (ctx) => ({ gold: 3 + (ctx.left?.type === 'monster' ? 5 : 0) }),
+    text: '+3 gold. +5 more if the card to its left is a monster.' },
+  { no: 116, id: 'ambushers_nook', name: "Ambusher's Nook", tier: 2, cost: 0,
+    dyn: (ctx) => ({ thorns: 2 + (ctx.right?.type === 'monster' ? 3 : 0) }),
+    text: 'Thorns 2. Thorns 3 more if the card to its right is a monster.' },
+  { no: 117, id: 'ritual_circle', name: 'Ritual Circle', tier: 2, cost: 0,
+    dyn: (ctx) => {
+      const flanked = ctx.left?.type === 'place' && ctx.right?.type === 'place';
+      return flanked ? { atk: 4, maxHp: 4 } : { atk: 2, maxHp: 2 };
+    },
+    text: '+2 ATK and +2 max HP. Doubled if both neighbours are places.' },
+
+  // A comeback card: the only thing in the pool that pays you for losing. A
+  // five-day series you're down 0–2 in is otherwise a formality you have to
+  // sit through, and that's the worst state a run can be in. This makes the
+  // back foot a place you can actually fight from.
+  { no: 118, id: 'berserkers_rite', name: "Berserker's Rite", tier: 2, cost: 0,
+    dyn: (ctx) => ({ atk: 3 * ctx.heartsLost }),
+    text: '+3 ATK for each heart you have lost.' },
+  { no: 119, id: 'bloodforge', name: 'Bloodforge', tier: 3, cost: 0,
+    dyn: (ctx) => ({ atk: Math.floor(Math.max(0, ctx.maxHp - 20) / 4) }),
+    text: '+1 ATK for every 4 max HP you have above 20.' },
 ].map((p) => ({ ...p, type: 'place' }));
 
 // Secrets are the one card type that reaches across the table. A secret is
@@ -367,6 +453,29 @@ export function equipment(ids = []) {
 /** The attack animation a fighter plays, taken from the weapon they hold. */
 export function attackAnim(ids = []) {
   return equipment(ids).atk?.anim || 'punch';
+}
+
+/**
+ * The printed ATK of the weapon a fighter is actually holding — the one that
+ * wins the `atk` slot, not the sum of every weapon they ever bought.
+ *
+ * This is what makes a weapon an *investment* rather than another stat stick.
+ * Cards that read it pay off in proportion to the weapon you committed to, so
+ * carrying one great blade beats carrying four mediocre ones, and the run-long
+ * arc of trading up to something enormous has a payoff at the end of it.
+ */
+export function weaponAtk(ids = []) {
+  return equipment(ids).atk?.fx?.atk || 0;
+}
+
+/** How many distinct weapons a fighter has bought over the run. */
+export function weaponCount(ids = []) {
+  return new Set(ids.filter((id) => card(id)?.slot === 'atk')).size;
+}
+
+/** How many owned cards carry a given keyword — "each Poison item you carry". */
+export function itemsWith(ids = [], key) {
+  return ids.filter((id) => card(id)?.fx?.[key]).length;
 }
 
 /**

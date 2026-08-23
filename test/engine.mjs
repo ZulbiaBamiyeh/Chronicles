@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   resolveCombat, tiebreak, newRun, startRound, deal, resolvePath, duel,
   settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter, applySecrets,
-  PATH_SLOTS, HAND_SIZE, HAND_REFILL, MIN_HAND_MONSTERS, START,
+  PATH_SLOTS, HAND_SIZE, HAND_TARGET, MIN_HAND_MONSTERS, START,
   refillHand, mulligan, MULLIGAN_LIMIT, resolveAmbush,
 } from '../js/engine.js';
 import * as deckLib from '../js/deck.js';
@@ -36,19 +36,19 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 106 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 106);
-  assert.equal(ALL_CARDS.length, 106);
+test('the pool is 119 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 119);
+  assert.equal(ALL_CARDS.length, 119);
   assert.equal(MONSTERS.length, 28);
-  assert.equal(GEAR.length, 41);
+  assert.equal(GEAR.length, 48);
   assert.equal(ALLIES.length, 13);
-  assert.equal(PLACES.length, 14);
+  assert.equal(PLACES.length, 20);
   assert.equal(SECRETS.length, 10);
 });
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 106);
+  assert.equal(ids.size, 119);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
 });
@@ -449,8 +449,8 @@ test('a monster fight event carries a full, replayable exchange log', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The persisted hand — Chronicle's own shape: a 6-card opener, then 3 fresh
-// cards refilling whatever's left in hand every day after.
+// The persisted hand — whatever you didn't play carries over, and the day's
+// draw tops it back up to a full hand.
 // ---------------------------------------------------------------------------
 
 test('day one refills an empty hand up to six cards', () => {
@@ -459,10 +459,10 @@ test('day one refills an empty hand up to six cards', () => {
   assert.equal(hand.length, HAND_SIZE);
 });
 
-test('later days add three, on top of whatever is left in hand', () => {
+test('a later day tops the hand back up to full, keeping what was left', () => {
   let run = { ...newRun(71), round: 2, hand: ['field_mouse', 'wild_boar'], seenCards: ['field_mouse', 'wild_boar'] };
   const { hand } = refillHand(run, rng(2));
-  assert.equal(hand.length, 5, '2 leftover + 3 fresh');
+  assert.equal(hand.length, HAND_TARGET, '2 leftover topped up to a full hand');
   assert.ok(hand.includes('field_mouse') && hand.includes('wild_boar'), 'leftover cards must survive a refill');
 });
 
@@ -499,9 +499,9 @@ test('the floor holds across a refill, not just within one draw', () => {
 });
 
 test('a refill can come back short once a tier runs dry, without throwing', () => {
-  // A 10-card tier pool drawn from on three separate days (up to 6+3+3=12
-  // potential T1 draws) can run out before the third day's request is filled.
-  // That has to degrade to a shorter hand, never crash and never repeat a card.
+  // A 10-card tier pool drawn from across several days can run out before a
+  // later day's top-up is filled. That has to degrade to a shorter hand, never
+  // crash and never repeat a card.
   const deck = deckLib.presetCards('balanced');
   let run = { ...newRun(73, 'x', deck), round: 1 };
   for (let round = 1; round <= 2; round++) {
@@ -509,7 +509,27 @@ test('a refill can come back short once a tier runs dry, without throwing', () =
     const { hand, seenCards } = refillHand(run, rng(round * 41));
     run = { ...run, hand, seenCards };
   }
-  assert.ok(run.hand.length <= HAND_SIZE + HAND_REFILL);
+  assert.ok(run.hand.length <= HAND_TARGET);
+  assert.equal(new Set(run.hand).size, run.hand.length, 'a refill must never repeat a card');
+});
+
+test('every day opens on a full hand, so the path always has more cards than slots', () => {
+  // The bug this locks out: a fixed 3-card refill against a 4-slot path shrank
+  // the hand by one every day (6, 5, 4, 3), so by day four you held fewer cards
+  // than the path had slots and the game stopped asking you anything. Topping
+  // up to a target keeps the choice/slots ratio identical on day five and day
+  // one — a late day still has to be planned, not just filled.
+  const deck = deckLib.presetCards('balanced');
+  let run = newRun(451, 'x', deck);
+  for (let day = 1; day <= RUN_DAYS; day++) {
+    run = startRound({ ...run, round: day });
+    const { hand, seenCards } = refillHand(run, rng(day * 977));
+    run = { ...run, hand, seenCards };
+    assert.ok(hand.length > PATH_SLOTS,
+      `day ${day} opened with ${hand.length} cards for ${PATH_SLOTS} slots — no choice left`);
+    // Spend a full path, the way a real day does.
+    run = { ...run, hand: hand.slice(PATH_SLOTS), upkeepDone: false };
+  }
 });
 
 test('a played card leaves the hand; an unplayed one carries into the next day', () => {
@@ -708,21 +728,21 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   // competitive, multi-exchange fight against ghosts drawn normally for that
   // same (round, wins).
   const scenarios = [
-    { label: 'round 1, low band', round: 1, wins: 0, atk: 3, maxHp: 20, kw: {}, band: [0.25, 0.75] },
-    { label: 'round 3, mid band', round: 3, wins: 1, atk: 12, maxHp: 30, kw: { armour: 1 }, band: [0.25, 0.78] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 26, maxHp: 43, kw: { armour: 3 }, band: [0.25, 0.82] },
+    { label: 'round 1, low band', round: 1, wins: 0, atk: 4, maxHp: 23, kw: {}, band: [0.25, 0.75] },
+    { label: 'round 3, mid band', round: 3, wins: 1, atk: 14, maxHp: 35, kw: { armour: 1 }, band: [0.25, 0.78] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 33, maxHp: 50, kw: { armour: 3 }, band: [0.25, 0.82] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 26, maxHp: 43, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 33, maxHp: 50, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more
     // than a mid-band one — just not be an unloseable lock.
-    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 13, maxHp: 32, kw: { firstStrike: true }, band: [0.55, 0.97] },
+    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 16, maxHp: 38, kw: { firstStrike: true }, band: [0.55, 0.97] },
   ];
   for (const { label, round, wins, atk, maxHp, kw, band } of scenarios) {
     let exchanges = 0, winCount = 0;
