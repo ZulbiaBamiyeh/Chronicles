@@ -184,6 +184,11 @@ export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer'
     gold: START.gold,
     hearts: START.hearts,
     kw: { armour: 0, thorns: 0, poison: 0, rally: 0, firstStrike: false },
+    // Every gear and ally card actually bought, in the order they were bought.
+    // The rules never read this — stats are what the rules care about — but the
+    // equipment panel and the attack animations do, so the fight can show the
+    // weapon you're really holding rather than a generic sword.
+    gear: [],
     perks: { healPerKill: 0, gearDiscount: 0, cleanPathArmour: 0, roundStart: {} },
     // Marks that this round's upkeep (the between-rounds heal and every
     // recurring ally) has already been applied, so resuming a save mid-round
@@ -284,6 +289,7 @@ export function resolvePath(run, slots) {
   const s = {
     ...run,
     kw: { ...run.kw },
+    gear: [...(run.gear || [])],
     perks: { ...run.perks, roundStart: { ...run.perks.roundStart } },
   };
   const startHp = s.hp;
@@ -358,6 +364,7 @@ export function resolvePath(run, slots) {
       }
     }
     if (c.scout) usedWatchtower = true;
+    if (c.type === 'gear' || c.type === 'ally') s.gear.push(c.id);
     push({ slot: i, kind: 'card', id: c.id, fx, upgraded, cost, scout: Boolean(c.scout) });
   });
 
@@ -369,6 +376,10 @@ export function resolvePath(run, slots) {
     cleanPath: s.hp >= startHp,
   };
 }
+
+// `gear` and `anim` ride along on a Fighter for presentation only — the
+// resolver's snapshot() drops everything it doesn't recognise, so nothing here
+// can reach the rules even by accident.
 
 /** The player as a Fighter. `bonusArmour` carries Shieldbearer into the duel. */
 export function playerFighter(s, bonusArmour = 0) {
@@ -382,11 +393,12 @@ export function playerFighter(s, bonusArmour = 0) {
     poison: s.kw.poison,
     rally: s.kw.rally,
     firstStrike: s.kw.firstStrike,
+    gear: [...(s.gear || [])],
   };
 }
 
 export function monsterFighter(c) {
-  return { name: c.name, hp: c.hp, maxHp: c.hp, atk: c.atk, ...(c.kw || {}) };
+  return { name: c.name, hp: c.hp, maxHp: c.hp, atk: c.atk, ...(c.kw || {}), anim: c.anim };
 }
 
 export function ghostFighter(g) {
@@ -400,6 +412,7 @@ export function ghostFighter(g) {
     poison: g.keywords.poison,
     rally: g.keywords.rally,
     firstStrike: g.keywords.firstStrike,
+    gear: [...(g.inventory || [])],
   };
 }
 
@@ -440,6 +453,7 @@ export function toGhost(run, path) {
     atk: run.atk,
     gold: run.gold,
     keywords: { ...run.kw },
+    inventory: [...(run.gear || [])],
     path,
   };
 }

@@ -6,7 +6,7 @@ duels a **ghost** — a snapshot of another character from the same point in the
 run. Five duel wins completes a run; three losses ends it.
 
 This is a playable prototype of [`docs/ghostwalk-design.md`](docs/ghostwalk-design.md)
-— the 58-card pool, the five keywords, the shared combat resolver, and the
+— the 63-card pool, the five keywords, the shared combat resolver, and the
 whole run structure. It runs in a mobile browser and packages to an Android
 APK via Capacitor.
 
@@ -41,13 +41,15 @@ its full text. Nothing commits until **Embark**.
 
 | | |
 |---|---|
-| **Cards** | All 58 — 22 monsters, 19 gear, 8 allies, 9 places |
+| **Cards** | All 63 — 22 monsters, 24 gear, 8 allies, 9 places |
 | **Keywords** | First Strike, Armour, Thorns, Poison, Rally. There is no sixth. |
 | **Combat** | One deterministic resolver, used identically for path fights and the duel |
-| **Animation** | Both fight types replay exchange-by-exchange, blow for blow, off the resolver's own log — a monster fight is no longer a compressed single number |
-| **Equipment panel** | An OSRS/MapleStory-style fixed slot grid (Weapon/Armour/Poison/Thorns/Rally/First Strike) on each duelist, filled or empty, pulsing the slot a hit actually came from |
+| **Card faces** | Hearthstone's corner grammar: cost top-left, ATK bottom-left, HP/Armour bottom-right, art in a tinted well between them |
+| **Animation** | Both fight types replay exchange-by-exchange off the resolver's own log, and every blow is drawn as the thing that threw it — sword arc, arrow in flight, claw rake, troll shockwave, dragon fire |
+| **Equipment panel** | An OSRS/MapleStory-style fixed slot grid on each fighter showing the *actual item* worn in each slot, pulsing the slot a hit came from |
 | **Path** | Four slots, fizzle on unpaid cost, paid upgrades armed at planning time |
-| **Ghosts** | Bucketed by `(round, wins)`, half generated bots and half your own past characters |
+| **Trophies** | Every Tier 2 and Tier 3 monster leaves a permanent upgrade on top of its gold |
+| **Ghosts** | Bucketed by `(round, wins)`, half generated bots and half your own past characters, each carrying a generated inventory |
 | **Run** | 5 wins / 3 hearts, tier scaling by round, saved between rounds |
 
 ## What's deliberately out
@@ -66,7 +68,7 @@ testable without a browser.
 
 ```
 js/engine.js     the rules: combat resolver, path resolution, run state
-js/cards.js      all 58 cards, as data
+js/cards.js      all 63 cards, as data
 js/ghosts.js     opponent generation, the four archetypes
 js/storage.js    localStorage: the run, ghost buckets, lifetime record
 js/main.js       flow control, gestures, the shared exchange-by-exchange replay
@@ -101,7 +103,7 @@ from your last uploaded character, and it's marked as a placeholder in
 npm test
 ```
 
-45 tests over the rules. They assert the things a player is entitled to rely on
+53 tests over the rules. They assert the things a player is entitled to rely on
 when they plan a path: that combat is deterministic, that the §11 Cave Troll
 breakpoint table holds exactly, that the fizzle trap in the same section is
 reproducible, that you cannot die on the path, that mutual First Strike cancels,
@@ -122,7 +124,51 @@ keeps the single best-scoring one, every round — and scores the result
 against §12's tuning targets. `archetypes.mjs` asks whether each of the
 game's four named strategies (Aggro, Tank, Poison, Rally) is actually worth
 playing, not just a flavour label. `card-coverage.mjs` asks whether any of
-the 58 cards is dead weight nobody ever wants.
+the 63 cards is dead weight nobody ever wants.
+
+### Why the harder monsters are worth fighting
+
+A path where every monster paid only gold made Tier 1 strictly correct: same
+currency, less risk. So every Tier 2 and Tier 3 monster now leaves a
+**trophy** — a permanent upgrade — and the keyword ones leave *their* keyword.
+The Iron Golem gives Armour, the Basilisk gives Poison, the Thornback Boar
+gives Thorns, the Elder Wyrm gives Rally. Fighting the scary thing is how you
+become the thing that carries that keyword, which is the shape Chronicle's own
+chapters have: the dangerous fight is the one that pays.
+
+Two gaps fell out of checking this. Poison and Thorns existed **only** as Tier
+1 gear, so a player committing to either had nothing left to buy from round 4
+on — the archetype was reachable early and then quietly stranded. Rally had no
+Tier 1 entry at all, so it could never be started early. Five cards close both
+(Plague Censer, Barbed Cuirass, Wyrmvenom Vial, Bramble Aegis, Battle Drum),
+and a test now asserts the general rule: a keyword you can *start* building has
+to stay buyable at every tier above, or committing to it is a trap the player
+can't see coming.
+
+Trophies made characters climb faster than §9's table assumed, so the ghost
+band is nudged up from round 3 to match. In the shipped game that corrects
+itself for free — ghosts *are* real players, who collected the same trophies —
+so this is the bot pool standing in for that, not a difficulty thumb on the
+scale. After both changes: 31% run completion for the brute-force planner
+(inside §9's own 25–35%), 46% duel win rate, 4.25 mean exchanges.
+
+### What a fighter is holding, and how it hits
+
+`run.gear` records every gear and ally card actually bought. The rules never
+read it — stats are what the resolver cares about — but the equipment panel
+shows the real item in each slot (the Runed Greatsword you bought, not a
+generic sword), and the weapon you're holding picks your attack animation.
+Ghosts get the same treatment: `flavourInventory()` fits a plausible kit to
+the statline a ghost already has, so a Poison 4 ghost is visibly carrying
+something venomous.
+
+Fitting the kit to the stats, rather than deriving stats from a drafted
+inventory, is deliberate. Drafting would be the more authentic model of
+"another player's run", but it would put the carefully-solved exchange-count
+pacing at the mercy of whatever the draft rolled. The stats stay
+authoritative; the kit explains them. A test asserts the presentation data
+can never reach the resolver — `snapshot()` drops every field it doesn't
+recognise, and that test is what keeps it honest as fields get added.
 
 ### Ghosts are fixed snapshots, not opponents sized to fit
 
@@ -157,14 +203,16 @@ Where the numbers land, over 1000 runs of a greedy (brute-force) player:
 - **Rounds ending floored at 1 HP: under 1%.** The doc calls starting max HP
   (20) the single riskiest number and asks for this to be checked before
   anything else. Tier 3 monsters are not routinely flooring players.
-- **Duels run 4.4 exchanges on average, with ~80% landing in the §12 window.**
+- **Duels run 4.25 exchanges on average, with ~83% landing in the §12 window.**
   Short duels (2.6 exchanges, well under half in-window) were the prototype's
   clearest early miss; fixed by the canonical-band pacing above.
-- **Run completion: 42% for the maximizer, 20% for a cautious style** —
-  close to §9's own 25–35%, without needing ghosts to bend around whoever's
+- **Run completion: 31% for the maximizer, 12% for a cautious style** —
+  inside §9's own 25–35%, without needing ghosts to bend around whoever's
   fighting them. Skill and playstyle produce a real, sensible spread; a
   perfect optimizer beating typical ghosts more than a cautious player does
   is the point, not a leak.
+- **Duel win rate: 46%** — near even against a pool the player never gets to
+  pick from.
 - **Path damage is lighter than the 30–50% target**, which is partly the
   planner being better at ordering than a person will be.
 
@@ -185,15 +233,15 @@ good cards along the way — a realistic committed build, not a synthetic
 extreme — and the picture changes completely:
 
 ```
-atk       completion= 21.8%  duelWin= 40.6%
-tank      completion= 34.2%  duelWin= 47.8%
-poison    completion= 31.7%  duelWin= 47.2%
-rally     completion= 32.3%  duelWin= 47.0%
-thorns    completion= 31.8%  duelWin= 47.2%
-balanced  completion= 36.8%  duelWin= 50.2%
+atk       completion= 12.7%  duelWin= 31.2%
+tank      completion= 27.7%  duelWin= 42.5%
+poison    completion= 26.0%  duelWin= 41.8%
+rally     completion= 24.0%  duelWin= 40.7%
+thorns    completion= 27.7%  duelWin= 42.7%
+balanced  completion= 31.3%  duelWin= 45.7%
 ```
 
-All four themed archetypes land within **2.5 points of completion** of each
+All four themed archetypes land within **3.7 points of completion** of each
 other — Tank and Thorns are not just viable, they're indistinguishable in
 strength from Poison and Rally. Pure ATK-stacking with no keyword synergy at
 all is the *weakest* strategy of the six, meaning there's no "just buy ATK
@@ -205,7 +253,7 @@ by enough to make committing to a theme feel like a trap.
 ### No dead cards
 
 `tools/card-coverage.mjs` runs the same six strategies and records which of
-the 58 cards each one ever actually chose. **All 58 get picked by at least
+the 63 cards each one ever actually chose. **All 63 get picked by at least
 one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever reach
 round 5, so those cards get fewer opportunities to be dealt at all — that's
 a sampling effect, not a balance problem) or cards that trade a resource

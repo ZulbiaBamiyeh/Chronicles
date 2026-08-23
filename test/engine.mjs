@@ -10,7 +10,9 @@ import {
   settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter,
   PATH_SLOTS, HAND_SIZE, START,
 } from '../js/engine.js';
-import { card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES } from '../js/cards.js';
+import {
+  card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES, equipment, attackAnim,
+} from '../js/cards.js';
 import { drawGhost, ARCHETYPES } from '../js/ghosts.js';
 
 let passed = 0;
@@ -30,20 +32,55 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 58 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 58);
-  assert.equal(ALL_CARDS.length, 58);
+test('the pool is 63 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 63);
+  assert.equal(ALL_CARDS.length, 63);
   assert.equal(MONSTERS.length, 22);
-  assert.equal(GEAR.length, 19);
+  assert.equal(GEAR.length, 24);
   assert.equal(ALLIES.length, 8);
   assert.equal(PLACES.length, 9);
 });
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 58);
+  assert.equal(ids.size, 63);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
+});
+
+test('a keyword you can start building stays buildable to the end of a run', () => {
+  // The gap this guards against was real: Poison and Thorns existed only as
+  // Tier 1 gear, so a player committing to either had nothing left to buy
+  // from round 4 on and the archetype quietly stranded halfway up. A keyword
+  // is allowed to *start* at any tier, but once it's on offer it has to stay
+  // on offer at every tier above — otherwise committing to it is a trap the
+  // player can't see coming.
+  for (const key of ['armour', 'poison', 'thorns', 'rally', 'firstStrike']) {
+    const tiers = [1, 2, 3].filter((t) =>
+      ALL_CARDS.some((c) => c.tier === t && c.fx?.[key]));
+    assert.ok(tiers.length, `nothing grants ${key} at all`);
+    const from = Math.min(...tiers);
+    for (let t = from; t <= 3; t++) {
+      assert.ok(tiers.includes(t), `${key} is buyable at tier ${from} but not tier ${t}`);
+    }
+  }
+});
+
+test('every Tier 2 and Tier 3 monster pays a trophy, and Tier 1 mostly does not', () => {
+  // The risk/reward shape of the path: the things that can hurt you are how
+  // you pick up permanent upgrades, not just a bigger pile of coins.
+  for (const m of MONSTERS.filter((m) => m.tier >= 2)) {
+    assert.ok(m.trophy, `${m.id} is a tier ${m.tier} monster with no trophy`);
+  }
+  const t1WithTrophy = MONSTERS.filter((m) => m.tier === 1 && m.trophy).length;
+  assert.ok(t1WithTrophy <= 3, 'tier 1 should stay mostly a gold vending machine');
+});
+
+test('gold still climbs with tier, so a harder fight is always worth more', () => {
+  const worst = (tier) => Math.min(...MONSTERS.filter((m) => m.tier === tier).map((m) => m.gold));
+  const best = (tier) => Math.max(...MONSTERS.filter((m) => m.tier === tier).map((m) => m.gold));
+  assert.ok(worst(2) > best(1), 'the weakest T2 should out-pay the richest T1');
+  assert.ok(worst(3) > best(2), 'the weakest T3 should out-pay the richest T2');
 });
 
 // ---------------------------------------------------------------------------
@@ -299,6 +336,67 @@ test('the Shieldbearer only pays out on a duel you reached unhurt', () => {
   assert.equal(duel(bought, ghost, false).bonusArmour, 0);
 });
 
+test('worn gear is tracked, and the best item wins its slot', () => {
+  const run = { ...newRun(30), gold: 40 };
+  const out = resolvePath(run, [
+    { id: 'rusty_sword', from: 'hand' },
+    { id: 'steel_longsword', from: 'hand' },
+    { id: 'buckler', from: 'hand' },
+    null,
+  ]);
+  assert.deepEqual(out.state.gear, ['rusty_sword', 'steel_longsword', 'buckler']);
+  const worn = equipment(out.state.gear);
+  assert.equal(worn.atk.id, 'steel_longsword', 'the better weapon should be the one held');
+  assert.equal(worn.armour.id, 'buckler');
+  assert.equal(attackAnim(out.state.gear), 'slash');
+});
+
+test('a fizzled card is never worn, and monsters never enter the inventory', () => {
+  const broke = { ...newRun(31), gold: 0 };
+  const out = resolvePath(broke, [
+    { id: 'rusty_sword', from: 'hand' }, { id: 'field_mouse', from: 'hand' }, null, null,
+  ]);
+  assert.equal(out.events[0].kind, 'fizzle');
+  assert.deepEqual(out.state.gear, [], 'a card you could not pay for is not equipment');
+});
+
+test('an unarmed fighter throws a punch, not a phantom sword', () => {
+  assert.equal(attackAnim([]), 'punch');
+  assert.equal(attackAnim(['buckler']), 'punch', 'a shield is not a weapon');
+});
+
+test('presentation data never reaches the resolver', () => {
+  // gear/anim ride along on a Fighter for the UI's benefit. snapshot() inside
+  // resolveCombat drops everything it doesn't recognise, so this is the test
+  // that keeps that guarantee honest as fields get added.
+  const withKit = { name: 'a', hp: 20, atk: 4, gear: ['runed_greatsword'], anim: 'fire' };
+  const bare = { name: 'a', hp: 20, atk: 4 };
+  const foe = () => ({ name: 'b', hp: 20, atk: 3 });
+  assert.equal(
+    JSON.stringify(resolveCombat(withKit, foe())),
+    JSON.stringify(resolveCombat(bare, foe())),
+  );
+});
+
+test('a generated ghost carries an inventory that matches the stats it has', () => {
+  for (let round = 1; round <= 5; round++) {
+    for (let seed = 1; seed < 40; seed++) {
+      const g = drawGhost(round, 2, seed * 613 + round);
+      assert.ok(Array.isArray(g.inventory), 'every ghost needs an inventory');
+      for (const id of g.inventory) assert.ok(card(id), `${id} is not a real card`);
+      const worn = equipment(g.inventory);
+      assert.ok(worn.atk, 'a ghost should always be holding a weapon');
+      // A ghost with a keyword should be visibly carrying something that
+      // explains it — that's the whole point of showing the panel.
+      for (const key of ['armour', 'poison', 'thorns', 'rally']) {
+        if (!g.keywords[key]) continue;
+        const explains = g.inventory.some((id) => (card(id).fx?.[key] || 0) > 0);
+        assert.ok(explains, `round ${round}: ghost has ${key} but nothing granting it`);
+      }
+    }
+  }
+});
+
 test('a monster fight event carries a full, replayable exchange log', () => {
   const run = { ...newRun(26), atk: 5, hp: 20, maxHp: 20 };
   const out = resolvePath(run, [{ id: 'sewer_rat', from: 'hand' }, null, null, null]);
@@ -471,20 +569,20 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   // same (round, wins).
   const scenarios = [
     { label: 'round 1, low band', round: 1, wins: 0, atk: 3, maxHp: 20, kw: {}, band: [0.25, 0.75] },
-    { label: 'round 3, mid band', round: 3, wins: 1, atk: 12, maxHp: 28, kw: { armour: 1 }, band: [0.25, 0.75] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 27, maxHp: 39, kw: { armour: 2 }, band: [0.25, 0.8] },
+    { label: 'round 3, mid band', round: 3, wins: 1, atk: 13, maxHp: 31, kw: { armour: 1 }, band: [0.25, 0.75] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 29, maxHp: 42, kw: { armour: 2 }, band: [0.25, 0.8] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 27, maxHp: 39, kw: { armour: 3, rally: 2 }, band: [0.55, 0.98] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 29, maxHp: 42, kw: { armour: 3, rally: 2 }, band: [0.55, 0.98] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more
     // than a mid-band one — just not be an unloseable lock.
-    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 14, maxHp: 30, kw: { firstStrike: true }, band: [0.55, 0.97] },
+    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 15, maxHp: 33, kw: { firstStrike: true }, band: [0.55, 0.97] },
   ];
   for (const { label, round, wins, atk, maxHp, kw, band } of scenarios) {
     let exchanges = 0, winCount = 0;

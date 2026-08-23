@@ -14,6 +14,12 @@
 // ctx passed to dyn():
 //   { slot, slots, gold, monstersDefeated, usedWatchtower, paidUpgrade }
 //
+// `anim` is purely presentational — which attack animation this fighter or
+// weapon plays when it lands a blow. It never touches resolution; a Runed
+// Greatsword and an Executioner's Blade swing differently and do exactly what
+// their numbers say. Kinds: slash, chop, stab, arrow, claw, bite, smash,
+// magic, fire, lash.
+//
 // The design doc's §7 Spoils-and-Stash system (named item drops from
 // monsters, held until spent) is deliberately not implemented here — cut for
 // this prototype pass so the fight itself could get the attention instead.
@@ -21,66 +27,97 @@
 
 /** @typedef {'monster'|'gear'|'ally'|'place'} CardType */
 
+// Every Tier 2 and Tier 3 monster leaves a `trophy` — a permanent upgrade on
+// top of its gold. That's the whole risk/reward shape of the path: a Tier 1
+// monster is a gold vending machine, while the things that can actually hurt
+// you are how you pick up Armour, Poison, Thorns and Rally in the first
+// place. Fighting up a tier should feel like a decision with a prize at the
+// end of it, not just a bigger number of coins.
 export const MONSTERS = [
   // ---- Tier 1 ----
-  { no: 1, id: 'field_mouse', name: 'Field Mouse', tier: 1, hp: 2, atk: 1, kw: {}, gold: 2 },
-  { no: 2, id: 'sewer_rat', name: 'Sewer Rat', tier: 1, hp: 3, atk: 1, kw: {}, gold: 3 },
-  { no: 3, id: 'wild_boar', name: 'Wild Boar', tier: 1, hp: 5, atk: 2, kw: {}, gold: 4 },
+  { no: 1, id: 'field_mouse', name: 'Field Mouse', tier: 1, hp: 2, atk: 1, kw: {}, gold: 2, anim: 'bite' },
+  { no: 2, id: 'sewer_rat', name: 'Sewer Rat', tier: 1, hp: 3, atk: 1, kw: {}, gold: 3, anim: 'bite' },
+  { no: 3, id: 'wild_boar', name: 'Wild Boar', tier: 1, hp: 5, atk: 2, kw: {}, gold: 4, anim: 'stab' },
   { no: 4, id: 'goblin_scrapper', name: 'Goblin Scrapper', tier: 1, hp: 4, atk: 2, kw: {},
-    gold: 3, trophy: { atk: 1 } },
-  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 }, gold: 4 },
-  { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 6, atk: 2, kw: {}, gold: 5 },
+    gold: 3, trophy: { atk: 1 }, anim: 'slash' },
+  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 }, gold: 4, anim: 'bite' },
+  { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 6, atk: 2, kw: {}, gold: 5, anim: 'slash' },
   { no: 7, id: 'bog_toad', name: 'Bog Toad', tier: 1, hp: 8, atk: 1, kw: {},
-    gold: 4, trophy: { maxHp: 2 } },
-  { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 5, atk: 3, kw: { armour: 1 }, gold: 6 },
-  { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 3, atk: 2, kw: { firstStrike: true }, gold: 4 },
+    gold: 4, trophy: { maxHp: 2 }, anim: 'lash' },
+  { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 5, atk: 3, kw: { armour: 1 }, gold: 6, anim: 'stab' },
+  { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 3, atk: 2, kw: { firstStrike: true }, gold: 4, anim: 'claw' },
 
   // ---- Tier 2 ----
-  { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 14, atk: 5, kw: {}, gold: 9 },
-  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 2 }, gold: 8 },
+  { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 14, atk: 5, kw: {},
+    gold: 9, trophy: { maxHp: 3 }, anim: 'smash' },
+  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 2 },
+    gold: 8, trophy: { poison: 1 }, anim: 'magic' },
   { no: 12, id: 'bandit_captain', name: 'Bandit Captain', tier: 2, hp: 12, atk: 6, kw: {},
-    gold: 10, trophy: { atk: 1 } },
-  { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 }, gold: 11 },
+    gold: 10, trophy: { atk: 1 }, anim: 'slash' },
+  { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 },
+    gold: 11, trophy: { armour: 1 }, anim: 'smash' },
   { no: 14, id: 'ogre_brute', name: 'Ogre Brute', tier: 2, hp: 18, atk: 7, kw: {},
-    gold: 12, trophy: { maxHp: 3 } },
-  { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 11, atk: 5, kw: { firstStrike: true }, gold: 9 },
-  { no: 16, id: 'thornback_boar', name: 'Thornback Boar', tier: 2, hp: 13, atk: 4, kw: { thorns: 2 }, gold: 8 },
+    gold: 12, trophy: { maxHp: 3 }, anim: 'smash' },
+  { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 11, atk: 5, kw: { firstStrike: true },
+    gold: 9, trophy: { atk: 1 }, anim: 'fire' },
+  { no: 16, id: 'thornback_boar', name: 'Thornback Boar', tier: 2, hp: 13, atk: 4, kw: { thorns: 2 },
+    gold: 8, trophy: { thorns: 1 }, anim: 'stab' },
 
   // ---- Tier 3 ----
-  { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {}, gold: 16 },
-  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 4 }, gold: 15 },
-  { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 30, atk: 8, kw: { armour: 5 }, gold: 18 },
-  { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true }, gold: 17 },
+  { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {},
+    gold: 16, trophy: { maxHp: 4 }, anim: 'smash' },
+  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 4 },
+    gold: 15, trophy: { poison: 2 }, anim: 'bite' },
+  { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 30, atk: 8, kw: { armour: 5 },
+    gold: 18, trophy: { armour: 2 }, anim: 'smash' },
+  { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true },
+    gold: 17, trophy: { atk: 2 }, anim: 'claw' },
   { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 32, atk: 10, kw: { rally: 2 },
-    gold: 20, trophy: { atk: 2 } },
-  { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {}, gold: 14 },
+    gold: 20, trophy: { rally: 1 }, anim: 'fire' },
+  { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {},
+    gold: 14, trophy: { atk: 2 }, anim: 'fire' },
 ].map((m) => ({ ...m, type: 'monster' }));
 
+// `slot` is which equipment-panel slot a piece of gear fills when it's worn —
+// the panel shows the real item you're carrying rather than a generic keyword
+// icon, and the weapon you're holding is what picks your attack animation. A
+// fighter with no weapon at all swings a fist.
 export const GEAR = [
   // ---- Tier 1 ----
   { no: 23, id: 'whetstone', name: 'Whetstone', tier: 1, cost: 2, fx: { atk: 2 } },
-  { no: 24, id: 'buckler', name: 'Buckler', tier: 1, cost: 3, fx: { armour: 1 } },
+  { no: 24, id: 'buckler', name: 'Buckler', tier: 1, cost: 3, fx: { armour: 1 }, slot: 'armour' },
   { no: 25, id: 'travellers_boots', name: "Traveller's Boots", tier: 1, cost: 3, fx: { maxHp: 4, heal: 4 } },
-  { no: 26, id: 'rusty_sword', name: 'Rusty Sword', tier: 1, cost: 4, fx: { atk: 3 } },
-  { no: 27, id: 'leather_jerkin', name: 'Leather Jerkin', tier: 1, cost: 4, fx: { armour: 1, maxHp: 3 } },
-  { no: 28, id: 'spiked_vambrace', name: 'Spiked Vambrace', tier: 1, cost: 4, fx: { thorns: 2 } },
-  { no: 29, id: 'hunting_bow', name: 'Hunting Bow', tier: 1, cost: 5, fx: { atk: 2, firstStrike: true } },
-  { no: 30, id: 'venom_flask', name: 'Venom Flask', tier: 1, cost: 5, fx: { poison: 2 } },
+  { no: 26, id: 'rusty_sword', name: 'Rusty Sword', tier: 1, cost: 4, fx: { atk: 3 }, slot: 'atk', anim: 'slash' },
+  { no: 27, id: 'leather_jerkin', name: 'Leather Jerkin', tier: 1, cost: 4, fx: { armour: 1, maxHp: 3 }, slot: 'armour' },
+  { no: 28, id: 'spiked_vambrace', name: 'Spiked Vambrace', tier: 1, cost: 4, fx: { thorns: 2 }, slot: 'thorns' },
+  { no: 29, id: 'hunting_bow', name: 'Hunting Bow', tier: 1, cost: 5, fx: { atk: 2, firstStrike: true }, slot: 'atk', anim: 'arrow' },
+  { no: 30, id: 'venom_flask', name: 'Venom Flask', tier: 1, cost: 5, fx: { poison: 2 }, slot: 'poison' },
+  { no: 63, id: 'battle_drum', name: 'Battle Drum', tier: 1, cost: 5, fx: { rally: 1 }, slot: 'rally' },
 
   // ---- Tier 2 ----
-  { no: 31, id: 'chainmail', name: 'Chainmail', tier: 2, cost: 8, fx: { armour: 2, maxHp: 6 } },
-  { no: 32, id: 'tower_shield', name: 'Tower Shield', tier: 2, cost: 9, fx: { armour: 3 } },
-  { no: 33, id: 'steel_longsword', name: 'Steel Longsword', tier: 2, cost: 9, fx: { atk: 6 } },
-  { no: 34, id: 'assassins_kris', name: "Assassin's Kris", tier: 2, cost: 10, fx: { atk: 4, firstStrike: true, poison: 2 } },
-  { no: 35, id: 'warhorn', name: 'Warhorn', tier: 2, cost: 10, fx: { rally: 2 } },
-  { no: 36, id: 'serrated_axe', name: 'Serrated Axe', tier: 2, cost: 11, fx: { atk: 5, thorns: 3 } },
+  { no: 31, id: 'chainmail', name: 'Chainmail', tier: 2, cost: 8, fx: { armour: 2, maxHp: 6 }, slot: 'armour' },
+  { no: 32, id: 'tower_shield', name: 'Tower Shield', tier: 2, cost: 9, fx: { armour: 3 }, slot: 'armour' },
+  { no: 33, id: 'steel_longsword', name: 'Steel Longsword', tier: 2, cost: 9, fx: { atk: 6 }, slot: 'atk', anim: 'slash' },
+  { no: 34, id: 'assassins_kris', name: "Assassin's Kris", tier: 2, cost: 10, fx: { atk: 4, firstStrike: true, poison: 2 }, slot: 'atk', anim: 'stab' },
+  { no: 35, id: 'warhorn', name: 'Warhorn', tier: 2, cost: 10, fx: { rally: 2 }, slot: 'rally' },
+  { no: 36, id: 'serrated_axe', name: 'Serrated Axe', tier: 2, cost: 11, fx: { atk: 5, thorns: 3 }, slot: 'atk', anim: 'chop' },
 
   // ---- Tier 3 ----
-  { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 5 } },
-  { no: 38, id: 'dragonplate', name: 'Dragonplate', tier: 3, cost: 17, fx: { armour: 5, maxHp: 10 } },
-  { no: 39, id: 'runed_greatsword', name: 'Runed Greatsword', tier: 3, cost: 18, fx: { atk: 11 } },
-  { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 4 } },
-  { no: 41, id: 'executioners_blade', name: "Executioner's Blade", tier: 3, cost: 22, fx: { atk: 9, firstStrike: true } },
+  { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 5 }, slot: 'atk', anim: 'stab' },
+  { no: 38, id: 'dragonplate', name: 'Dragonplate', tier: 3, cost: 17, fx: { armour: 5, maxHp: 10 }, slot: 'armour' },
+  { no: 39, id: 'runed_greatsword', name: 'Runed Greatsword', tier: 3, cost: 18, fx: { atk: 11 }, slot: 'atk', anim: 'slash' },
+  { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 4 }, slot: 'rally' },
+  { no: 41, id: 'executioners_blade', name: "Executioner's Blade", tier: 3, cost: 22, fx: { atk: 9, firstStrike: true }, slot: 'atk', anim: 'chop' },
+
+  // Poison and Thorns used to exist only as Tier 1 gear (Venom Flask, Spiked
+  // Vambrace) plus a couple of weapons that happen to carry them. That left a
+  // player who wanted to *keep* building either keyword past round 3 with
+  // nothing to buy — the archetype was reachable early and then quietly
+  // stranded. These four are the missing rungs.
+  { no: 59, id: 'plague_censer', name: 'Plague Censer', tier: 2, cost: 9, fx: { poison: 3 }, slot: 'poison' },
+  { no: 60, id: 'barbed_cuirass', name: 'Barbed Cuirass', tier: 2, cost: 10, fx: { armour: 1, thorns: 3 }, slot: 'thorns' },
+  { no: 61, id: 'wyrmvenom_vial', name: 'Wyrmvenom Vial', tier: 3, cost: 16, fx: { poison: 6 }, slot: 'poison' },
+  { no: 62, id: 'bramble_aegis', name: 'Bramble Aegis', tier: 3, cost: 18, fx: { armour: 3, thorns: 4 }, slot: 'thorns' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -98,13 +135,13 @@ export const ALLIES = [
     perk: { roundStart: { atk: 1 } }, text: '+1 ATK at the start of each future round.' },
   { no: 45, id: 'field_medic', name: 'Field Medic', tier: 1, cost: 6, fx: { heal: 5 },
     perk: { roundStart: { heal: 3 } }, text: 'Heal 5 now. Heal 3 at the start of each future round.' },
-  { no: 46, id: 'shieldbearer', name: 'Shieldbearer', tier: 2, cost: 8, fx: { armour: 1 },
+  { no: 46, id: 'shieldbearer', name: 'Shieldbearer', tier: 2, cost: 8, fx: { armour: 1 }, slot: 'armour',
     perk: { cleanPathArmour: 2 }, text: 'Armour 1. Before each duel, +2 Armour if you took no path damage that round.' },
-  { no: 47, id: 'houndmaster', name: 'Houndmaster', tier: 2, cost: 9, fx: { firstStrike: true },
+  { no: 47, id: 'houndmaster', name: 'Houndmaster', tier: 2, cost: 9, fx: { firstStrike: true }, slot: 'firstStrike',
     text: 'Your first attack in every fight gains First Strike.' },
   { no: 48, id: 'quartermaster', name: 'Quartermaster', tier: 2, cost: 12,
     perk: { gearDiscount: 3 }, text: 'Gear costs 3 less (minimum 1).' },
-  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 3, cost: 14, fx: { rally: 1 },
+  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 3, cost: 14, fx: { rally: 1 }, slot: 'rally',
     perk: { roundStart: { rally: 1 } }, text: 'Rally 1. Increases by 1 each round.' },
 ].map((a) => ({ ...a, type: 'ally' }));
 
@@ -174,6 +211,38 @@ export function fxText(fx) {
   if (fx.rally) parts.push(`Rally ${fx.rally}`);
   if (fx.firstStrike) parts.push('First Strike');
   return parts.join(', ') || '—';
+}
+
+// ---------------------------------------------------------------------------
+// Worn equipment
+// ---------------------------------------------------------------------------
+
+/** Higher is "better gear" — used only to decide which item wins a slot. */
+const rank = (c) => c.tier * 100 + (c.cost || 0);
+
+/**
+ * Resolves a list of owned card ids into the item actually shown in each
+ * equipment slot. Better gear wins its slot outright, so buying a Runed
+ * Greatsword visibly replaces the Rusty Sword you opened the run with — the
+ * stats still stack (that's the engine's business), but you only ever *hold*
+ * one weapon.
+ *
+ * @param {string[]} ids
+ * @returns {Record<string, object>} slot key → card
+ */
+export function equipment(ids = []) {
+  const worn = {};
+  for (const id of ids) {
+    const c = card(id);
+    if (!c || !c.slot) continue;
+    if (!worn[c.slot] || rank(c) > rank(worn[c.slot])) worn[c.slot] = c;
+  }
+  return worn;
+}
+
+/** The attack animation a fighter plays, taken from the weapon they hold. */
+export function attackAnim(ids = []) {
+  return equipment(ids).atk?.anim || 'punch';
 }
 
 /** Keyword badges to draw on a card face. */

@@ -300,16 +300,21 @@ body.no-webgl #app {
   height: 1.15rem;
   border-radius: 0.4rem;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   border: 1px solid var(--line);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
 }
 .hpbar-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(180deg, #6ee39a, #2f9e63);
+  background: linear-gradient(180deg, #7bf0a6, #2f9e63 60%, #24784c);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
   transition: width 0.35s ease;
 }
-.hpbar-fill.low { background: linear-gradient(180deg, #ff8a8a, #c22a45); }
+.hpbar-fill.low { background: linear-gradient(180deg, #ff9c9c, #c22a45 60%, #911f34); }
+/* The readout sits over a hard colour boundary that moves as HP drops, so it
+   needs an outline rather than a drop shadow — a shadow only works against
+   one of the two backgrounds it lands on. */
 .hpbar-text {
   position: relative;
   display: block;
@@ -317,7 +322,9 @@ body.no-webgl #app {
   font-family: var(--pixel);
   font-size: 0.55rem;
   line-height: 1.15rem;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  color: #fff;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 2.5px rgba(0, 0, 0, 0.72);
 }
 
 .stat {
@@ -428,26 +435,89 @@ body.no-webgl #app {
 .card.placed { opacity: 0.24; filter: saturate(0.3); pointer-events: none; }
 .card.dim { opacity: 0.5; }
 
-.card-top {
-  width: 100%;
+/* --- corner gems, Hearthstone-style -------------------------------------
+   Cost top-left, ATK bottom-left, HP/Armour bottom-right. Putting the three
+   numbers that decide a card in fixed corners means you read a hand by
+   scanning positions rather than parsing four different layouts. */
+.card-gem {
+  position: absolute;
+  z-index: 3;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: center;
+  gap: 0.04rem;
+  min-width: 1.02rem;
+  height: 1.02rem;
+  padding: 0 0.12rem;
+  border-radius: 50%;
   font-family: var(--pixel);
-  font-size: 0.44rem;
+  font-size: 0.52rem;
+  line-height: 1;
+  color: #10142a;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.gem-icon { font-size: 0.36rem; opacity: 0.75; }
+.gem-value { font-weight: 700; }
+
+.gem-cost {
+  top: 0.16rem;
+  left: 0.16rem;
+  background: radial-gradient(circle at 34% 28%, #ffe9a8, var(--gold) 62%, #b9821a);
+}
+.gem-cost.cut { background: radial-gradient(circle at 34% 28%, #d8ffbe, var(--venom) 62%, #4e8f2c); }
+.gem-atk {
+  bottom: 0.16rem;
+  left: 0.16rem;
+  background: radial-gradient(circle at 34% 28%, #ffd0b4, #f08a5d 62%, #a24a22);
+}
+.gem-hp {
+  bottom: 0.16rem;
+  right: 0.16rem;
+  background: radial-gradient(circle at 34% 28%, #ffc2c8, #ef4a6d 62%, #8f1f38);
+}
+.gem-def {
+  bottom: 0.16rem;
+  right: 0.16rem;
+  background: radial-gradient(circle at 34% 28%, #cfe0ff, #79a6ff 62%, #2d4f9e);
+}
+
+.card-tier {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.24rem;
+  z-index: 3;
+  font-family: var(--pixel);
+  font-size: 0.4rem;
   letter-spacing: 0.02em;
   color: var(--dim);
+  opacity: 0.55;
 }
-.card-cost { color: var(--gold); }
-.card-cost-free { color: var(--dim); }
-.card-cost-cut { color: var(--venom); }
-.card-tier { opacity: 0.6; }
 
-.card-icon {
-  font-size: clamp(1.3rem, 7vw, 1.9rem);
-  line-height: 1.1;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+/* The art well: a tinted recess the glyph sits in, so a card reads as
+   frame-around-portrait instead of an emoji floating on a gradient. */
+.card-art {
+  position: relative;
+  width: 100%;
+  flex: 0 0 auto;
+  aspect-ratio: 1 / 0.72;
+  margin-top: 0.7rem;
+  border-radius: 0.4rem;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 68%),
+    linear-gradient(180deg, rgba(4, 7, 18, 0.55), rgba(4, 7, 18, 0.2));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 6px 14px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
+.card-art-glyph {
+  font-size: clamp(1.3rem, 7vw, 1.9rem);
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+
 .card-name {
   font-family: var(--pixel);
   font-size: 0.48rem;
@@ -460,17 +530,8 @@ body.no-webgl #app {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
-.card-stats {
-  font-family: var(--pixel);
-  font-size: 0.62rem;
-  display: flex;
-  gap: 0.14rem;
-  align-items: baseline;
-}
-.st-hp { color: #7ee39a; }
-.st-atk { color: #ffb08a; }
-.st-sep { color: var(--dim); opacity: 0.6; }
 .card-kw { display: flex; flex-wrap: wrap; gap: 0.14rem; justify-content: center; }
 .card-text {
   font-size: 0.62rem;
@@ -485,8 +546,15 @@ body.no-webgl #app {
    press) is where the full wording lives. */
 .card-slot { padding: 0.26rem 0.16rem; gap: 0.05rem; justify-content: space-evenly; }
 .card-slot .card-name { font-size: 0.44rem; }
-.card-slot .card-icon { font-size: clamp(1.1rem, 5.5vw, 1.6rem); }
+.card-slot .card-art { margin-top: 0.6rem; aspect-ratio: 1 / 0.62; }
+.card-slot .card-art-glyph { font-size: clamp(1.1rem, 5.5vw, 1.6rem); }
 .card-slot .card-text { display: none; }
+.card-slot .card-gem {
+  min-width: 0.86rem;
+  height: 0.86rem;
+  font-size: 0.44rem;
+}
+.card-slot .gem-icon { display: none; }
 .card-slot .card-kw .kw {
   font-size: 0;
   width: 0.4rem;
@@ -690,10 +758,25 @@ body.is-dragging { cursor: grabbing; }
   padding: 0.55rem 0.4rem;
   border-radius: 0.7rem;
   border: 1px solid var(--line);
-  background: rgba(7, 10, 22, 0.7);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(139, 233, 255, 0.09), transparent 62%),
+    linear-gradient(180deg, rgba(24, 32, 58, 0.82), rgba(7, 10, 22, 0.86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 18px rgba(0, 0, 0, 0.4);
   overflow: visible;
 }
-.duelist-them { border-color: rgba(139, 233, 255, 0.35); }
+.duelist-them {
+  border-color: rgba(139, 233, 255, 0.35);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(139, 233, 255, 0.14), transparent 62%),
+    linear-gradient(180deg, rgba(20, 34, 62, 0.85), rgba(7, 10, 22, 0.88));
+}
+.duelist-portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 2.6rem;
+}
 .duelist-glyph {
   font-size: clamp(1.8rem, 11vw, 2.8rem);
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
@@ -736,9 +819,15 @@ body.is-dragging { cursor: grabbing; }
   border-radius: 0.4rem;
   border: 1px solid var(--line);
   background: rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.55);
 }
-.equip-slot.empty { border-style: dashed; opacity: 0.55; }
-.equip-slot.filled { background: rgba(0, 0, 0, 0.5); border-style: solid; }
+.equip-slot.empty { border-style: dashed; opacity: 0.4; }
+.equip-slot.filled {
+  border-style: solid;
+  background:
+    radial-gradient(circle at 50% 32%, color-mix(in srgb, currentColor 20%, transparent), transparent 70%),
+    rgba(0, 0, 0, 0.5);
+}
 .equip-icon { font-size: clamp(0.8rem, 3.6vw, 1rem); line-height: 1; filter: grayscale(1); opacity: 0.4; }
 .equip-slot.filled .equip-icon { filter: none; opacity: 1; }
 .equip-value {
@@ -750,17 +839,13 @@ body.is-dragging { cursor: grabbing; }
 
 /* One accent per keyword, matching the .kw-* palette used on card faces and
    the HUD — the same colour means the same stat everywhere in the app. */
-.equip-atk.filled    { border-color: #ffb08a; }
-.equip-atk.filled .equip-value    { color: #ffb08a; }
-.equip-armour.filled { border-color: #9fc0ff; }
-.equip-armour.filled .equip-value { color: #9fc0ff; }
-.equip-poison.filled { border-color: var(--venom); }
-.equip-poison.filled .equip-value { color: var(--venom); }
-.equip-thorns.filled { border-color: #ffa07a; }
-.equip-thorns.filled .equip-value { color: #ffa07a; }
-.equip-rally.filled  { border-color: var(--gold); }
-.equip-rally.filled .equip-value  { color: var(--gold); }
-.equip-first.filled  { border-color: var(--ghost); }
+.equip-atk.filled    { border-color: #ffb08a; color: #ffb08a; }
+.equip-armour.filled { border-color: #9fc0ff; color: #9fc0ff; }
+.equip-poison.filled { border-color: var(--venom); color: var(--venom); }
+.equip-thorns.filled { border-color: #ffa07a; color: #ffa07a; }
+.equip-rally.filled  { border-color: var(--gold); color: var(--gold); }
+.equip-first.filled  { border-color: var(--ghost); color: var(--ghost); }
+.equip-slot.filled .equip-value { color: inherit; }
 
 /* Pulses once when this slot is what just landed or answered a blow — the
    thing that makes "the player's attack, armour, thorns" traceable moment
@@ -791,6 +876,233 @@ body.is-dragging { cursor: grabbing; }
 @keyframes sicken {
   0%, 100% { filter: none; }
   50% { filter: hue-rotate(65deg) brightness(1.25); }
+}
+
+/* ===================== fight animations =====================
+   Every blow is drawn over the portrait of whoever took it, in the shape of
+   the thing that threw it — a sword arc, an arrow in flight, a claw rake, a
+   troll's shockwave. The point isn't spectacle: with six keywords and a
+   dozen weapon types resolving in the same feed, "what just hit me and with
+   what" has to be answerable from the animation alone, without reading. */
+.fx-layer {
+  position: absolute;
+  inset: -18% -12%;
+  pointer-events: none;
+  z-index: 6;
+  overflow: visible;
+}
+.strike, .efx {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.strike-mark, .strike-ring {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+/* Bladed weapons: a bright arc swept across the target. Chop is the same
+   gesture with more weight behind it and a wider, slower sweep. */
+.strike-slash .strike-mark,
+.strike-chop .strike-mark {
+  width: 128%;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #fff 42%, #cfe6ff 62%, transparent);
+  box-shadow: 0 0 12px rgba(207, 230, 255, 0.95);
+  animation: swipe 0.34s cubic-bezier(0.2, 0.75, 0.3, 1) forwards;
+}
+.strike-chop .strike-mark {
+  height: 8px;
+  background: linear-gradient(90deg, transparent, #fff 38%, #ffd9a8 66%, transparent);
+  box-shadow: 0 0 16px rgba(255, 217, 168, 0.95);
+  animation-duration: 0.44s;
+}
+@keyframes swipe {
+  0% { opacity: 0; transform: rotate(-58deg) translateX(-46%) scaleX(0.25); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(-24deg) translateX(38%) scaleX(1); }
+}
+
+/* A thrust drives in along the attack line instead of across it. */
+.strike-stab .strike-mark {
+  width: 74%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #fff 55%, #b9f5ff);
+  box-shadow: 0 0 12px rgba(185, 245, 255, 0.9);
+  animation: thrust 0.3s ease-out forwards;
+}
+.strike[data-from='right'] .strike-mark { transform: scaleX(-1); }
+@keyframes thrust {
+  0% { opacity: 0; transform: translateX(-70%) scaleX(0.4); }
+  45% { opacity: 1; transform: translateX(6%) scaleX(1); }
+  100% { opacity: 0; transform: translateX(24%) scaleX(0.9); }
+}
+
+/* An arrow actually crosses the gap, entering from the shooter's side. */
+.strike-arrow .strike-mark {
+  width: 0.9rem;
+  height: 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1;
+  animation: arrowFly 0.42s linear forwards;
+}
+.strike-arrow .strike-mark::before {
+  content: '➵';
+  color: #ffe6a8;
+  text-shadow: 0 0 10px rgba(255, 230, 168, 0.9);
+}
+.strike-arrow[data-from='right'] .strike-mark { transform: scaleX(-1); }
+@keyframes arrowFly {
+  0% { opacity: 0; transform: translateX(-260%); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(60%); }
+}
+
+/* Claw and bite are multiple parallel marks raked across, offset in time so
+   they read as one motion rather than three simultaneous lines. */
+.strike-claw .strike-mark,
+.strike-bite .strike-mark {
+  width: 92%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #ff9c9c 40%, #fff 60%, transparent);
+  box-shadow: 0 0 9px rgba(255, 120, 120, 0.9);
+  animation: rake 0.4s ease-out forwards;
+}
+.strike-claw .strike-mark:nth-child(1) { margin-top: -0.5rem; animation-delay: 0s; }
+.strike-claw .strike-mark:nth-child(2) { animation-delay: 0.05s; }
+.strike-claw .strike-mark:nth-child(3) { margin-top: 0.5rem; animation-delay: 0.1s; }
+.strike-bite .strike-mark {
+  width: 46%;
+  background: linear-gradient(90deg, transparent, #d6ffb0 45%, #fff 70%, transparent);
+  box-shadow: 0 0 9px rgba(160, 235, 120, 0.9);
+}
+.strike-bite .strike-mark:nth-child(1) { margin-top: -0.42rem; transform: rotate(18deg); }
+.strike-bite .strike-mark:nth-child(2) { display: none; }
+.strike-bite .strike-mark:nth-child(3) { margin-top: 0.42rem; transform: rotate(-18deg); }
+@keyframes rake {
+  0% { opacity: 0; transform: translateX(-40%) scaleX(0.3); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(30%) scaleX(1); }
+}
+
+/* Heavy, unarmed and blunt: a shockwave rather than an edge. */
+.strike-smash .strike-ring,
+.strike-punch .strike-mark {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 226, 168, 0.95);
+  box-shadow: 0 0 16px rgba(255, 200, 120, 0.7);
+  animation: shock 0.5s ease-out forwards;
+}
+.strike-smash .strike-ring:nth-child(2) { animation-delay: 0.11s; }
+.strike-punch .strike-mark { width: 1.6rem; height: 1.6rem; border-width: 2px; }
+@keyframes shock {
+  0% { opacity: 0; transform: scale(0.2); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+/* Magic and fire read as a burst of colour rather than a cut. */
+.strike-magic .strike-mark,
+.strike-fire .strike-mark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  animation: burstGlow 0.5s ease-out forwards;
+}
+.strike-magic .strike-mark {
+  background: radial-gradient(circle, rgba(196, 160, 255, 0.95), rgba(120, 80, 220, 0.35) 55%, transparent 72%);
+  box-shadow: 0 0 22px rgba(180, 140, 255, 0.85);
+}
+.strike-fire .strike-mark {
+  background: radial-gradient(circle, rgba(255, 240, 190, 0.98), rgba(255, 140, 40, 0.6) 45%, transparent 72%);
+  box-shadow: 0 0 26px rgba(255, 150, 60, 0.9);
+}
+@keyframes burstGlow {
+  0% { opacity: 0; transform: scale(0.35); }
+  30% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+
+/* A whip/tongue lash: a thin line that snaps out and back. */
+.strike-lash .strike-mark {
+  width: 108%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #ffb0e0 50%, #fff 74%, transparent);
+  box-shadow: 0 0 10px rgba(255, 176, 224, 0.9);
+  animation: lashOut 0.4s ease-in-out forwards;
+}
+@keyframes lashOut {
+  0% { opacity: 0; transform: translateX(-55%) rotate(-8deg) scaleX(0.2); }
+  45% { opacity: 1; transform: translateX(0) rotate(4deg) scaleX(1); }
+  100% { opacity: 0; transform: translateX(-30%) rotate(-6deg) scaleX(0.5); }
+}
+
+/* Status ticks — poison, thorns — rise off the fighter they're eating. */
+.efx-bit {
+  position: absolute;
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0;
+  animation: efxRise 0.95s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.09s);
+  transform: translateX(calc((var(--i) - 1.5) * 0.62rem));
+}
+.efx-poison .efx-bit { color: var(--venom); text-shadow: 0 0 9px rgba(126, 217, 87, 0.9); }
+.efx-thorns .efx-bit { color: #ffa07a; text-shadow: 0 0 9px rgba(255, 160, 122, 0.9); }
+.efx-rally .efx-bit { color: var(--gold); text-shadow: 0 0 9px rgba(255, 207, 63, 0.9); }
+.efx-heal .efx-bit { color: #7ee39a; text-shadow: 0 0 9px rgba(126, 227, 154, 0.9); }
+@keyframes efxRise {
+  0% { opacity: 0; transform: translate(calc((var(--i) - 1.5) * 0.62rem), 0.6rem) scale(0.6); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc((var(--i) - 1.5) * 0.62rem), -1.5rem) scale(1.05); }
+}
+
+/* Pickups on the path: coins off a kill, sparks off a heal, a trophy star. */
+.burst {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 7;
+  overflow: visible;
+}
+.burst-bit {
+  position: absolute;
+  font-size: 0.78rem;
+  line-height: 1;
+  opacity: 0;
+  animation: burstOut 1.1s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+  animation-delay: calc(var(--i) * 0.05s);
+  --spread: calc((var(--i) / var(--n) - 0.5) * 5.4rem);
+}
+.burst-gold .burst-bit { color: var(--gold); text-shadow: 0 0 10px rgba(255, 207, 63, 0.95); }
+.burst-heal .burst-bit { color: #7ee39a; text-shadow: 0 0 10px rgba(126, 227, 154, 0.95); }
+.burst-trophy .burst-bit { color: #ffe9a8; text-shadow: 0 0 14px rgba(255, 233, 168, 1); font-size: 0.95rem; }
+.burst-poison .burst-bit { color: var(--venom); text-shadow: 0 0 10px rgba(126, 217, 87, 0.9); }
+.burst-thorns .burst-bit { color: #ffa07a; text-shadow: 0 0 10px rgba(255, 160, 122, 0.9); }
+.burst-rally .burst-bit { color: var(--gold); text-shadow: 0 0 10px rgba(255, 207, 63, 0.9); }
+.burst-armour .burst-bit { color: #9fc0ff; text-shadow: 0 0 10px rgba(159, 192, 255, 0.9); }
+.burst-atk .burst-bit { color: #ffb08a; text-shadow: 0 0 10px rgba(255, 176, 138, 0.9); }
+@keyframes burstOut {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  22% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--spread), -2.4rem) scale(1.05); }
+}
+.floater-trophy { color: #ffe9a8; border-color: rgba(255, 233, 168, 0.7); }
+
+/* Anyone who's asked for less motion gets the information without the
+   theatre: hits still flash and numbers still float, nothing flies. */
+@media (prefers-reduced-motion: reduce) {
+  .strike, .efx, .burst { display: none; }
 }
 
 /* A monster fight on the path reuses .duelists/.duelist wholesale (same

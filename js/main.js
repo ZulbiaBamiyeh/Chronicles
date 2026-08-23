@@ -5,7 +5,7 @@
 
 import { ShaderBackground } from './bg.js';
 import { AudioEngine } from './audio.js';
-import { card, cardText, fxText } from './cards.js';
+import { card, cardText, fxText, attackAnim } from './cards.js';
 import {
   newRun, startRound, deal, resolvePath, duel, settleRound, toGhost,
   tiersForRound, rng, costFor, PATH_SLOTS, WINS_TO_COMPLETE,
@@ -385,10 +385,19 @@ async function playSlot(ev, cell) {
     await playPathFight(ev, c);
     audio.kill();
     audio.coin(2);
+    burst(cell, 'gold', 6);
     float(cell, `+${ev.gold}◉`, 'gold');
     const bits = [`${c.name} falls in ${ev.exchanges} exchange${ev.exchanges === 1 ? '' : 's'}`,
                   `−${ev.damage} HP`, `+${ev.gold} gold`];
-    if (ev.trophy) bits.push(fxText(ev.trophy));
+    if (ev.trophy) {
+      bits.push(fxText(ev.trophy));
+      // A trophy is the reason to pick the fight you didn't have to — give it
+      // its own beat rather than letting it vanish into the gold shower.
+      await sleep(320);
+      audio.heal();
+      burst(cell, 'trophy', 5);
+      float(cell, fxText(ev.trophy), 'trophy');
+    }
     feedLine(log, `${bits.join(' · ')}.`, ev.damage > 0 ? '' : 'log-good');
     applySnap(ev.snap);
     await sleep(500);
@@ -403,9 +412,9 @@ async function playSlot(ev, cell) {
       shown[k] = typeof v === 'boolean' ? v : (shown[k] || 0) + v;
     }
   }
-  if (fx.heal || fx.healFull) audio.heal();
-  else if (fx.gold) audio.coin(3);
-  else audio.place();
+  if (fx.heal || fx.healFull) { audio.heal(); burst(cell, 'heal', 5); }
+  else if (fx.gold) { audio.coin(3); burst(cell, 'gold', 6); }
+  else { audio.place(); if (BUFF_BURST(shown)) burst(cell, BUFF_BURST(shown), 4); }
   // An ally whose whole effect is a recurring perk has no immediate fx to
   // print, so fall back to the card's own wording instead of an em dash.
   const line = fxText(shown);
@@ -427,19 +436,20 @@ async function playSlot(ev, cell) {
 async function playPathFight(ev, c) {
   const stage = $('#path-fight-stage');
   stage.classList.remove('hidden');
-  const me = duelistEl($('#path-fight-me'), ev.me, { glyph: '🧍', sub: `round ${run.round}` });
+  const me = duelistEl($('#path-fight-me'), ev.me, {
+    glyph: '🧍', sub: `round ${run.round}`, facing: 'right',
+  });
   const monster = duelistEl($('#path-fight-them'), ev.monster, {
     glyph: MONSTER_GLYPH[ev.id] || '❔',
     sub: `Tier ${c.tier} monster`,
+    facing: 'left',
   });
   await sleep(400);
   await replayLog({
     feed: $('#resolve-log'),
     side: { a: me, b: monster },
-    who: { a: ev.me.name, b: ev.monster.name },
+    fighter: { a: ev.me, b: ev.monster },
     log: ev.log,
-    startHp: { a: ev.me.hp, b: ev.monster.hp },
-    maxHp: { a: ev.me.maxHp, b: ev.monster.maxHp },
     speed: 0.72,
   });
   await sleep(300);
@@ -460,8 +470,10 @@ async function playPathFight(ev, c) {
  * @param {{a: number, b: number}} opts.maxHp
  * @param {number} [opts.speed]   pacing multiplier — 1 for the duel, faster for the path
  */
-async function replayLog({ feed, side, who, log, startHp, maxHp, speed = 1 }) {
-  const hp = { ...startHp };
+async function replayLog({ feed, side, fighter, log, speed = 1 }) {
+  const hp = { a: fighter.a.hp, b: fighter.b.hp };
+  const maxHp = { a: fighter.a.maxHp, b: fighter.b.maxHp };
+  const who = { a: fighter.a.name, b: fighter.b.name };
   const SOURCE_SLOT = { attack: 'atk', firstStrike: 'atk', poison: 'poison', thorns: 'thorns' };
   const VERB = {
     poison: 'poison eats at', thorns: 'thorns bite', firstStrike: 'strikes first at', attack: 'hits',
@@ -475,9 +487,10 @@ async function replayLog({ feed, side, who, log, startHp, maxHp, speed = 1 }) {
       feedLine(feed, `— exchange ${ex} —`, 'feed-ex');
     }
     hp[entry.target] -= entry.amount;
-    side[entry.target].setHp(hp[entry.target], maxHp[entry.target]);
-    side[entry.target].flash(entry.source === 'poison' ? 'poison' : 'hit');
-    side[entry.target].float(`−${entry.amount}`, entry.source === 'poison' ? 'poison' : 'bad');
+    const target = side[entry.target];
+    target.setHp(hp[entry.target], maxHp[entry.target]);
+    target.flash(entry.source === 'poison' ? 'poison' : 'hit');
+    target.float(`−${entry.amount}`, entry.source === 'poison' ? 'poison' : 'bad');
 
     // The dealer of every log entry is the side other than its target —
     // true for a plain attack, First Strike, Poison, and Thorns alike (a
@@ -489,6 +502,16 @@ async function replayLog({ feed, side, who, log, startHp, maxHp, speed = 1 }) {
     const slotKey = SOURCE_SLOT[entry.source];
     if (slotKey) side[dealer].pulseSlot(slotKey);
 
+    // …and the blow itself is drawn in the shape of whatever threw it: the
+    // weapon the dealer is actually holding, or the monster's own way of
+    // hitting things. A Hunting Bow puts an arrow in flight, a Cave Troll
+    // lands a shockwave, a Basilisk bites.
+    if (entry.source === 'attack' || entry.source === 'firstStrike') {
+      target.strike(animFor(fighter[dealer]));
+    } else {
+      target.effect(entry.source);
+    }
+
     if (entry.source === 'poison') audio.poison();
     else if (entry.source === 'thorns') audio.thorns();
     else if (entry.source === 'firstStrike') audio.firstStrike();
@@ -498,6 +521,9 @@ async function replayLog({ feed, side, who, log, startHp, maxHp, speed = 1 }) {
     await sleep(340 * speed);
   }
 }
+
+/** How a fighter's blows are drawn: a monster's own style, or their weapon. */
+const animFor = (f) => f.anim || attackAnim(f.gear || []);
 
 /** Tick the HUD forward to where a slot left the character. */
 function applySnap(snap) {
@@ -509,6 +535,29 @@ function float(cell, text, kind) {
   const f = el('div', `floater floater-${kind}`, text);
   cell.appendChild(f);
   setTimeout(() => f.remove(), 1100);
+}
+
+/** Which particle a stat card throws off, picked from what it actually gave. */
+const BUFF_BURST = (fx) =>
+  (fx.poison && 'poison') || (fx.thorns && 'thorns') || (fx.rally && 'rally') ||
+  (fx.armour && 'armour') || (fx.atk > 0 && 'atk') || null;
+
+const BURST_GLYPH = {
+  gold: '◉', heal: '✚', trophy: '★', poison: '☠', thorns: '✸',
+  rally: '⬆', armour: '◈', atk: '⚔',
+};
+
+/** A shower of particles out of a path slot — coins, sparks, a trophy star. */
+function burst(cell, kind, count) {
+  const layer = el('div', `burst burst-${kind}`);
+  for (let i = 0; i < count; i++) {
+    const bit = el('span', 'burst-bit', BURST_GLYPH[kind] || '✦');
+    bit.style.setProperty('--i', String(i));
+    bit.style.setProperty('--n', String(count));
+    layer.appendChild(bit);
+  }
+  cell.appendChild(layer);
+  setTimeout(() => layer.remove(), 1200);
 }
 
 // ---- the duel -------------------------------------------------------------
@@ -527,10 +576,11 @@ async function runDuel() {
   const meSub = result.bonusArmour
     ? `untouched on the path · +${result.bonusArmour} Armour`
     : `round ${run.round} · ${run.wins}/${WINS_TO_COMPLETE} wins`;
-  const me = duelistEl($('#duel-me'), result.me, { glyph: '🧍', sub: meSub });
+  const me = duelistEl($('#duel-me'), result.me, { glyph: '🧍', sub: meSub, facing: 'right' });
   const them = duelistEl($('#duel-them'), result.them, {
     glyph: '👻',
     sub: pathNames(ghost.path).slice(0, 2).join(' · '),
+    facing: 'left',
   });
 
   await sleep(1100);
@@ -539,10 +589,8 @@ async function runDuel() {
   await replayLog({
     feed,
     side: { a: me, b: them },
-    who,
+    fighter: { a: result.me, b: result.them },
     log: result.log,
-    startHp: { a: result.me.hp, b: result.them.hp },
-    maxHp: { a: result.me.maxHp, b: result.them.maxHp },
   });
 
   await sleep(700);

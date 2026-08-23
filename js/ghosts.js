@@ -23,17 +23,24 @@
 // between them actually shows up in the pool.
 
 import { rng, pick, shuffle, tiersForRound } from './engine.js';
-import { DEAL_POOL, card } from './cards.js';
+import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 
 /** Round → the band a character at that point in a run is expected to be in
  *  (§9). This is the *only* thing a generated ghost's power is anchored to —
  *  never the specific player it's about to fight. */
+// Nudged above §9's literal numbers from round 3 on. §9's band was written
+// for a path whose monsters paid only gold; now that every Tier 2 and Tier 3
+// monster also leaves a permanent trophy, a real character climbs faster than
+// the doc's table assumed, and a ghost pinned to the old numbers would fall
+// behind a little more every round. In the shipped game this corrects itself
+// for free — ghosts are real players, who collected the same trophies — so
+// this is the bot pool standing in for that, not a difficulty thumb.
 const TARGETS = {
   1: { atk: [3, 5], maxHp: [20, 24] },
-  2: { atk: [6, 9], maxHp: [22, 28] },
-  3: { atk: [10, 14], maxHp: [26, 32] },
-  4: { atk: [15, 21], maxHp: [30, 36] },
-  5: { atk: [22, 32], maxHp: [34, 44] },
+  2: { atk: [6, 9], maxHp: [23, 29] },
+  3: { atk: [11, 15], maxHp: [28, 34] },
+  4: { atk: [16, 23], maxHp: [32, 39] },
+  5: { atk: [24, 35], maxHp: [37, 48] },
 };
 
 // ---------------------------------------------------------------------------
@@ -239,7 +246,59 @@ export function drawGhost(round, wins, seed) {
   g.maxHp = Math.max(6, Math.round(targetHp / freshness));
   g.hp = Math.max(1, Math.round(g.maxHp * freshness));
   g.path = flavourPath(round, r);
+  // Everything above is settled before the kit is chosen, so an inventory can
+  // never move a number the pacing math already solved for.
+  g.inventory = flavourInventory(g, round, r);
   return g;
+}
+
+/**
+ * The gear a ghost is "wearing". Chosen to explain the statline it already
+ * has — a ghost with Poison 4 is carrying something venomous, a ghost with
+ * Armour 5 is in real plate, and its weapon is one a character with that much
+ * ATK could plausibly be swinging at that point in a run.
+ *
+ * This is flavour, in the same sense as `path` above: it drives the equipment
+ * panel and which attack animation the ghost plays, and nothing else. Deriving
+ * the stats *from* a drafted inventory instead would be the more authentic
+ * model, but it would put the carefully-solved exchange-count pacing at the
+ * mercy of whatever the draft happened to roll — so the stats stay
+ * authoritative and the kit is fitted to them, not the other way round.
+ */
+function flavourInventory(g, round, r) {
+  const tiers = tiersForRound(round);
+  const affordable = [...GEAR, ...ALLIES].filter((c) => tiers.includes(c.tier));
+  const worn = [];
+
+  // One item per keyword the ghost actually has, preferring the strongest
+  // version of it this round could have produced.
+  for (const key of ['armour', 'poison', 'thorns', 'rally']) {
+    if (!g.keywords[key]) continue;
+    const options = affordable.filter((c) => c.slot === key);
+    if (!options.length) continue;
+    const best = options.reduce((a, b) => ((b.fx?.[key] || 0) > (a.fx?.[key] || 0) ? b : a));
+    // The strongest fitting item, or a weaker one when the ghost's stack is
+    // small — so an Armour 1 ghost isn't drawn wearing Dragonplate.
+    const fit = options.filter((c) => (c.fx?.[key] || 0) <= g.keywords[key]);
+    worn.push((fit.length ? pick(fit, r) : best).id);
+  }
+
+  // A weapon whose ATK is the closest match to what this ghost hits for.
+  const weapons = affordable.filter((c) => c.slot === 'atk');
+  if (weapons.length) {
+    const closest = weapons.reduce((a, b) =>
+      Math.abs((b.fx.atk || 0) - g.atk) < Math.abs((a.fx.atk || 0) - g.atk) ? b : a);
+    worn.push(closest.id);
+  }
+
+  // First Strike is a property of the kit too — if the ghost has it and isn't
+  // already carrying something that grants it, give it the item that does.
+  if (g.keywords.firstStrike && !worn.some((id) => card(id)?.fx?.firstStrike)) {
+    const fs = affordable.filter((c) => c.fx?.firstStrike);
+    if (fs.length) worn.push(pick(fs, r).id);
+  }
+
+  return [...new Set(worn)];
 }
 
 /**
