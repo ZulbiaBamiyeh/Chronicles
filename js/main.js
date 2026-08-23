@@ -9,7 +9,7 @@ import { card, cardText, fxText, attackAnim, counterText } from './cards.js';
 import {
   newRun, startRound, resolvePath, duel, settleRound, toGhost,
   tiersForRound, rng, costFor, PATH_SLOTS, RUN_DAYS,
-  refillHand, mulligan, MULLIGAN_LIMIT,
+  refillHand, mulligan, MULLIGAN_LIMIT, resolveAmbush,
 } from './engine.js';
 import { randomName } from './ghosts.js';
 import { drawRival, rivalOnDay, intel } from './rival.js';
@@ -530,6 +530,33 @@ async function embark() {
     cell.classList.add('done');
   }
 
+  // The rival's invasion, if this day has one: a forced fifth fight, after
+  // the planned path and before the duel. Not a card either side played —
+  // the consequence of who you're matched against.
+  if (ghost.invasion) {
+    await sleep(400);
+    const invCard = card(ghost.invasion);
+    feedLine($('#resolve-log'), `${ghost.name} has sent ${invCard.name} to slow you down.`, 'log-invasion');
+    const ambush = resolveAmbush(outcome.state, ghost.invasion);
+    await playAmbush(ambush.event, invCard);
+    outcome = {
+      ...outcome,
+      state: ambush.state,
+      pathDamage: outcome.pathDamage + ambush.damage,
+      cleanPath: outcome.cleanPath && ambush.damage === 0,
+    };
+    audio.kill();
+    const bits = [
+      `${invCard.name} falls in ${ambush.event.exchanges} exchange${ambush.event.exchanges === 1 ? '' : 's'}`,
+      `−${ambush.damage} HP`, `+${ambush.event.gold} gold`,
+    ];
+    if (ambush.event.trophy) bits.push(fxText(ambush.event.trophy));
+    if (ambush.event.drop) bits.push(`took ${card(ambush.event.drop).name}`);
+    feedLine($('#resolve-log'), `${bits.join(' · ')}.`, ambush.damage > 0 ? '' : 'log-good');
+    renderHud(ambush.state, tierLabel(run.round));
+    await sleep(500);
+  }
+
   await sleep(500);
   const log = $('#resolve-log');
   if (scouted && ghost.secrets.length) {
@@ -641,6 +668,36 @@ async function playPathFight(ev, c) {
     speed: 0.72,
   });
   await sleep(300);
+  stage.classList.add('hidden');
+}
+
+/**
+ * Plays the rival's invasion monster — the same stage and machinery as a
+ * path fight, but framed as what it is: not a card the player chose, a
+ * threat the rival sent. Full duel pace (not the path's hurried 0.72×), so
+ * a fight nobody planned for still gets the weight of being forced.
+ */
+async function playAmbush(ev, c) {
+  const stage = $('#path-fight-stage');
+  stage.classList.remove('hidden');
+  stage.classList.add('ambush');
+  const me = duelistEl($('#path-fight-me'), ev.me, {
+    glyph: '🧍', sub: 'ambushed', facing: 'right',
+  });
+  const monster = duelistEl($('#path-fight-them'), ev.monster, {
+    glyph: MONSTER_GLYPH[c.id] || '❔',
+    sub: `sent by ${ghost.name}`,
+    facing: 'left',
+  });
+  await sleep(500);
+  await replayLog({
+    feed: $('#resolve-log'),
+    side: { a: me, b: monster },
+    fighter: { a: ev.me, b: ev.monster },
+    log: ev.log,
+  });
+  await sleep(300);
+  stage.classList.remove('ambush');
   stage.classList.add('hidden');
 }
 

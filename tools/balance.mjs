@@ -7,7 +7,7 @@
 
 import {
   newRun, startRound, resolvePath, duel, settleRound,
-  rng, PATH_SLOTS, refillHand,
+  rng, PATH_SLOTS, refillHand, resolveAmbush,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
 
@@ -42,13 +42,24 @@ function bestPath(run, hand, score, ctx) {
     if (chosen.length === target) {
       const slots = [...chosen];
       while (slots.length < PATH_SLOTS) slots.push(null);
-      const out = resolvePath(run, slots);
+      let out = resolvePath(run, slots);
+      // The rival's invasion — if this day has one — lands between the path
+      // and the duel, same as it does for a real player. Folding it in here
+      // is what makes the planner's own choice of path (and whether a secret
+      // is worth a slot) reflect the fight it's actually walking into.
+      let ambushDamage = 0;
+      if (ctx.rivalDay.invasion) {
+        const ambush = resolveAmbush(out.state, ctx.rivalDay.invasion);
+        ambushDamage = ambush.damage;
+        out = { ...out, state: ambush.state, pathDamage: out.pathDamage + ambush.damage,
+          cleanPath: out.cleanPath && ambush.damage === 0 };
+      }
       const d = duel(out.state, ctx.rivalDay, out.cleanPath, {
         mine: out.secrets,
         theirs: ctx.rivalDay.secrets,
       });
       const value = score(out, d);
-      if (!best || value > best.value) best = { value, slots, out, duel: d };
+      if (!best || value > best.value) best = { value, slots, out, duel: d, ambushDamage };
       return;
     }
     for (let i = 0; i < available.length; i++) {
@@ -90,6 +101,7 @@ function simulate(style) {
     slotsLate: 0, fizzlesLate: 0, slots: 0,
     flooredAtOne: 0, rounds: 0,
     secretsPlayed: 0, secretRounds: 0, scoutRounds: 0,
+    invasionRounds: 0, invasionDamagePct: [],
   };
 
   for (let seed = 1; seed <= RUNS; seed++) {
@@ -118,6 +130,10 @@ function simulate(style) {
       stats.secretsPlayed += out.secrets.length;
       if (out.secrets.length) stats.secretRounds++;
       if (out.usedWatchtower) stats.scoutRounds++;
+      if (rivalDay.invasion) {
+        stats.invasionRounds++;
+        stats.invasionDamagePct.push(chosen.ambushDamage / out.state.maxHp);
+      }
 
       stats.duels++;
       if (d.won) stats.duelWins++;
@@ -172,6 +188,8 @@ function report(style) {
     ['rounds laying a secret', pct(s.secretRounds / s.rounds), '10–45%',
       s.secretRounds / s.rounds >= 0.10 && s.secretRounds / s.rounds <= 0.45],
     ['rounds scouting (Watchtower)', pct(s.scoutRounds / s.rounds), '—', true],
+    ['mean invasion damage / max HP', pct(mean(s.invasionDamagePct)), 'a real but survivable tax',
+      mean(s.invasionDamagePct) < 0.25],
   ];
   for (const [label, value, want, ok] of rows) {
     console.log(`${target(ok)} ${label.padEnd(32)} ${String(value).padStart(9)}   want ${want}`);

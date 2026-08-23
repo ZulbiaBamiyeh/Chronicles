@@ -20,7 +20,12 @@
 
 import { rng, pick, tiersForRound, RUN_DAYS } from './engine.js';
 import { drawGhost, ARCHETYPES } from './ghosts.js';
-import { SECRETS, card } from './cards.js';
+import { SECRETS, MONSTERS, card } from './cards.js';
+
+// Which keyword each archetype's invasion monster leans toward, so a Tank
+// rival's ambush is armoured and a Poison rival's actually poisons you — the
+// monster feels like it came from *this* rival, not a random encounter.
+const INVASION_FLAVOR = { aggro: 'firstStrike', tank: 'armour', poison: 'poison', rally: 'rally' };
 
 export { RUN_DAYS };
 
@@ -33,6 +38,13 @@ export { RUN_DAYS };
 // having to worry about ambushes; two only on the last day, where it should
 // feel like they've brought everything.
 const secretsOnDay = (day) => (day <= 1 ? 0 : day >= RUN_DAYS ? 2 : 1);
+
+/**
+ * Whether the rival ambushes the player's path on a given day. Same clean-day-
+ * one rhythm as secrets, for the same reason: day one is where a player learns
+ * a rival's shape, not where they're punished for not knowing it yet.
+ */
+export const hasInvasion = (day) => day > 1;
 
 /**
  * Generate a rival's whole run: one build per day, each with the secrets they
@@ -72,6 +84,12 @@ export function drawRival(seed) {
       day,
       theirWins,
       secrets: pickSecrets(day, secretsOnDay(day), r),
+      // A monster ambushes the player's path before the duel — not a card
+      // either side plays, a consequence of being matched against someone
+      // dangerous. It's forced, not chosen, which is what makes it read as
+      // sabotage rather than another optional purchase: this rival is having
+      // an effect on your day whether or not you have an answer for it.
+      invasion: hasInvasion(day) ? pickInvasion(day, archetype, r) : null,
     });
     if (r() < 0.5) theirWins++;
   }
@@ -106,6 +124,23 @@ function pickSecrets(day, count, r) {
     out.push(chosen.id);
   }
   return out;
+}
+
+/**
+ * The monster a rival ambushes the player's path with. Drawn from the day's
+ * own tier pool — the same monsters a player could otherwise be dealt — and
+ * leaning toward whichever one carries the rival's own archetype keyword, so
+ * beating it feels like it was actually sent by *this* rival.
+ */
+function pickInvasion(day, archetype, r) {
+  const tiers = tiersForRound(day);
+  const pool = MONSTERS.filter((m) => tiers.includes(m.tier));
+  if (!pool.length) return null;
+  const flavor = INVASION_FLAVOR[archetype];
+  const themed = flavor === 'firstStrike'
+    ? pool.filter((m) => m.kw.firstStrike)
+    : pool.filter((m) => m.kw[flavor]);
+  return pick(themed.length ? themed : pool, r).id;
 }
 
 /** Deterministic per-day seed, so day N is always the same character. */
@@ -145,6 +180,10 @@ export function intel(rival, day, scouted) {
     // choice rather than a shot in the dark.
     secretCount: d.secrets.length,
     secrets: scouted ? [...d.secrets] : null,
+    // Same gate as secrets: you always know an ambush is coming today, never
+    // what it is until you've paid a slot to find out.
+    hasInvasion: Boolean(d.invasion),
+    invasion: scouted ? d.invasion : null,
   };
 }
 

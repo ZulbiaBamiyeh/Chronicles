@@ -6,7 +6,7 @@
 //   node tools/card-coverage.mjs [runs]
 
 import {
-  newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand,
+  newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand, resolveAmbush,
 } from '../js/engine.js';
 import { ALL_CARDS } from '../js/cards.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
@@ -31,7 +31,12 @@ function bestPath(run, hand, score, rivalDay) {
     if (chosen.length === target) {
       const slots = [...chosen];
       while (slots.length < PATH_SLOTS) slots.push(null);
-      const out = resolvePath(run, slots);
+      let out = resolvePath(run, slots);
+      if (rivalDay.invasion) {
+        const ambush = resolveAmbush(out.state, rivalDay.invasion);
+        out = { ...out, state: ambush.state, pathDamage: out.pathDamage + ambush.damage,
+          cleanPath: out.cleanPath && ambush.damage === 0 };
+      }
       const d = duel(out.state, rivalDay, out.cleanPath, {
         mine: out.secrets, theirs: rivalDay.secrets,
       });

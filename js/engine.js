@@ -384,6 +384,59 @@ function applyFx(s, fx) {
 }
 
 /**
+ * Fights one monster and applies the result to `s` in place: gold, trophy,
+ * a drop if it has one, healPerKill. Shared by resolvePath's own monster
+ * slots and resolveAmbush below, so a rival's invasion monster pays off
+ * exactly the same way a monster from the player's own hand would — there's
+ * no second, quietly-diverging copy of "what happens when you beat something."
+ *
+ * @returns {object} everything a `fight` event needs to animate and summarise
+ */
+function fightMonster(s, c) {
+  const me = playerFighter(s);
+  const monster = monsterFighter(c);
+  const fight = resolveCombat(me, monster, { floorA: true });
+  const before = s.hp;
+  s.hp = fight.a.hp;
+  s.gold += c.gold;
+  if (c.trophy) applyFx(s, c.trophy);
+  const dropped = c.drop ? card(c.drop) : null;
+  if (dropped) {
+    applyFx(s, dropped.fx);
+    s.gear.push(dropped.id);
+  }
+  if (s.perks.healPerKill) s.hp = Math.min(s.maxHp, s.hp + s.perks.healPerKill);
+  return {
+    damage: before - s.hp, exchanges: fight.exchanges, gold: c.gold,
+    trophy: c.trophy || null, drop: dropped ? dropped.id : null,
+    me, monster, log: fight.log,
+  };
+}
+
+/**
+ * A rival's invasion: one monster, forced onto the player's path after the
+ * four planned slots resolve and before the duel. Not a card either side
+ * played — a consequence of who you're matched against, the same way a real
+ * opponent's build affects you whether or not you have an answer for it.
+ * Uses the player's stats *as they stood after the path*, so an invasion
+ * genuinely costs something if the path already left them hurt.
+ *
+ * @param {object} run  the post-path state (resolvePath's `out.state`)
+ * @param {string} monsterId
+ */
+export function resolveAmbush(run, monsterId) {
+  const c = card(monsterId);
+  const s = { ...run, kw: { ...run.kw }, gear: [...(run.gear || [])] };
+  const startHp = s.hp;
+  const result = fightMonster(s, c);
+  return {
+    state: s,
+    event: { kind: 'fight', id: c.id, ...result },
+    damage: Math.max(0, startHp - s.hp),
+  };
+}
+
+/**
  * Walks the four slots left to right and returns the character who comes out
  * the other side, plus an event per slot for the animation to replay. A
  * `fight` event carries the resolver's own exchange-by-exchange log and both
@@ -442,30 +495,9 @@ export function resolvePath(run, slots) {
     if (cost) s.gold -= cost;
 
     if (c.type === 'monster') {
-      const me = playerFighter(s);
-      const monster = monsterFighter(c);
-      const fight = resolveCombat(me, monster, { floorA: true });
-      const before = s.hp;
-      s.hp = fight.a.hp;
-      s.gold += c.gold;
-      if (c.trophy) applyFx(s, c.trophy);
-      // Some monsters are carrying something. You take the item itself — its
-      // stats apply and it goes into your inventory, so it shows in the
-      // equipment panel and, if it's a weapon, you start swinging it.
-      const dropped = c.drop ? card(c.drop) : null;
-      if (dropped) {
-        applyFx(s, dropped.fx);
-        s.gear.push(dropped.id);
-      }
+      const result = fightMonster(s, c);
       monstersDefeated++;
-      if (s.perks.healPerKill) s.hp = Math.min(s.maxHp, s.hp + s.perks.healPerKill);
-
-      push({
-        slot: i, kind: 'fight', id: c.id, damage: before - s.hp,
-        exchanges: fight.exchanges, gold: c.gold, trophy: c.trophy || null,
-        drop: dropped ? dropped.id : null,
-        me, monster, log: fight.log,
-      });
+      push({ slot: i, kind: 'fight', id: c.id, ...result });
       return;
     }
 

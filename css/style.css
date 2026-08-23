@@ -1018,6 +1018,29 @@ body.is-dragging { cursor: grabbing; }
 .burst-secret .burst-bit { color: var(--t-secret); text-shadow: 0 0 10px rgba(255, 122, 209, 0.95); }
 .log-secret { color: var(--t-secret); }
 
+/* The rival's invasion — the one line on the panel that isn't a card, it's a
+   warning. Amber rather than the secret pink, so the two withheld-until-
+   scouted things read as different *kinds* of threat at a glance. */
+.rival-invasion {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.26rem 0.4rem;
+  margin-top: 0.1rem;
+  border-radius: 0.32rem;
+  border: 1px dashed #ffb04a;
+  background: rgba(255, 176, 74, 0.08);
+}
+.rival-invasion.known { border-style: solid; background: rgba(255, 176, 74, 0.16); }
+.invasion-icon { color: #ffb04a; font-size: 0.62rem; }
+.invasion-label { font-size: 0.56rem; color: #ffcb8a; }
+.log-invasion { color: #ffb04a; }
+
+/* The path-fight stage reused for an ambush — same component, an amber
+   frame so it reads as imposed on you rather than a fight you picked. */
+.path-fight-stage.ambush { box-shadow: 0 0 0 1px #ffb04a, 0 0 22px rgba(255, 176, 74, 0.25); border-radius: 0.7rem; }
+.path-fight-stage.ambush .duelist-sub { color: #ffcb8a; }
+
 /* Secrets firing at the top of the duel. */
 .duel-secrets {
   width: 100%;

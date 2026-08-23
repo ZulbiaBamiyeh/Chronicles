@@ -284,7 +284,25 @@ export function rivalPanel(mount, info, series) {
   }
 
   mount.appendChild(secretRow(info));
+  if (info.hasInvasion) mount.appendChild(invasionRow(info));
   return mount;
+}
+
+/**
+ * The one thing on this panel that isn't a card either side plays: a rival's
+ * invasion monster, forced onto today's path. Same reveal gate as secrets —
+ * you know it's coming, not what it is, unless you've scouted.
+ */
+function invasionRow(info) {
+  const row = el('div', `rival-invasion${info.invasion ? ' known' : ''}`);
+  row.appendChild(el('span', 'invasion-icon', '⚔'));
+  if (info.invasion) {
+    const c = card(info.invasion);
+    row.appendChild(el('span', 'invasion-label', `Sends ${c.name} today`));
+  } else {
+    row.appendChild(el('span', 'invasion-label', 'Something will ambush your path today'));
+  }
+  return row;
 }
 
 function secretRow(info) {
