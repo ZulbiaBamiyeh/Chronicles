@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#070a16" />
+<title>GHOSTWALK</title>
+<meta name="description" content="Deal six cards, place four, walk the path, then duel a ghost. An async PvP path-builder for one thumb." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128123;</text></svg>" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="overlay overlay-vignette"></div>
+<div class="overlay overlay-grain"></div>
+
+<div id="app">
+
+  <!-- ===================== TITLE ===================== -->
+  <section id="screen-title" class="screen">
+    <div class="title-wrap">
+      <h1 class="game-title">GHOST<span class="title-glyph">👻</span>WALK</h1>
+      <p class="subtitle">Six cards. Four slots. One ghost.</p>
+    </div>
+
+    <p id="ghost-report" class="ghost-report hidden"></p>
+
+    <div class="menu-buttons">
+      <button id="btn-continue" class="btn btn-gold btn-big hidden">CONTINUE RUN</button>
+      <button id="btn-start" class="btn btn-gold btn-big">START RUN</button>
+      <button id="btn-howto" class="btn btn-ghost">How to play</button>
+    </div>
+
+    <p id="lifetime" class="lifetime"></p>
+
+    <div class="menu-footer">
+      <label class="toggle"><input type="checkbox" id="chk-music" checked /><span>Music</span></label>
+      <label class="toggle"><input type="checkbox" id="chk-sfx" checked /><span>SFX</span></label>
+    </div>
+  </section>
+
+  <!-- ===================== RUN (plan + path resolution) ===================== -->
+  <section id="screen-run" class="screen hidden">
+    <header class="hud">
+      <div class="hud-top">
+        <span id="hud-round" class="pill">ROUND 1</span>
+        <span id="hud-hearts" class="hearts" aria-label="Hearts"></span>
+        <span id="hud-wins" class="wins" aria-label="Duels won"></span>
+      </div>
+      <div class="hud-bars">
+        <div class="hpbar" aria-label="Health">
+          <div id="hud-hp-fill" class="hpbar-fill"></div>
+          <span id="hud-hp-text" class="hpbar-text">20 / 20</span>
+        </div>
+        <div class="stat stat-atk"><i>⚔</i><b id="hud-atk">1</b></div>
+        <div class="stat stat-gold"><i>◉</i><b id="hud-gold">3</b></div>
+      </div>
+      <div id="hud-kw" class="hud-kw"></div>
+    </header>
+
+    <div class="path-wrap">
+      <div id="path" class="path"></div>
+    </div>
+
+    <!-- Planning -->
+    <div id="plan-area" class="plan-area">
+      <!-- The tray and hand scroll together if a short phone can't fit them;
+           EMBARK stays pinned below so it's never the thing that gets clipped. -->
+      <div class="plan-scroll">
+        <div id="stash-tray" class="stash-tray"></div>
+        <div class="hand-label"><span>YOUR HAND</span><em id="hand-hint">Tap a card to place it</em></div>
+        <div id="hand" class="hand"></div>
+      </div>
+      <button id="btn-embark" class="btn btn-gold btn-big btn-embark" disabled>EMBARK</button>
+    </div>
+
+    <!-- Path resolution -->
+    <div id="resolve-area" class="resolve-area hidden">
+      <div id="resolve-log" class="resolve-log"></div>
+      <button id="btn-to-duel" class="btn btn-gold btn-big hidden">FACE THE GHOST</button>
+    </div>
+  </section>
+
+  <!-- ===================== DUEL ===================== -->
+  <section id="screen-duel" class="screen hidden">
+    <p class="duel-heading">THE DUEL</p>
+    <div class="duelists">
+      <div id="duel-me" class="duelist duelist-me"></div>
+      <div class="versus">VS</div>
+      <div id="duel-them" class="duelist duelist-them"></div>
+    </div>
+    <div id="duel-feed" class="duel-feed"></div>
+    <button id="btn-duel-result" class="btn btn-gold btn-big hidden">CONTINUE</button>
+  </section>
+
+  <!-- ===================== ROUND RESULT ===================== -->
+  <section id="screen-result" class="screen hidden">
+    <h2 id="result-title" class="result-title">VICTORY</h2>
+    <p id="result-sub" class="subtitle"></p>
+    <div id="result-spoils" class="result-spoils hidden"></div>
+    <div id="result-stats" class="result-stats"></div>
+    <button id="btn-next-round" class="btn btn-gold btn-big">NEXT ROUND</button>
+  </section>
+
+  <!-- ===================== RUN OVER ===================== -->
+  <section id="screen-over" class="screen hidden">
+    <h2 id="over-title" class="result-title">RUN COMPLETE</h2>
+    <p id="over-sub" class="subtitle"></p>
+    <div id="over-stats" class="result-stats"></div>
+    <div class="menu-buttons">
+      <button id="btn-again" class="btn btn-gold btn-big">START A NEW RUN</button>
+      <button id="btn-to-title" class="btn btn-ghost">Back to title</button>
+    </div>
+  </section>
+
+  <!-- ===================== HOW TO PLAY ===================== -->
+  <section id="screen-howto" class="screen screen-scroll hidden">
+    <h2 class="result-title">HOW TO PLAY</h2>
+    <div class="howto">
+      <h3>The round</h3>
+      <p>You're dealt <b>six cards</b> and place <b>four</b> into a path. The path resolves
+         left to right — you fight monsters, buy gear, hire allies, visit places — and whoever
+         comes out the far end duels a <b>ghost</b>: a snapshot of another character from the
+         same point in their run.</p>
+
+      <h3>Ordering is the game</h3>
+      <p>Everyone gets the same kind of cards. The only decision is <b>sequence</b>, and sequence
+         changes everything: what you can afford, what you can survive, what compounds. Kill a
+         monster before you visit the Boneyard and it pays. Buy a sword you can't afford yet and
+         the slot <b>fizzles</b> — greyed out, wasted, path continues.</p>
+
+      <h3>Combat is deterministic</h3>
+      <p>No dice, no crits, ever. The same resolver runs path fights and the duel, so you learn
+         the duel by playing the path. Every exchange, in order:</p>
+      <ol class="rules">
+        <li>Poison ticks on both sides (ignores Armour)</li>
+        <li>First Strike lands — first exchange only</li>
+        <li>Both sides attack at once: damage = ATK − Armour, minimum 1</li>
+        <li>Thorns reflect back at whoever just hit you</li>
+        <li>Rally adds its ATK for the rest of the fight</li>
+      </ol>
+      <p>Because it's exact, breakpoints are real: against a 14&nbsp;HP troll, going from 4 ATK
+         to 5 saves you 5 HP — and going from 5 to 6 saves you nothing.</p>
+
+      <h3>You can't die on the path</h3>
+      <p>Path damage floors you at 1 HP. Arriving at the duel on 1 HP is punishment enough.
+         <b>Hearts</b> — you have three — are only ever lost in the duel.</p>
+
+      <h3>Spoils and the Stash</h3>
+      <p>Some monsters drop a named <b>Spoil</b>. It doesn't attach itself: it goes to your
+         <b>Stash</b> and waits, through this round and every round after, until you spend a path
+         slot on it. Spoils cost no gold and never fizzle, but they compete for the same four
+         slots. The Stash holds three and empties at the start of every run.</p>
+
+      <h3>The run</h3>
+      <p><b>Five duel wins</b> completes a run. <b>Three losses</b> ends it. Between rounds you
+         heal half your max HP; gold and ATK carry over in full.</p>
+    </div>
+    <button id="btn-howto-back" class="btn btn-gold btn-big">BACK</button>
+  </section>
+</div>
+
+<!-- Card detail sheet, raised by a long press -->
+<div id="detail" class="detail hidden" role="dialog" aria-modal="true">
+  <div id="detail-card" class="detail-card"></div>
+  <button id="detail-close" class="btn btn-ghost">Close</button>
+</div>
+
+<!-- Stash-full prompt (§7.2) -->
+<div id="stash-prompt" class="detail hidden" role="dialog" aria-modal="true">
+  <p class="prompt-title">STASH FULL</p>
+  <p id="stash-prompt-sub" class="prompt-sub"></p>
+  <div id="stash-prompt-cards" class="prompt-cards"></div>
+  <button id="stash-prompt-discard" class="btn btn-ghost">Discard the new one</button>
+</div>
+
+<!-- Floating card that follows a finger during a drag -->
+<div id="drag-layer" class="drag-layer" aria-hidden="true"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
