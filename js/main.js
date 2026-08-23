@@ -12,6 +12,7 @@ import {
 } from './engine.js';
 import { randomName } from './ghosts.js';
 import { drawRival, rivalOnDay, intel } from './rival.js';
+import * as deckLib from './deck.js';
 import * as store from './storage.js';
 import {
   $, el, cardEl, renderHud, duelistEl, feedLine, rivalPanel, MONSTER_GLYPH, ICON,
@@ -34,11 +35,17 @@ let scouted = false;     // Watchtower revealed the rival's secrets this round
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Fights are paced to be read, which is right the first time and slow the
+// twentieth. This divides every delay in the replay, and persists, so a player
+// who has internalised the rules isn't made to sit through them.
+const SPEEDS = [1, 2, 4];
+let duelSpeed = 1;
+
 const tierLabel = (round) => tiersForRound(round).map((t) => `T${t}`).join('+');
 
 // ---- screens --------------------------------------------------------------
 
-const SCREENS = ['title', 'run', 'duel', 'result', 'over', 'howto'];
+const SCREENS = ['title', 'run', 'duel', 'result', 'over', 'howto', 'deck'];
 let current = 'title';
 
 function show(name) {
@@ -77,12 +84,106 @@ function renderTitle() {
   audio.setStyle('menu');
 }
 
+// ---- deck builder ---------------------------------------------------------
+//
+// Thirty cards, ten per tier, assembled before a run. The tier split is what
+// keeps this compatible with §9's difficulty curve: the day still decides
+// which tiers it deals from, the deck decides what's in them.
+
+let editing = [];        // the deck being edited, as card ids
+let deckTierShown = 1;
+
+function openDeck() {
+  audio.click();
+  editing = [...(store.deck() || deckLib.defaultDeck())];
+  deckTierShown = 1;
+  renderPresets();
+  renderDeck();
+  show('deck');
+}
+
+function renderPresets() {
+  const row = $('#deck-preset-row');
+  row.textContent = '';
+  for (const key of deckLib.PRESET_KEYS) {
+    const p = deckLib.preset(key);
+    const btn = el('button', 'deck-preset');
+    btn.type = 'button';
+    btn.append(el('b', null, p.name), el('span', null, p.blurb));
+    btn.addEventListener('click', () => {
+      audio.click();
+      editing = deckLib.presetCards(key);
+      renderDeck();
+    });
+    row.appendChild(btn);
+  }
+}
+
+function renderDeck() {
+  const probs = deckLib.problems(editing);
+  const status = $('#deck-status');
+  status.textContent = '';
+  status.classList.toggle('bad', probs.length > 0);
+  if (probs.length) {
+    for (const p of probs) status.appendChild(el('div', 'deck-problem', p));
+  } else {
+    status.appendChild(el('div', 'deck-ok', `Legal — ${editing.length} cards, ready to run.`));
+  }
+  $('#btn-deck-save').disabled = probs.length > 0;
+
+  for (const tab of document.querySelectorAll('.deck-tab')) {
+    const tier = Number(tab.dataset.tier);
+    const n = deckLib.deckTier(editing, tier).length;
+    tab.classList.toggle('on', tier === deckTierShown);
+    tab.classList.toggle('full', n === deckLib.PER_TIER);
+    tab.textContent = `TIER ${tier} · ${n}/${deckLib.PER_TIER}`;
+  }
+
+  const mount = $('#deck-pool');
+  mount.textContent = '';
+  const chosen = new Set(editing);
+  for (const c of deckLib.pool(deckTierShown)) {
+    const inDeck = chosen.has(c.id);
+    const wrap = el('div', `deck-card${inDeck ? ' in' : ''}`);
+    wrap.appendChild(cardEl(c.id, { size: 'hand' }));
+    wrap.appendChild(el('div', 'deck-mark', inDeck ? '✓' : '+'));
+    wrap.addEventListener('click', () => toggleCard(c.id));
+    mount.appendChild(wrap);
+  }
+}
+
+function toggleCard(id) {
+  const at = editing.indexOf(id);
+  if (at >= 0) {
+    editing.splice(at, 1);
+    audio.lift2();
+  } else {
+    const tier = card(id).tier;
+    if (deckLib.deckTier(editing, tier).length >= deckLib.PER_TIER) {
+      // Full tier: say so rather than silently ignoring the tap.
+      shake($('#deck-status'));
+      audio.fizzle();
+      return;
+    }
+    editing.push(id);
+    audio.place();
+  }
+  renderDeck();
+}
+
+function saveDeck() {
+  if (!deckLib.isLegal(editing)) return;
+  store.saveDeck(editing);
+  audio.victory();
+  renderTitle();
+}
+
 // ---- starting a round -----------------------------------------------------
 
 function beginRound() {
   run = startRound(run);   // no-op if this round's upkeep already ran (a resumed save)
   roundSeed = (run.seed + run.round * 7919 + run.wins * 104729 + run.losses * 15485863) >>> 0;
-  dealt = deal(run.round, rng(roundSeed));
+  dealt = deal(run.round, rng(roundSeed), run.deck);
   slots = new Array(PATH_SLOTS).fill(null);
   outcome = null;
   scouted = false;
@@ -501,55 +602,117 @@ async function playPathFight(ev, c) {
  * @param {{a: number, b: number}} opts.maxHp
  * @param {number} [opts.speed]   pacing multiplier — 1 for the duel, faster for the path
  */
+const SOURCE_SLOT = { attack: 'atk', firstStrike: 'atk', poison: 'poison', thorns: 'thorns' };
+
+// Each step of §4's exchange order, as the player needs to understand it.
+// Announcing the phase before it resolves is the single biggest thing that
+// makes a fight readable: without it, poison, the trade, and the thorns
+// reflection all land in one indistinguishable burst and the player is left
+// watching numbers move for reasons they can't reconstruct.
+const PHASE = {
+  poison: { label: 'POISON', note: 'ignores Armour', icon: '☠' },
+  firstStrike: { label: 'FIRST STRIKE', note: 'a free opening blow', icon: '👢' },
+  attack: { label: 'ATTACK', note: 'both sides swing at once', icon: '⚔' },
+  thorns: { label: 'THORNS', note: 'answers the blow that landed', icon: '✸' },
+};
+
+const VERB = {
+  poison: 'poison eats at', thorns: 'thorns bite', firstStrike: 'strikes first at', attack: 'hits',
+};
+
+/** Groups a fight log into exchanges, and each exchange into its §4 phases. */
+function phasesOf(log) {
+  const out = [];
+  for (const entry of log) {
+    const last = out[out.length - 1];
+    if (last && last.ex === entry.ex && last.source === entry.source) last.entries.push(entry);
+    else out.push({ ex: entry.ex, source: entry.source, entries: [entry] });
+  }
+  return out;
+}
+
+/**
+ * Replays a resolved fight, phase by phase.
+ *
+ * Pacing is deliberately unhurried, and grouped: everything that happens for
+ * one reason resolves together, under a heading that says what that reason is.
+ * The previous version stepped one log entry at a time at a fixed interval,
+ * which meant a four-keyword exchange was eight numbers in two seconds — all
+ * technically shown, none of it legible. `duelSpeed` lets a player who has
+ * already read it wind the whole thing forward.
+ */
 async function replayLog({ feed, side, fighter, log, speed = 1 }) {
   const hp = { a: fighter.a.hp, b: fighter.b.hp };
   const maxHp = { a: fighter.a.maxHp, b: fighter.b.maxHp };
   const who = { a: fighter.a.name, b: fighter.b.name };
-  const SOURCE_SLOT = { attack: 'atk', firstStrike: 'atk', poison: 'poison', thorns: 'thorns' };
-  const VERB = {
-    poison: 'poison eats at', thorns: 'thorns bite', firstStrike: 'strikes first at', attack: 'hits',
-  };
+  const pace = (ms) => sleep((ms * speed) / duelSpeed);
 
   let ex = 0;
-  for (const entry of log) {
-    if (entry.ex !== ex) {
-      ex = entry.ex;
-      await sleep(560 * speed);
-      feedLine(feed, `— exchange ${ex} —`, 'feed-ex');
-    }
-    hp[entry.target] -= entry.amount;
-    const target = side[entry.target];
-    target.setHp(hp[entry.target], maxHp[entry.target]);
-    target.flash(entry.source === 'poison' ? 'poison' : 'hit');
-    target.float(`−${entry.amount}`, entry.source === 'poison' ? 'poison' : 'bad');
-
-    // The dealer of every log entry is the side other than its target —
-    // true for a plain attack, First Strike, Poison, and Thorns alike (a
-    // Thorns entry targets whoever just landed a hit, dealt by the other
-    // side's Thorns keyword). Pulsing their equip slot is what makes "the
-    // player's attack, armour, thorns" traceable in the moment, not just
-    // stated in a log line.
-    const dealer = entry.target === 'a' ? 'b' : 'a';
-    const slotKey = SOURCE_SLOT[entry.source];
-    if (slotKey) side[dealer].pulseSlot(slotKey);
-
-    // …and the blow itself is drawn in the shape of whatever threw it: the
-    // weapon the dealer is actually holding, or the monster's own way of
-    // hitting things. A Hunting Bow puts an arrow in flight, a Cave Troll
-    // lands a shockwave, a Basilisk bites.
-    if (entry.source === 'attack' || entry.source === 'firstStrike') {
-      target.strike(animFor(fighter[dealer]));
-    } else {
-      target.effect(entry.source);
+  for (const phase of phasesOf(log)) {
+    if (phase.ex !== ex) {
+      ex = phase.ex;
+      await pace(520);
+      feedLine(feed, `EXCHANGE ${ex}`, 'feed-ex');
+      await pace(360);
     }
 
-    if (entry.source === 'poison') audio.poison();
-    else if (entry.source === 'thorns') audio.thorns();
-    else if (entry.source === 'firstStrike') audio.firstStrike();
-    else audio.hit(Math.min(1, entry.amount / Math.max(4, maxHp[entry.target] / 3)));
+    const meta = PHASE[phase.source] || { label: phase.source, note: '', icon: '•' };
+    const head = el('div', `feed-phase phase-${phase.source}`);
+    head.append(
+      el('span', 'phase-icon', meta.icon),
+      el('span', 'phase-label', meta.label),
+      el('span', 'phase-note', meta.note),
+    );
+    feed.appendChild(head);
+    feed.scrollTop = feed.scrollHeight;
+    await pace(440);
 
-    feedLine(feed, `${who[dealer]} ${VERB[entry.source]} ${who[entry.target]} for ${entry.amount}.`);
-    await sleep(340 * speed);
+    // Everything in a phase happens for the same reason, so it lands together
+    // — but staggered just enough that two simultaneous hits read as two.
+    for (const entry of phase.entries) {
+      hp[entry.target] -= entry.amount;
+      const target = side[entry.target];
+      const dealer = entry.target === 'a' ? 'b' : 'a';
+
+      target.setHp(hp[entry.target], maxHp[entry.target]);
+      target.flash(entry.source === 'poison' ? 'poison' : 'hit');
+      target.float(`−${entry.amount}`, entry.source === 'poison' ? 'poison' : 'bad');
+
+      // The dealer of every log entry is the side other than its target —
+      // true for a plain attack, First Strike, Poison, and Thorns alike (a
+      // Thorns entry targets whoever just landed a hit, dealt by the other
+      // side's Thorns keyword). Pulsing their equip slot is what makes "the
+      // player's attack, armour, thorns" traceable in the moment, not just
+      // stated in a log line.
+      const slotKey = SOURCE_SLOT[entry.source];
+      if (slotKey) side[dealer].pulseSlot(slotKey);
+
+      // …and the blow itself is drawn in the shape of whatever threw it: the
+      // weapon the dealer is actually holding, or the monster's own way of
+      // hitting things. A Hunting Bow puts an arrow in flight, a Cave Troll
+      // lands a shockwave, a Basilisk bites.
+      if (entry.source === 'attack' || entry.source === 'firstStrike') {
+        target.strike(animFor(fighter[dealer]));
+      } else {
+        target.effect(entry.source);
+      }
+
+      if (entry.source === 'poison') audio.poison();
+      else if (entry.source === 'thorns') audio.thorns();
+      else if (entry.source === 'firstStrike') audio.firstStrike();
+      else audio.hit(Math.min(1, entry.amount / Math.max(4, maxHp[entry.target] / 3)));
+
+      const line = el('div', `feed-line hit-${entry.source}`);
+      line.append(
+        el('span', 'hit-who', who[dealer]),
+        el('span', 'hit-verb', ` ${VERB[entry.source]} `),
+        el('span', 'hit-whom', who[entry.target]),
+        el('span', 'hit-amount', `−${entry.amount}`),
+      );
+      feed.appendChild(line);
+      feed.scrollTop = feed.scrollHeight;
+      await pace(entry === phase.entries[phase.entries.length - 1] ? 620 : 380);
+    }
   }
 }
 
@@ -780,7 +943,10 @@ function showOver() {
 
 function startRun() {
   store.recordRunStart();
-  run = newRun(undefined, randomName());
+  // The deck is snapshotted into the run, so editing it later never rewrites
+  // a run already under way.
+  const deck = store.deck() || deckLib.defaultDeck();
+  run = newRun(undefined, randomName(), deck);
   rival = null;   // drawn fresh in beginRound() from the new run's rivalSeed
   beginRound();
 }
@@ -816,8 +982,26 @@ function wire() {
     rival = null;
     beginRound();
   });
+  duelSpeed = store.settings().speed || 1;
+  $('#btn-speed').textContent = `${duelSpeed}×`;
+  $('#btn-speed').addEventListener('click', () => {
+    duelSpeed = SPEEDS[(SPEEDS.indexOf(duelSpeed) + 1) % SPEEDS.length];
+    $('#btn-speed').textContent = `${duelSpeed}×`;
+    store.setSetting('speed', duelSpeed);
+    audio.click();
+  });
   $('#btn-howto').addEventListener('click', () => { audio.click(); show('howto'); });
   $('#btn-howto-back').addEventListener('click', () => { audio.click(); renderTitle(); });
+  $('#btn-deck').addEventListener('click', openDeck);
+  $('#btn-deck-save').addEventListener('click', saveDeck);
+  $('#btn-deck-back').addEventListener('click', () => { audio.click(); renderTitle(); });
+  $('#deck-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.deck-tab');
+    if (!tab) return;
+    deckTierShown = Number(tab.dataset.tier);
+    audio.click();
+    renderDeck();
+  });
   $('#btn-embark').addEventListener('click', embark);
   $('#btn-to-duel').addEventListener('click', runDuel);
   $('#btn-duel-result').addEventListener('click', showResult);

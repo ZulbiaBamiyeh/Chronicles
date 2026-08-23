@@ -11,7 +11,8 @@ const BLANK = {
   lifetime: { runs: 0, completed: 0, duelsWon: 0, duelsLost: 0 },
   ghosts: {},              // "round:wins" -> ghost[]
   lastGhostReport: null,   // the "won N duels overnight" line for the menu
-  settings: { music: true, sfx: true },
+  settings: { music: true, sfx: true, speed: 1 },
+  deck: null,              // the player's 30-card deck, or null for the default
 };
 
 let cache = null;
@@ -45,6 +46,14 @@ export function saveRun(run) {
 
 export function clearRun() {
   read().run = null;
+  write();
+}
+
+/** The player's saved deck, or null if they've never built one. */
+export const deck = () => read().deck;
+
+export function saveDeck(ids) {
+  read().deck = [...ids];
   write();
 }
 

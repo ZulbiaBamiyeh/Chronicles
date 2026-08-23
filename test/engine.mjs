@@ -34,19 +34,19 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 73 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 73);
-  assert.equal(ALL_CARDS.length, 73);
-  assert.equal(MONSTERS.length, 22);
-  assert.equal(GEAR.length, 24);
-  assert.equal(ALLIES.length, 8);
-  assert.equal(PLACES.length, 9);
+test('the pool is 106 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 106);
+  assert.equal(ALL_CARDS.length, 106);
+  assert.equal(MONSTERS.length, 28);
+  assert.equal(GEAR.length, 41);
+  assert.equal(ALLIES.length, 13);
+  assert.equal(PLACES.length, 14);
   assert.equal(SECRETS.length, 10);
 });
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 73);
+  assert.equal(ids.size, 106);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
 });
@@ -84,21 +84,38 @@ test('a keyword you can start building stays buildable to the end of a run', () 
   }
 });
 
-test('every Tier 2 and Tier 3 monster pays a trophy, and Tier 1 mostly does not', () => {
+test('every Tier 2 and Tier 3 monster pays off — a trophy or a real item', () => {
   // The risk/reward shape of the path: the things that can hurt you are how
-  // you pick up permanent upgrades, not just a bigger pile of coins.
+  // you pick up permanent upgrades, not just a bigger pile of coins. A drop
+  // pays off the same promise a trophy does — you walk away with something
+  // you didn't have — just as the item itself instead of a stat bump.
   for (const m of MONSTERS.filter((m) => m.tier >= 2)) {
-    assert.ok(m.trophy, `${m.id} is a tier ${m.tier} monster with no trophy`);
+    assert.ok(m.trophy || m.drop, `${m.id} is a tier ${m.tier} monster with no payoff`);
   }
-  const t1WithTrophy = MONSTERS.filter((m) => m.tier === 1 && m.trophy).length;
-  assert.ok(t1WithTrophy <= 3, 'tier 1 should stay mostly a gold vending machine');
+  const t1WithPayoff = MONSTERS.filter((m) => m.tier === 1 && (m.trophy || m.drop)).length;
+  assert.ok(t1WithPayoff <= 4, 'tier 1 should stay mostly a gold vending machine');
 });
 
-test('gold still climbs with tier, so a harder fight is always worth more', () => {
-  const worst = (tier) => Math.min(...MONSTERS.filter((m) => m.tier === tier).map((m) => m.gold));
-  const best = (tier) => Math.max(...MONSTERS.filter((m) => m.tier === tier).map((m) => m.gold));
-  assert.ok(worst(2) > best(1), 'the weakest T2 should out-pay the richest T1');
-  assert.ok(worst(3) > best(2), 'the weakest T3 should out-pay the richest T2');
+test('every monster drop names a real, worn slot of gear', () => {
+  for (const m of MONSTERS) {
+    if (!m.drop) continue;
+    const dropped = card(m.drop);
+    assert.ok(dropped, `${m.id} drops an unknown card`);
+    assert.equal(dropped.type, 'gear', `${m.id} should drop equipment, not a ${dropped?.type}`);
+    assert.ok(dropped.slot, `${m.drop} has no equipment slot`);
+  }
+});
+
+test('average gold per monster still climbs with tier', () => {
+  // Individual monsters vary now — a drop-carrier can pay less gold because
+  // the item is the reward — so the promise is about the tier on average, not
+  // every single fight being strictly better than every fight below it.
+  const mean = (tier) => {
+    const g = MONSTERS.filter((m) => m.tier === tier).map((m) => m.gold);
+    return g.reduce((a, b) => a + b, 0) / g.length;
+  };
+  assert.ok(mean(2) > mean(1), 'T2 should out-pay T1 on average');
+  assert.ok(mean(3) > mean(2), 'T3 should out-pay T2 on average');
 });
 
 // ---------------------------------------------------------------------------
@@ -239,17 +256,21 @@ test('a card you cannot pay for fizzles and the slot does nothing', () => {
 });
 
 test('the §11 fizzle trap: the same four cards pass or fail on order alone', () => {
+  // Starting from 0 gold (matching Chronicle's own start), the trap has to be
+  // built from cards that earn before they spend: Wild Boar's gold pays for
+  // Rusty Sword exactly, leaving nothing — so Buckler only survives if Sewer
+  // Rat's gold arrives before it does.
   const base = newRun(3);
-  const mouse = { id: 'field_mouse', from: 'hand' };
+  const boar = { id: 'wild_boar', from: 'hand' };
   const sword = { id: 'rusty_sword', from: 'hand' };
   const buckler = { id: 'buckler', from: 'hand' };
-  const boar = { id: 'wild_boar', from: 'hand' };
+  const rat = { id: 'sewer_rat', from: 'hand' };
 
-  const trap = resolvePath(base, [mouse, sword, buckler, boar]);
-  assert.equal(trap.events[2].kind, 'fizzle', 'Buckler at 1 gold should fizzle');
+  const trap = resolvePath(base, [boar, sword, buckler, rat]);
+  assert.equal(trap.events[2].kind, 'fizzle', 'Buckler at 0 gold should fizzle');
   assert.equal(trap.state.kw.armour, 0);
 
-  const fixed = resolvePath(base, [mouse, sword, boar, buckler]);
+  const fixed = resolvePath(base, [boar, sword, rat, buckler]);
   assert.ok(fixed.events.every((e) => e.kind !== 'fizzle'), 'swapping the last two should fix it');
   assert.equal(fixed.state.kw.armour, 1);
 });
@@ -587,20 +608,20 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   // same (round, wins).
   const scenarios = [
     { label: 'round 1, low band', round: 1, wins: 0, atk: 3, maxHp: 20, kw: {}, band: [0.25, 0.75] },
-    { label: 'round 3, mid band', round: 3, wins: 1, atk: 13, maxHp: 31, kw: { armour: 1 }, band: [0.25, 0.75] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 29, maxHp: 42, kw: { armour: 2 }, band: [0.25, 0.8] },
+    { label: 'round 3, mid band', round: 3, wins: 1, atk: 17, maxHp: 34, kw: { armour: 1 }, band: [0.25, 0.75] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 38, maxHp: 50, kw: { armour: 3 }, band: [0.25, 0.8] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 29, maxHp: 42, kw: { armour: 3, rally: 2 }, band: [0.55, 0.98] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 38, maxHp: 50, kw: { armour: 4, rally: 3 }, band: [0.55, 0.98] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more
     // than a mid-band one — just not be an unloseable lock.
-    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 15, maxHp: 33, kw: { firstStrike: true }, band: [0.55, 0.97] },
+    { label: 'round 3, high band, First Strike', round: 3, wins: 2, atk: 19, maxHp: 37, kw: { firstStrike: true }, band: [0.55, 0.97] },
   ];
   for (const { label, round, wins, atk, maxHp, kw, band } of scenarios) {
     let exchanges = 0, winCount = 0;
@@ -839,7 +860,7 @@ test('a thousand random runs finish without throwing or stalling', () => {
 test('the constants the UI leans on are what the design says', () => {
   assert.equal(PATH_SLOTS, 4);
   assert.equal(HAND_SIZE, 6);
-  assert.deepEqual(START, { hp: 20, maxHp: 20, atk: 1, gold: 3, hearts: 3 });
+  assert.deepEqual(START, { hp: 20, maxHp: 20, atk: 2, gold: 0, hearts: 3 });
 });
 
 console.log(`engine: ${passed} tests passed`);

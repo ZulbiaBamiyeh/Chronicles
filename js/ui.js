@@ -29,6 +29,16 @@ export const ICON = {
   caltrops: '🔻', rust_powder: '🧂', snare_wire: '🕸️', antidote_draught: '🍵',
   dousing_rain: '🌧️', barb_file: '🪒', hamstring: '🩸', ambush_pit: '🕳️',
   purge_ritual: '🔯', sabotage: '💣',
+  // second rank
+  dire_wolf: '🐕‍🦺', forest_troll: '🌲', grave_knight: '⚰', bog_horror: '🦑',
+  frost_wraith: '❄️', warlord_of_ash: '🔥',
+  iron_cap: '⛑️', leather_gloves: '🧤', hunting_knife: '🔪', sling: '🎯',
+  kite_shield: '🛡️', war_pick: '⛏️', scale_hauberk: '🐟', twin_daggers: '⚔',
+  coated_blade: '🗡', rally_standard: '🎌',
+  titan_maul: '🔨', wyrmfang_spear: '🔱', berserkers_axe: '🪓',
+  shadowsteel_blade: '🌑', aegis_of_dawn: '🌅', crown_of_command: '👑', reaver_plate: '🦿',
+  scout: '🔭', venom_alchemist: '⚗️', war_priest: '✝️', master_smith: '⚒️', shield_maiden: '🛡',
+  hidden_cache: '📦', the_arena: '🏟️', sacred_spring: '💧', war_camp: '⛺', dragon_altar: '🐲',
   // allies
   torchbearer: '🕯️', coin_clipper: '🪙', sparring_partner: '🥊', field_medic: '⚕️',
   shieldbearer: '🧱', houndmaster: '🐕', quartermaster: '📦', banner_squire: '🎖️',

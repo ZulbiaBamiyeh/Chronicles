@@ -28,6 +28,7 @@
     <div class="menu-buttons">
       <button id="btn-continue" class="btn btn-gold btn-big hidden">CONTINUE RUN</button>
       <button id="btn-start" class="btn btn-gold btn-big">START RUN</button>
+      <button id="btn-deck" class="btn btn-ghost">Deck</button>
       <button id="btn-howto" class="btn btn-ghost">How to play</button>
     </div>
 
@@ -91,7 +92,10 @@
 
   <!-- ===================== DUEL ===================== -->
   <section id="screen-duel" class="screen hidden">
-    <p id="duel-heading" class="duel-heading">THE DUEL</p>
+    <div class="duel-bar">
+      <p id="duel-heading" class="duel-heading">THE DUEL</p>
+      <button id="btn-speed" class="btn-speed" type="button" title="Replay speed">1×</button>
+    </div>
     <div class="duelists">
       <div id="duel-me" class="duelist duelist-me"></div>
       <div class="versus">VS</div>
@@ -123,6 +127,33 @@
   </section>
 
   <!-- ===================== HOW TO PLAY ===================== -->
+  <!-- ===================== DECK BUILDER ===================== -->
+  <section id="screen-deck" class="screen screen-scroll hidden">
+    <h2 class="deck-title">YOUR DECK</h2>
+    <p class="deck-sub">Thirty cards — ten from each tier. Days 1–2 draw Tier 1,
+       day 3 draws Tier 1 and 2, day 4 Tier 2, day 5 Tier 2 and 3.</p>
+
+    <div class="deck-presets">
+      <span class="deck-presets-label">START FROM</span>
+      <div id="deck-preset-row" class="deck-preset-row"></div>
+    </div>
+
+    <div id="deck-status" class="deck-status"></div>
+
+    <div class="deck-tabs" id="deck-tabs">
+      <button class="deck-tab on" data-tier="1" type="button">TIER 1</button>
+      <button class="deck-tab" data-tier="2" type="button">TIER 2</button>
+      <button class="deck-tab" data-tier="3" type="button">TIER 3</button>
+    </div>
+
+    <div id="deck-pool" class="deck-pool"></div>
+
+    <div class="deck-actions">
+      <button id="btn-deck-save" class="btn btn-gold btn-big">SAVE DECK</button>
+      <button id="btn-deck-back" class="btn btn-ghost">Back</button>
+    </div>
+  </section>
+
   <section id="screen-howto" class="screen screen-scroll hidden">
     <h2 class="result-title">HOW TO PLAY</h2>
     <div class="howto">

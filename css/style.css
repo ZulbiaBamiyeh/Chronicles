@@ -741,6 +741,121 @@ body.is-dragging { cursor: grabbing; }
 .floater-gold { color: var(--gold); border-color: rgba(255, 207, 63, 0.6); }
 .floater-poison { color: var(--venom); border-color: rgba(126, 217, 87, 0.6); }
 
+/* ===================== deck builder ===================== */
+.deck-title {
+  font-family: var(--pixel);
+  font-size: 0.9rem;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  margin: 0.3rem 0 0;
+}
+.deck-sub {
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: var(--dim);
+  text-align: center;
+  margin: 0 0 0.2rem;
+  max-width: 30rem;
+}
+.deck-presets { width: 100%; }
+.deck-presets-label {
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+.deck-preset-row {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.3rem 0 0.4rem;
+  scrollbar-width: none;
+}
+.deck-preset-row::-webkit-scrollbar { display: none; }
+.deck-preset {
+  flex: 0 0 auto;
+  width: 8.4rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--line-hot);
+  background: rgba(7, 10, 22, 0.72);
+  color: var(--dim);
+  cursor: pointer;
+}
+.deck-preset b { font-family: var(--pixel); font-size: 0.5rem; color: var(--bone); }
+.deck-preset span { font-size: 0.56rem; line-height: 1.3; }
+.deck-preset:active { border-color: var(--gold); }
+
+.deck-status {
+  width: 100%;
+  padding: 0.36rem 0.5rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--line);
+  background: rgba(7, 10, 22, 0.7);
+  font-size: 0.6rem;
+  line-height: 1.4;
+}
+.deck-status.bad { border-color: rgba(239, 74, 109, 0.55); }
+.deck-problem { color: #ff9aa8; }
+.deck-ok { color: #a8e8c0; font-family: var(--pixel); font-size: 0.52rem; }
+
+.deck-tabs { display: flex; gap: 0.3rem; width: 100%; }
+.deck-tab {
+  flex: 1;
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  padding: 0.34rem 0.2rem;
+  border-radius: 0.36rem;
+  border: 1px solid var(--line-hot);
+  background: rgba(0, 0, 0, 0.42);
+  color: var(--dim);
+  cursor: pointer;
+}
+.deck-tab.on { color: var(--bone); border-color: var(--gold); background: rgba(255, 207, 63, 0.12); }
+.deck-tab.full { color: #a8e8c0; }
+
+.deck-pool {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+.deck-card { position: relative; cursor: pointer; }
+.deck-card .card { pointer-events: none; }
+.deck-card:not(.in) .card { opacity: 0.42; filter: saturate(0.45); }
+.deck-mark {
+  position: absolute;
+  top: -0.28rem;
+  right: -0.28rem;
+  z-index: 5;
+  width: 1.1rem;
+  height: 1.1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--pixel);
+  font-size: 0.56rem;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  background: rgba(20, 26, 46, 0.95);
+  color: var(--dim);
+}
+.deck-card.in .deck-mark {
+  background: radial-gradient(circle at 34% 28%, #d8ffbe, #5fd39a 62%, #2c8f5c);
+  color: #0d2418;
+}
+.deck-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+.btn:disabled { opacity: 0.45; pointer-events: none; }
+
 /* ===================== the rival =====================
    Sits above the hand while planning, because a fixed rival is only
    interesting if you can build against them. Statline and kit open; secrets
@@ -1318,14 +1433,85 @@ body.is-dragging { cursor: grabbing; }
   flex-direction: column;
   gap: 0.28rem;
 }
+/* An exchange is a hard divider, not a whisper — it's the unit the whole
+   fight is counted in. */
 .feed-ex {
   font-family: var(--pixel);
-  font-size: 0.5rem;
-  letter-spacing: 0.14em;
-  color: var(--dim);
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+  color: var(--bone);
   text-align: center;
-  margin-top: 0.2rem;
+  margin-top: 0.5rem;
+  padding: 0.24rem 0;
+  border-top: 1px solid var(--line-hot);
+  border-bottom: 1px solid var(--line-hot);
+  background: rgba(255, 255, 255, 0.035);
 }
+.feed-ex:first-child { margin-top: 0; }
+
+/* The phase heading. This is the line that makes a fight readable: it says
+   *why* the next numbers are about to move, before they move. */
+.feed-phase {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin-top: 0.34rem;
+  padding-left: 0.1rem;
+}
+.phase-icon { font-size: 0.62rem; line-height: 1; }
+.phase-label {
+  font-family: var(--pixel);
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+}
+.phase-note { font-size: 0.54rem; color: var(--dim); opacity: 0.8; }
+.phase-poison .phase-label { color: var(--venom); }
+.phase-thorns .phase-label { color: #ffa07a; }
+.phase-attack .phase-label { color: #ffd0b4; }
+.phase-firstStrike .phase-label { color: var(--ghost); }
+
+/* A single blow. The damage is pushed to the right edge and given its own
+   weight so a column of hits can be scanned down rather than read. */
+.feed-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.18rem;
+  padding-left: 0.85rem;
+}
+.hit-who { color: var(--bone); }
+.hit-verb { color: var(--dim); }
+.hit-whom { color: var(--bone); }
+.hit-amount {
+  margin-left: auto;
+  font-family: var(--pixel);
+  font-size: 0.6rem;
+  padding-left: 0.4rem;
+}
+.hit-attack .hit-amount, .hit-firstStrike .hit-amount { color: #ff9aa8; }
+.hit-poison .hit-amount { color: var(--venom); }
+.hit-thorns .hit-amount { color: #ffa07a; }
+
+.duel-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  position: relative;
+}
+.btn-speed {
+  position: absolute;
+  right: 0;
+  font-family: var(--pixel);
+  font-size: 0.5rem;
+  padding: 0.2rem 0.42rem;
+  border-radius: 0.32rem;
+  border: 1px solid var(--line-hot);
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--dim);
+  cursor: pointer;
+}
+.btn-speed:active { background: rgba(255, 255, 255, 0.1); }
 .feed-win { color: var(--gold); font-family: var(--pixel); font-size: 0.66rem; margin-top: 0.3rem; }
 .feed-loss { color: var(--blood); font-family: var(--pixel); font-size: 0.66rem; margin-top: 0.3rem; }
 

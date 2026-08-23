@@ -11,7 +11,14 @@
 
 import { card, DEAL_POOL, MONSTERS } from './cards.js';
 
-export const START = { hp: 20, maxHp: 20, atk: 1, gold: 3, hearts: 3 };
+// Matches Chronicle: RuneScape Legends' own starting line (2 ATK, 0 gold, no
+// weapon) rather than easing the player in with a free head start. Zero gold
+// is the point, not an oversight: it's what forces the first slot of day one
+// to be a monster or a free Place rather than a shopping trip, and it's why
+// the deckbuilder's floor (§ js/deck.js MIN_MONSTERS) isn't decoration — a
+// deck that couldn't reach gold on day one would be unplayable from turn one,
+// not just weak.
+export const START = { hp: 20, maxHp: 20, atk: 2, gold: 0, hearts: 3 };
 /** A run is five days against one rival — see js/rival.js. */
 export const RUN_DAYS = 5;
 export const WINS_TO_COMPLETE = RUN_DAYS;
@@ -173,9 +180,13 @@ export function tiebreak(player, ghost) {
 // Run state
 // ---------------------------------------------------------------------------
 
-export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer') {
+export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer', deck = null) {
   return {
     seed: seed >>> 0,
+    // The thirty cards this run draws its hands from. Saved with the run so
+    // resuming keeps the deck you started with, and so editing your deck
+    // between runs never rewrites one already in progress.
+    deck: deck ? [...deck] : null,
     // Who you're up against for the whole run. Fixed here, before a single
     // card is dealt, so the rival can never be a reaction to how you're
     // doing — see js/rival.js. Saved with the run, so resuming faces the same
@@ -221,9 +232,16 @@ export function tiersForRound(round) {
  * through no fault of the player, which is the one kind of unfair this game
  * can't afford — every other bad outcome here is a decision.
  */
-export function deal(round, r) {
+export function deal(round, r, deck = null) {
   const tiers = tiersForRound(round);
-  const pool = DEAL_POOL.filter((c) => tiers.includes(c.tier));
+  // Draw from the player's own deck when they have one — that's the whole
+  // point of building it. Falling back to the full pool keeps every tool and
+  // test that predates deckbuilding meaningful, and is what a player who has
+  // never opened the builder effectively has anyway.
+  const source = deck && deck.length
+    ? deck.map((id) => card(id)).filter(Boolean)
+    : DEAL_POOL;
+  const pool = source.filter((c) => tiers.includes(c.tier));
   const monsters = pool.filter((c) => c.type === 'monster');
   const spendable = pool.filter((c) => c.type === 'gear' || c.type === 'place');
 
@@ -342,12 +360,21 @@ export function resolvePath(run, slots) {
       s.hp = fight.a.hp;
       s.gold += c.gold;
       if (c.trophy) applyFx(s, c.trophy);
+      // Some monsters are carrying something. You take the item itself — its
+      // stats apply and it goes into your inventory, so it shows in the
+      // equipment panel and, if it's a weapon, you start swinging it.
+      const dropped = c.drop ? card(c.drop) : null;
+      if (dropped) {
+        applyFx(s, dropped.fx);
+        s.gear.push(dropped.id);
+      }
       monstersDefeated++;
       if (s.perks.healPerKill) s.hp = Math.min(s.maxHp, s.hp + s.perks.healPerKill);
 
       push({
         slot: i, kind: 'fight', id: c.id, damage: before - s.hp,
         exchanges: fight.exchanges, gold: c.gold, trophy: c.trophy || null,
+        drop: dropped ? dropped.id : null,
         me, monster, log: fight.log,
       });
       return;

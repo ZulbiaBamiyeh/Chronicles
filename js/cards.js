@@ -40,11 +40,13 @@ export const MONSTERS = [
   { no: 3, id: 'wild_boar', name: 'Wild Boar', tier: 1, hp: 5, atk: 2, kw: {}, gold: 4, anim: 'stab' },
   { no: 4, id: 'goblin_scrapper', name: 'Goblin Scrapper', tier: 1, hp: 4, atk: 2, kw: {},
     gold: 3, trophy: { atk: 1 }, anim: 'slash' },
-  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 }, gold: 4, anim: 'bite' },
+  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 },
+    gold: 2, drop: 'venom_flask', anim: 'bite' },
   { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 6, atk: 2, kw: {}, gold: 5, anim: 'slash' },
   { no: 7, id: 'bog_toad', name: 'Bog Toad', tier: 1, hp: 8, atk: 1, kw: {},
     gold: 4, trophy: { maxHp: 2 }, anim: 'lash' },
-  { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 5, atk: 3, kw: { armour: 1 }, gold: 6, anim: 'stab' },
+  { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 5, atk: 3, kw: { armour: 1 },
+    gold: 3, drop: 'buckler', anim: 'stab' },
   { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 3, atk: 2, kw: { firstStrike: true }, gold: 4, anim: 'claw' },
 
   // ---- Tier 2 ----
@@ -53,9 +55,9 @@ export const MONSTERS = [
   { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 2 },
     gold: 8, trophy: { poison: 1 }, anim: 'magic' },
   { no: 12, id: 'bandit_captain', name: 'Bandit Captain', tier: 2, hp: 12, atk: 6, kw: {},
-    gold: 10, trophy: { atk: 1 }, anim: 'slash' },
+    gold: 6, drop: 'rusty_sword', anim: 'slash' },
   { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 },
-    gold: 11, trophy: { armour: 1 }, anim: 'smash' },
+    gold: 6, drop: 'tower_shield', anim: 'smash' },
   { no: 14, id: 'ogre_brute', name: 'Ogre Brute', tier: 2, hp: 18, atk: 7, kw: {},
     gold: 12, trophy: { maxHp: 3 }, anim: 'smash' },
   { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 11, atk: 5, kw: { firstStrike: true },
@@ -67,15 +69,33 @@ export const MONSTERS = [
   { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {},
     gold: 16, trophy: { maxHp: 4 }, anim: 'smash' },
   { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 4 },
-    gold: 15, trophy: { poison: 2 }, anim: 'bite' },
+    gold: 9, drop: 'basilisk_fang', anim: 'bite' },
   { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 30, atk: 8, kw: { armour: 5 },
     gold: 18, trophy: { armour: 2 }, anim: 'smash' },
   { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true },
     gold: 17, trophy: { atk: 2 }, anim: 'claw' },
   { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 32, atk: 10, kw: { rally: 2 },
-    gold: 20, trophy: { rally: 1 }, anim: 'fire' },
+    gold: 12, drop: 'dragonplate', anim: 'fire' },
   { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {},
     gold: 14, trophy: { atk: 2 }, anim: 'fire' },
+
+  // A monster that carries something worth taking. `drop` hands you the actual
+  // gear card — it goes into your inventory, shows up in the equipment panel,
+  // and if it's a weapon you start swinging it. Gold buys what you choose;
+  // drops give you what you *took*, which is a different kind of reward and
+  // the reason to pick a fight you could have walked past.
+  { no: 74, id: 'dire_wolf', name: 'Dire Wolf', tier: 2, hp: 12, atk: 6, kw: { firstStrike: true },
+    gold: 7, trophy: { atk: 1 }, anim: 'claw' },
+  { no: 75, id: 'forest_troll', name: 'Forest Troll', tier: 2, hp: 15, atk: 5, kw: { thorns: 1 },
+    gold: 6, drop: 'spiked_vambrace', anim: 'smash' },
+  { no: 76, id: 'grave_knight', name: 'Grave Knight', tier: 2, hp: 17, atk: 6, kw: { armour: 2 },
+    gold: 5, drop: 'steel_longsword', anim: 'slash' },
+  { no: 77, id: 'bog_horror', name: 'Bog Horror', tier: 3, hp: 28, atk: 8, kw: { poison: 3 },
+    gold: 12, trophy: { maxHp: 4 }, anim: 'lash' },
+  { no: 78, id: 'frost_wraith', name: 'Frost Wraith', tier: 3, hp: 23, atk: 9, kw: { armour: 2 },
+    gold: 9, drop: 'chainmail', anim: 'magic' },
+  { no: 79, id: 'warlord_of_ash', name: 'Warlord of Ash', tier: 3, hp: 27, atk: 10, kw: { rally: 1 },
+    gold: 8, drop: 'executioners_blade', anim: 'chop' },
 ].map((m) => ({ ...m, type: 'monster' }));
 
 // `slot` is which equipment-panel slot a piece of gear fills when it's worn —
@@ -118,6 +138,31 @@ export const GEAR = [
   { no: 60, id: 'barbed_cuirass', name: 'Barbed Cuirass', tier: 2, cost: 10, fx: { armour: 1, thorns: 3 }, slot: 'thorns' },
   { no: 61, id: 'wyrmvenom_vial', name: 'Wyrmvenom Vial', tier: 3, cost: 16, fx: { poison: 6 }, slot: 'poison' },
   { no: 62, id: 'bramble_aegis', name: 'Bramble Aegis', tier: 3, cost: 18, fx: { armour: 3, thorns: 4 }, slot: 'thorns' },
+
+  // A second, deeper rank of equipment. With a deck to build (see js/deck.js)
+  // a shallow pool means every deck looks the same, so each tier needs enough
+  // gear that choosing ten of them is a real decision — and enough *hybrid*
+  // gear that a build can commit to two keywords at once rather than picking
+  // one and topping up with raw ATK.
+  { no: 80, id: 'iron_cap', name: 'Iron Cap', tier: 1, cost: 2, fx: { armour: 1, maxHp: 1 }, slot: 'armour' },
+  { no: 81, id: 'leather_gloves', name: 'Leather Gloves', tier: 1, cost: 2, fx: { thorns: 1 }, slot: 'thorns' },
+  { no: 82, id: 'hunting_knife', name: 'Hunting Knife', tier: 1, cost: 3, fx: { atk: 2 }, slot: 'atk', anim: 'stab' },
+  { no: 83, id: 'sling', name: 'Sling', tier: 1, cost: 3, fx: { atk: 1, firstStrike: true }, slot: 'atk', anim: 'arrow' },
+
+  { no: 84, id: 'kite_shield', name: 'Kite Shield', tier: 2, cost: 8, fx: { armour: 2, thorns: 1 }, slot: 'armour' },
+  { no: 85, id: 'war_pick', name: 'War Pick', tier: 2, cost: 9, fx: { atk: 5 }, slot: 'atk', anim: 'stab' },
+  { no: 86, id: 'scale_hauberk', name: 'Scale Hauberk', tier: 2, cost: 9, fx: { armour: 2, maxHp: 5 }, slot: 'armour' },
+  { no: 87, id: 'twin_daggers', name: 'Twin Daggers', tier: 2, cost: 10, fx: { atk: 4, firstStrike: true }, slot: 'atk', anim: 'stab' },
+  { no: 88, id: 'coated_blade', name: 'Coated Blade', tier: 2, cost: 11, fx: { atk: 3, poison: 3 }, slot: 'atk', anim: 'slash' },
+  { no: 89, id: 'rally_standard', name: 'Rally Standard', tier: 2, cost: 11, fx: { rally: 1, maxHp: 5 }, slot: 'rally' },
+
+  { no: 90, id: 'titan_maul', name: 'Titan Maul', tier: 3, cost: 21, fx: { atk: 12 }, slot: 'atk', anim: 'smash' },
+  { no: 91, id: 'wyrmfang_spear', name: 'Wyrmfang Spear', tier: 3, cost: 17, fx: { atk: 7, poison: 3 }, slot: 'atk', anim: 'stab' },
+  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 2 }, slot: 'atk', anim: 'chop' },
+  { no: 93, id: 'shadowsteel_blade', name: 'Shadowsteel Blade', tier: 3, cost: 20, fx: { atk: 8, firstStrike: true, poison: 2 }, slot: 'atk', anim: 'slash' },
+  { no: 94, id: 'aegis_of_dawn', name: 'Aegis of Dawn', tier: 3, cost: 19, fx: { armour: 4, maxHp: 8, thorns: 2 }, slot: 'armour' },
+  { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 3, maxHp: 6 }, slot: 'rally' },
+  { no: 96, id: 'reaver_plate', name: 'Reaver Plate', tier: 3, cost: 20, fx: { armour: 4, atk: 3 }, slot: 'armour' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -141,8 +186,19 @@ export const ALLIES = [
     text: 'Your first attack in every fight gains First Strike.' },
   { no: 48, id: 'quartermaster', name: 'Quartermaster', tier: 2, cost: 12,
     perk: { gearDiscount: 3 }, text: 'Gear costs 3 less (minimum 1).' },
-  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 3, cost: 14, fx: { rally: 1 }, slot: 'rally',
-    perk: { roundStart: { rally: 1 } }, text: 'Rally 1. Increases by 1 each round.' },
+  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 3, cost: 12, fx: { rally: 2 }, slot: 'rally',
+    perk: { roundStart: { rally: 1 } }, text: 'Rally 2. +1 Rally at the start of each future day.' },
+
+  { no: 97, id: 'scout', name: 'Scout', tier: 1, cost: 3, fx: { gold: 1 }, scout: true,
+    text: "Reveal your rival's secrets this day. +1 gold." },
+  { no: 98, id: 'venom_alchemist', name: 'Venom Alchemist', tier: 2, cost: 10, fx: { poison: 2 }, slot: 'poison',
+    perk: { roundStart: { poison: 1 } }, text: 'Poison 2. +1 Poison at the start of each future day.' },
+  { no: 99, id: 'war_priest', name: 'War Priest', tier: 3, cost: 13, fx: { heal: 10 },
+    perk: { roundStart: { heal: 5 } }, text: 'Heal 10 now. Heal 5 at the start of each future day.' },
+  { no: 100, id: 'master_smith', name: 'Master Smith', tier: 3, cost: 15,
+    perk: { roundStart: { atk: 2 } }, text: '+2 ATK at the start of each future day.' },
+  { no: 101, id: 'shield_maiden', name: 'Shield Maiden', tier: 3, cost: 14, fx: { armour: 2 }, slot: 'armour',
+    perk: { cleanPathArmour: 3 }, text: 'Armour 2. Before each duel, +3 Armour if you took no path damage.' },
 ].map((a) => ({ ...a, type: 'ally' }));
 
 // Places are free to enter. Two of them (`option`) offer a paid upgrade the
@@ -170,6 +226,18 @@ export const PLACES = [
   { no: 58, id: 'standing_stones', name: 'Standing Stones', tier: 3, cost: 0,
     dyn: (ctx) => (ctx.slot === 3 ? { maxHp: 4, atk: 2 } : { maxHp: 2, atk: 1 }),
     text: '+2 max HP and +1 ATK. Doubled if this is your fourth slot.' },
+
+  { no: 102, id: 'hidden_cache', name: 'Hidden Cache', tier: 2, cost: 0, fx: { gold: 8 }, text: '+8 gold.' },
+  { no: 103, id: 'the_arena', name: 'The Arena', tier: 2, cost: 0,
+    dyn: (ctx) => ({ atk: ctx.monstersDefeated * 2 }),
+    text: '+2 ATK for each monster defeated earlier this path.' },
+  { no: 104, id: 'sacred_spring', name: 'Sacred Spring', tier: 3, cost: 0, fx: { healFull: true, maxHp: 5 },
+    text: '+5 max HP, then heal to full.' },
+  { no: 105, id: 'war_camp', name: 'War Camp', tier: 3, cost: 0, fx: { atk: 3, armour: 1 },
+    text: '+3 ATK and Armour 1.' },
+  { no: 106, id: 'dragon_altar', name: 'Dragon Altar', tier: 3, cost: 0,
+    option: { cost: 8, label: 'Pay 8 for Rally 2', fx: { rally: 2 } },
+    fx: { atk: 2 }, text: '+2 ATK. May pay 8 gold for Rally 2.' },
 ].map((p) => ({ ...p, type: 'place' }));
 
 // Secrets are the one card type that reaches across the table. A secret is
@@ -225,6 +293,7 @@ export function cardText(c) {
   if (c.type === 'monster') {
     const parts = [`+${c.gold} gold`];
     if (c.trophy) parts.push(fxText(c.trophy));
+    if (c.drop) parts.push(`take ${card(c.drop)?.name ?? c.drop}`);
     return parts.join(', ');
   }
   if (c.type === 'secret') return `Your rival: ${counterText(c.counter)}.`;

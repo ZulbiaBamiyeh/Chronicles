@@ -28,19 +28,23 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 /** Round → the band a character at that point in a run is expected to be in
  *  (§9). This is the *only* thing a generated ghost's power is anchored to —
  *  never the specific player it's about to fight. */
-// Nudged above §9's literal numbers from round 3 on. §9's band was written
-// for a path whose monsters paid only gold; now that every Tier 2 and Tier 3
-// monster also leaves a permanent trophy, a real character climbs faster than
-// the doc's table assumed, and a ghost pinned to the old numbers would fall
-// behind a little more every round. In the shipped game this corrects itself
-// for free — ghosts are real players, who collected the same trophies — so
-// this is the bot pool standing in for that, not a difficulty thumb.
+// Nudged above §9's literal numbers, and nudged twice: once because every
+// Tier 2 and Tier 3 monster leaves a permanent trophy, and again because the
+// gear pool grew a great deal deeper (drops that hand over a free weapon or
+// suit of armour on top of a trophy, plus a second rank of stronger Tier 3
+// equipment) without the rival pool growing with it. A real character now
+// climbs well past what §9's original table assumed, and a rival pinned to
+// the old numbers falls further behind every round. In the shipped game this
+// corrects itself for free — a rival is a real player, who found the same
+// gear — so this is the bot pool standing in for that, not a difficulty
+// thumb: it exists to be re-measured with tools/balance.mjs after every pool
+// change, not tuned once and forgotten.
 const TARGETS = {
   1: { atk: [3, 5], maxHp: [20, 24] },
-  2: { atk: [6, 9], maxHp: [23, 29] },
-  3: { atk: [11, 15], maxHp: [28, 34] },
-  4: { atk: [16, 23], maxHp: [32, 39] },
-  5: { atk: [24, 35], maxHp: [37, 48] },
+  2: { atk: [8, 12], maxHp: [24, 31] },
+  3: { atk: [14, 20], maxHp: [30, 38] },
+  4: { atk: [21, 30], maxHp: [36, 45] },
+  5: { atk: [31, 44], maxHp: [43, 56] },
 };
 
 // ---------------------------------------------------------------------------
