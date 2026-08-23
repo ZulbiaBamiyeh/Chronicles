@@ -1,0 +1,21 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The rules have no dependencies, so this needs no install step at all.
+      - name: Rules tests
+        run: npm test
+      - name: Balance sweep
+        run: node tools/balance.mjs 200

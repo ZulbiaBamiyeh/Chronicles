@@ -1,0 +1,10 @@
+{
+  "appId": "com.ghostwalk.game",
+  "appName": "Ghostwalk",
+  "webDir": "www",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}

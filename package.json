@@ -1,0 +1,25 @@
+{
+  "name": "ghostwalk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An async PvP path-builder for one thumb. Deal six cards, place four into a path, walk it, then duel a ghost — a snapshot of another character from the same point in their run.",
+  "type": "module",
+  "scripts": {
+    "test": "node test/engine.mjs",
+    "balance": "node tools/balance.mjs",
+    "build:www": "node scripts/build-www.mjs",
+    "android:sync": "npm run build:www && npx cap sync android",
+    "serve": "node scripts/serve.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZulbiaBamiyeh/Chronicles.git"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  }
+}
