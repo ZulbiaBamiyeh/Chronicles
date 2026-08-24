@@ -53,6 +53,7 @@ img.kit-item, img.secret-chip-icon, img.invasion-icon, img.secret-fire-icon {
   --ghost: #8be9ff;
   --blood: #ef4a6d;
   --venom: #7ed957;
+  --curse: #b565ff;
   --bone: #ece6d6;
   --dim: #8f9bc4;
 
@@ -642,6 +643,19 @@ body.no-webgl #app {
   opacity: 0.8;
 }
 .card-kw { display: flex; flex-wrap: wrap; gap: 0.14rem; justify-content: center; }
+
+/* A cursed card reads as a different object before anyone reads a number on
+   it — real power for a real cost, so "am I built to afford this" has to be
+   answerable at a glance, not discovered after tapping in. */
+.card-curse {
+  border-color: color-mix(in srgb, var(--curse) 65%, var(--line-hot));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), 0 0 14px rgba(181, 101, 255, 0.35),
+    inset 0 0 22px rgba(181, 101, 255, 0.1);
+}
+.card-curse .card-type { color: var(--curse); opacity: 1; }
+.card-curse .card-banner {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--curse) 35%, #1a1428 40%), color-mix(in srgb, var(--curse) 18%, black 55%));
+}
 .card-text {
   font-size: 0.7rem;
   line-height: 1.24;

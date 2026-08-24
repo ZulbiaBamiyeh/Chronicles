@@ -398,8 +398,10 @@ function applyFx(s, fx, isWeapon = false) {
   if (!fx) return;
   // Max HP is a ceiling, not a heal — Toll Bridge and Traveller's Boots both
   // spell out a separate heal, which would be redundant if raising the max
-  // filled it. Current HP is untouched.
-  if (fx.maxHp) s.maxHp += fx.maxHp;
+  // filled it. Current HP is untouched. Floored at 4: a handful of cursed
+  // cards (see cards.js) trade max HP for ATK, and nothing downstream of
+  // this — the hp bar, settleRound's regen — assumes maxHp can reach zero.
+  if (fx.maxHp) s.maxHp = Math.max(4, s.maxHp + fx.maxHp);
   if (fx.atk && !isWeapon) s.atk = Math.max(0, s.atk + fx.atk);
   if (fx.gold) s.gold += fx.gold;
   if (fx.healFull) s.hp = s.maxHp;

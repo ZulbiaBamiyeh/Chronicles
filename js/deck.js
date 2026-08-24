@@ -101,11 +101,11 @@ const PRESETS = {
       // first thing a new player learns is that order changes what a path pays.
       'sewer_rat', 'wild_boar', 'goblin_scrapper',
       'grindstone', 'rusty_sword', 'leather_jerkin',
-      'roadside_shrine', 'blacksmith', 'flanking_strike', 'scavengers_cache',
+      'hollow_vigor', 'blacksmith', 'flanking_strike', 'scavengers_cache',
       // T2
       'cave_troll', 'bandit_captain', 'grave_knight',
       'steel_longsword', 'chainmail', 'armsmaster',
-      'toll_bridge', 'hidden_cache', 'ritual_circle', 'hamstring',
+      'wither', 'hidden_cache', 'ritual_circle', 'hamstring',
       // T3 — the payoff end of the weapon arc.
       'hill_giant', 'flame_imp', 'chimera',
       'runed_greatsword', 'dragonplate', 'masters_forge',
@@ -117,13 +117,13 @@ const PRESETS = {
     blurb: 'Hit first, hit hardest. One blade, sharpened all run.',
     cards: [
       'feral_hound', 'goblin_scrapper', 'wild_boar',
-      'hunting_bow', 'rusty_sword', 'hunting_knife', 'grindstone',
+      'hunting_bow', 'rusty_sword', 'berserkers_pact', 'grindstone',
       'blacksmith', 'training_yard', 'flanking_strike',
       'dire_wolf', 'wyvern_hatchling', 'bandit_captain', 'grave_knight',
-      'twin_daggers', 'steel_longsword', 'assassins_kris', 'armsmaster',
+      'reckless_charge', 'steel_longsword', 'assassins_kris', 'armsmaster',
       'the_arena', 'hamstring',
       'chimera', 'flame_imp', 'warlord_of_ash', 'hill_giant',
-      'executioners_blade', 'runed_greatsword', 'shadowsteel_blade', 'masters_forge',
+      'executioners_blade', 'runed_greatsword', 'glass_cannon', 'masters_forge',
       'war_camp', 'sabotage',
     ],
   },
@@ -145,7 +145,7 @@ const PRESETS = {
       'chainmail', 'tower_shield', 'war_pick',
       'bramblelord', 'wardens_oath', 'ambushers_nook',
       'stone_warden', 'bog_horror', 'hill_giant',
-      'dragonplate', 'reaver_plate', 'bramble_aegis', 'ironblood_rite',
+      'dragonplate', 'sentinel_plate', 'sentinel_spikes', 'ironblood_rite',
       'shield_maiden', 'sacred_spring', 'standing_stones',
     ],
   },
@@ -158,7 +158,7 @@ const PRESETS = {
       'roadside_shrine', 'rust_powder', 'whetstone',
       'marsh_wraith', 'cave_troll', 'grave_knight',
       'ritual_circle', 'plague_censer', 'coated_blade', 'venom_alchemist', 'toxinsmith',
-      'hidden_cache', 'barb_file',
+      'venomfang_dagger', 'serpent_scale_mail',
       'basilisk', 'bog_horror', 'hill_giant',
       'wyrmvenom_vial', 'wyrmfang_spear', 'shadowsteel_blade', 'dragonplate',
       'sacred_spring', 'war_camp', 'purge_ritual',
@@ -172,7 +172,7 @@ const PRESETS = {
       'battle_drum', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
       'roadside_shrine', 'whetstone', 'snare_wire',
       'cave_troll', 'ogre_brute', 'iron_golem', 'grave_knight',
-      'warhorn', 'rally_standard',
+      'vanguards_edge', 'vanguards_banner',
       'berserkers_rite', 'ritual_circle', 'dousing_rain',
       // Banner Squire is Tier 2, not Tier 3 — it sits here because it reads as
       // a late-game card, which is exactly how this deck ended up 11/9 and

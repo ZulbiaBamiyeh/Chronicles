@@ -51,6 +51,16 @@ export const ICON = {
   grindstone: '🌀', armsmaster: '🧑‍🏫', masters_forge: '🛠️',
   flanking_strike: '🤺', scavengers_cache: '🦝', ambushers_nook: '🦉',
   ritual_circle: '⭕', berserkers_rite: '💢', bloodforge: '🌋',
+  // hero-inspired decks
+  gilded_edge: '💰', vein_drain: '🩸', marked_quarry: '🐾', arcane_surge: '🔮',
+  reckless_thirst: '😤',
+  // cursed gear
+  berserkers_pact: '💀', hollow_vigor: '🕳️', reckless_charge: '💥',
+  wither: '🍂', glass_cannon: '💎',
+  // item sets
+  venomfang_dagger: '🐍', serpent_scale_mail: '🛡️',
+  vanguards_edge: '⚔️', vanguards_banner: '🚩',
+  sentinel_plate: '🗿', sentinel_spikes: '🦔',
 };
 
 /** One monster glyph per fighting card, for the path-fight stage. */
@@ -110,7 +120,7 @@ const TYPE_LABEL = { monster: 'Monster', gear: 'Gear', ally: 'Ally', place: 'Pla
 export function cardEl(id, opts = {}) {
   const c = card(id);
   const size = opts.size || 'hand';
-  const node = el('div', `card card-${c.type} tier-${c.tier} card-${size}`);
+  const node = el('div', `card card-${c.type} tier-${c.tier} card-${size}${c.curse ? ' card-curse' : ''}`);
   node.dataset.id = id;
 
   // ATK and HP/Armour sit as badges on the shoulders of the art frame, the
@@ -136,7 +146,10 @@ export function cardEl(id, opts = {}) {
   const banner = el('div', 'card-banner');
   banner.appendChild(el('div', 'card-name', c.name));
   node.appendChild(banner);
-  node.appendChild(el('div', 'card-type', TYPE_LABEL[c.type] || c.type));
+  // A curse reads as a different kind of card at a glance — the type line
+  // says so in words, since the border/glow treatment alone (card-curse,
+  // see style.css) doesn't survive a screen reader or a colourblind eye.
+  node.appendChild(el('div', 'card-type', c.curse ? 'Cursed' : (TYPE_LABEL[c.type] || c.type)));
 
   const kws = keywordBadges(c.kw || c.fx || {});
   if (kws.length) {

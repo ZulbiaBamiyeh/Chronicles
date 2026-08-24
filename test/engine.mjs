@@ -36,13 +36,13 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 124 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 124);
-  assert.equal(ALL_CARDS.length, 124);
+test('the pool is 135 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 135);
+  assert.equal(ALL_CARDS.length, 135);
   assert.equal(MONSTERS.length, 28);
-  assert.equal(GEAR.length, 49);
+  assert.equal(GEAR.length, 58);
   assert.equal(ALLIES.length, 13);
-  assert.equal(PLACES.length, 24);
+  assert.equal(PLACES.length, 26);
   assert.equal(SECRETS.length, 10);
 });
 
@@ -201,6 +201,44 @@ test("the duel doesn't wear out a weapon — only the path does", () => {
   assert.equal(bought.durability.rusty_sword, 2, 'the duel is a trial snapshot, not a fight the gear was carried into');
 });
 
+test('cursed gear trades max HP for ATK, and the trade is permanent', () => {
+  const base = { ...newRun(905), gold: 99 };
+  const before = base.maxHp;
+  const cursed = resolvePath(
+    { ...base, hand: ['berserkers_pact'] },
+    [{ id: 'berserkers_pact', from: 'hand' }, null, null, null],
+  ).state;
+  assert.equal(cursed.atk, base.atk + 3, 'the ATK side of the trade lands');
+  assert.equal(cursed.maxHp, before - 5, 'the max HP side of the trade lands too — nothing is free');
+
+  // Max HP is floored (see applyFx in js/engine.js) so stacking every
+  // cursed card in the pool can never push a character to zero or below.
+  const everyCurse = ['berserkers_pact', 'reckless_charge', 'glass_cannon'];
+  const stacked = resolvePath(
+    { ...base, hand: everyCurse },
+    everyCurse.map((id) => ({ id, from: 'hand' })).concat(null),
+  ).state;
+  assert.ok(stacked.maxHp >= 4, `max HP never drops below the floor, got ${stacked.maxHp}`);
+});
+
+test('an item set pays its bonus only once both halves are owned', () => {
+  const base = { ...newRun(906), gold: 99 };
+  // Serpent Scale Mail alone: no bonus Poison, just its own printed line.
+  const alone = resolvePath(
+    { ...base, hand: ['serpent_scale_mail'] },
+    [{ id: 'serpent_scale_mail', from: 'hand' }, null, null, null],
+  ).state;
+  assert.equal(alone.kw.poison, 0, 'no Venomfang Dagger, no bonus Poison');
+
+  // Both halves, same path: the bonus lands on top of both cards' own effects.
+  const paired = resolvePath(
+    { ...base, hand: ['venomfang_dagger', 'serpent_scale_mail'] },
+    [{ id: 'venomfang_dagger', from: 'hand' }, { id: 'serpent_scale_mail', from: 'hand' }, null, null],
+  ).state;
+  assert.equal(paired.kw.poison, 2 + 2, "the dagger's own Poison 2, plus the set's +2");
+  assert.equal(paired.kw.armour, 2, "the mail's own Armour 2 is untouched by the set bonus");
+});
+
 test('adjacency cards read where they were placed, so ordering is a real choice', () => {
   const base = { ...newRun(902), gold: 99 };
 
@@ -234,7 +272,7 @@ test("Berserker's Rite pays for hearts you've lost, so a losing series is fighta
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 124);
+  assert.equal(ids.size, 135);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
 });

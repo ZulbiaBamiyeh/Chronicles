@@ -440,6 +440,69 @@ larger of the two reasons Poison and Rally trail everything else. Both
 problems are tracked together now rather than as separate claims, since
 this session found they'd been compounding each other.
 
+### What He Is Coming does that this doesn't, and what was worth taking
+
+He Is Coming is a closer relative than Chronicle in one specific way: it's
+also a walk-a-line-then-fight structure with a worn-item panel, a real
+weapon slot, and a keyword vocabulary (Poison, Thorns, Speed-as-first-strike)
+that overlaps this game's almost one for one. Reading through its own
+mechanics turned up three things:
+
+- **Armour absorbs before HP and resets each fight; Speed decides who
+  swings first.** Both are already exactly this game's model — Armour
+  reduces damage at the point of impact rather than being a second health
+  bar, and First Strike is a binary "who goes first" the same shape as
+  Speed's tie-break. Reassuring more than actionable: two of this project's
+  own core mechanics independently converged on the same answer a shipped,
+  well-received game in the same genre landed on.
+- **Item sets** — two *specific* items that each do something on their own,
+  and do something *more* together. Not a keyword axis, just a card reading
+  `do I own the other half of this pair`. New territory here — nothing in
+  the pool checked for a specific other card id before this pass.
+- **Cursed items** — real power for a real, permanent cost, not a small one.
+  Also new territory: every card here previously either cost gold (spent
+  once, gone) or gave a stat with no downside. Nothing traded one permanent
+  stat for another.
+
+Bosses countering the dominant build (some heal, some drain a stat, some
+front-load damage) and equip slots that grow with progress didn't make the
+cut this pass — the first would mean hand-authoring specific ghost
+behaviour instead of the procedural generation §8's snapshot model depends
+on, and the second is the "slot scarcity" idea below, big enough to be its
+own section.
+
+**Item sets**, three pairs added to `js/cards.js`: Venomfang Dagger +
+Serpent Scale Mail (bonus Poison), Vanguard's Edge + Vanguard's Banner
+(bonus ATK), Sentinel Plate + Sentinel Spikes (bonus Armour). Each pair's
+second half reads `ctx.gear.includes('other_half_id')` in a `dyn()` — no
+engine changes, since a set bonus is just another card that happens to read
+board state, the same way a monster-adjacency card reads its neighbour.
+Deliberately never on the weapon half of a pair: a weapon's own `fx.atk` has
+to stay a printed number for `weaponAtk()` to read (see Grindstone's note),
+so the bonus always lands on the non-weapon half.
+
+**Cursed gear**, five cards (Berserker's Pact, Reckless Charge, Glass Cannon
+in `GEAR`; Hollow Vigor, Wither in `PLACES`): a permanent max HP cost for
+real ATK, or the reverse. Visually distinct — a purple border and glow, and
+the type line reads "Cursed" instead of "Gear"/"Place" — so a curse reads as
+a different kind of object before anyone reads a number on it.
+
+The first pass of numbers was wrong, and measuring it is exactly why this
+project keeps `tools/archetypes.mjs` around rather than eyeballing card text.
+Priced at roughly double a normal card's ATK per gold (the max HP cost
+treated as the balancing force), a themed ATK sweep's completion rate
+*nearly doubled* just from carrying three of them — round-5 max HP crashed
+to 12 and it won *more* anyway, because in this combat model a duel that
+ends two exchanges sooner from extra ATK saves more total damage than the
+max HP it cost. The "trade" was a strict upgrade, not a real one, for
+exactly the archetype durability had just spent a whole pass reining in.
+Retuned so the ATK side costs more max HP than a naive trade is worth
+(`atk:3/maxHp:-5` at Tier 1 up to `atk:8/maxHp:-12` at Tier 3, instead of
+the original `atk:5/-3` up to `atk:14/-7`) — re-measured, the ATK sweep
+landed back within two points of its pre-curse completion rate. "Can my
+build actually afford this" is a real question now instead of a formality
+that resolves to "yes, always."
+
 ### Four more decks, loosely after Chronicle's own Legends
 
 The Bulwark and the Duellist already cover two of Chronicle's own six

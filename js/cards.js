@@ -251,6 +251,66 @@ export const GEAR = [
   { no: 120, id: 'reckless_thirst', name: 'Reckless Thirst', tier: 3, cost: 14,
     dyn: (ctx) => ({ atk: Math.floor((ctx.maxHp - ctx.hp) / 3) }),
     text: 'ATK equal to a third of the damage you have taken this run, rounded down.' },
+
+  // ---- Cursed gear -----------------------------------------------------
+  //
+  // Everything above costs gold. These cost something that isn't gold — max
+  // HP, permanently — for real ATK. A curse read purely on its own number is
+  // a trap; read against the rest of a build ("I'm already stacking HP, I
+  // can afford this" vs "I'm at 20 max HP and about to fight a Tier 3") it's
+  // a real decision with a real wrong answer, which flat stat sticks never
+  // are. max HP is floored at 4 (see applyFx in js/engine.js) so no
+  // combination of these can ever push a character to zero or below.
+  //
+  // First pass gave roughly double a normal card's ATK per gold, on the
+  // theory that the max HP cost was the balancing force. It wasn't: in this
+  // combat model a duel that ends two exchanges sooner from extra ATK saves
+  // more total damage than the max HP it cost, so the "trade" was a strict
+  // upgrade rather than a real one — an Aggro-leaning sweep measured its
+  // completion rate *nearly double* just from carrying these, round-5 max HP
+  // crashing to 12 and winning anyway. Retuned so the ATK side costs more
+  // max HP than it's worth on a naive trade, which is what makes "can my
+  // build actually afford this" a real question instead of a formality.
+  { no: 125, id: 'berserkers_pact', name: "Berserker's Pact", tier: 1, cost: 3,
+    fx: { atk: 3, maxHp: -5 }, curse: true,
+    text: '+3 ATK. −5 max HP, permanently.' },
+  { no: 127, id: 'reckless_charge', name: 'Reckless Charge', tier: 2, cost: 9,
+    fx: { atk: 5, maxHp: -8 }, curse: true,
+    text: '+5 ATK. −8 max HP, permanently.' },
+  { no: 129, id: 'glass_cannon', name: 'Glass Cannon', tier: 3, cost: 16,
+    fx: { atk: 8, maxHp: -12 }, curse: true,
+    text: '+8 ATK. −12 max HP, permanently.' },
+
+  // ---- Item sets ---------------------------------------------------------
+  //
+  // Everything above pays off in proportion to *a stat you already have*.
+  // A set instead pays off for a *specific other card* — the second half of
+  // the pair reads `ctx.gear` for the first half's id and adds a bonus on
+  // top of its own effect if it's there. That's a different kind of
+  // decision: not "how far do I lean into Poison" but "do I have the other
+  // half of this, or am I one card away from a pair that isn't coming."
+  // Deliberately never the *weapon* half of a pair carrying the dyn() — a
+  // weapon's own fx.atk has to stay a printed number for weaponAtk() to
+  // read (see the note on Grindstone above); the bonus always sits on the
+  // non-weapon half instead.
+  { no: 130, id: 'venomfang_dagger', name: 'Venomfang Dagger', tier: 2, cost: 10,
+    fx: { atk: 3, poison: 2 }, slot: 'atk', durability: 3, anim: 'stab' },
+  { no: 131, id: 'serpent_scale_mail', name: 'Serpent Scale Mail', tier: 2, cost: 10,
+    dyn: (ctx) => ({ armour: 2, maxHp: 3, poison: ctx.gear.includes('venomfang_dagger') ? 2 : 0 }),
+    slot: 'armour',
+    text: 'Armour 2, +3 max HP. +2 more Poison if you also carry a Venomfang Dagger.' },
+  { no: 132, id: 'vanguards_edge', name: "Vanguard's Edge", tier: 2, cost: 11,
+    fx: { atk: 6 }, slot: 'atk', durability: 4, anim: 'slash' },
+  { no: 133, id: 'vanguards_banner', name: "Vanguard's Banner", tier: 2, cost: 10,
+    dyn: (ctx) => ({ rally: 2, atk: ctx.gear.includes('vanguards_edge') ? 3 : 0 }),
+    slot: 'rally',
+    text: 'Rally 2. +3 more ATK if you also carry a Vanguard\'s Edge.' },
+  { no: 134, id: 'sentinel_plate', name: 'Sentinel Plate', tier: 3, cost: 18,
+    fx: { armour: 4, maxHp: 6 }, slot: 'armour' },
+  { no: 135, id: 'sentinel_spikes', name: 'Sentinel Spikes', tier: 3, cost: 17,
+    dyn: (ctx) => ({ thorns: 3, armour: ctx.gear.includes('sentinel_plate') ? 3 : 0 }),
+    slot: 'thorns',
+    text: 'Thorns 3. +3 more Armour if you also carry Sentinel Plate.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -394,6 +454,16 @@ export const PLACES = [
   { no: 124, id: 'arcane_surge', name: 'Arcane Surge', tier: 2, cost: 0,
     dyn: (ctx) => ({ atk: 1 + (ctx.usedWatchtower ? 3 : 0) + (ctx.slot === 3 ? 2 : 0) }),
     text: '+1 ATK. +3 more if you scouted with Watchtower this round. +2 more if this is your fourth slot.' },
+
+  // The other shape a curse takes: ATK for max HP, instead of max HP for
+  // ATK — the same trade, read from the opposite side of a build. See the
+  // note on the cursed gear in the GEAR array above.
+  { no: 126, id: 'hollow_vigor', name: 'Hollow Vigor', tier: 1, cost: 0,
+    fx: { maxHp: 6, heal: 6, atk: -2 }, curse: true,
+    text: '+6 max HP, heal 6. −2 ATK, permanently.' },
+  { no: 128, id: 'wither', name: 'Wither', tier: 2, cost: 0,
+    fx: { atk: 4, gold: 5, maxHp: -6 }, curse: true,
+    text: '+4 ATK, +5 gold. −6 max HP, permanently.' },
 ].map((p) => ({ ...p, type: 'place' }));
 
 // Secrets are the one card type that reaches across the table. A secret is
@@ -472,7 +542,7 @@ export function counterText(k = {}) {
 export function fxText(fx) {
   const parts = [];
   if (fx.atk) parts.push(`${fx.atk > 0 ? '+' : '−'}${Math.abs(fx.atk)} ATK`);
-  if (fx.maxHp) parts.push(`+${fx.maxHp} max HP`);
+  if (fx.maxHp) parts.push(`${fx.maxHp > 0 ? '+' : '−'}${Math.abs(fx.maxHp)} max HP`);
   if (fx.healFull) parts.push('heal to full');
   else if (fx.heal) parts.push(`heal ${fx.heal}`);
   if (fx.gold) parts.push(`+${fx.gold} gold`);
