@@ -440,6 +440,58 @@ larger of the two reasons Poison and Rally trail everything else. Both
 problems are tracked together now rather than as separate claims, since
 this session found they'd been compounding each other.
 
+### The canonAtk gap, closed the tractable way: buffing the numbers directly
+
+The architectural fix — sizing a ghost's HP against a canonical character's
+*total* damage output, not raw ATK alone — stayed unattempted for a real
+reason: it needs `js/ghosts.js` to model what a competitive Poison or Rally
+build's damage looks like well enough to blend it into `canonAtk`, and
+getting that blend wrong risks the same mistake curses made below (see "The
+first pass of numbers was wrong"), at the scale of every archetype's pacing
+at once rather than five cards.
+
+The numbers underneath it were checkable directly, though. `TARGETS`' own
+round-5 canonical ATK band is 48–60; a themed Poison build's *total*
+per-exchange damage (ATK plus Poison, which lands every exchange same as
+ATK but ignores Armour) measured at roughly 25–31 — well under half the
+output a ghost's HP is actually sized against. That gap is the whole
+diagnosis in one number, and it's a card-balance problem, not a pacing one:
+Poison and Rally's own printed values were simply too small to reach the
+band the game was already asking them to clear.
+
+Raised the pool's dedicated Poison and Rally values by roughly 30–80%
+depending on the card (Venom Flask 2→3, Wyrmvenom Vial 6→8, Plague Censer
+3→4, Battle Drum 1→2, Banner of the Vanguard 4→6, and similar bumps across
+the rest — weapon-hybrid items like Basilisk Fang and Berserker's Axe by a
+smaller margin, since their ATK half was never the weak part). The first
+pass overshot badly: doubling the values outright sent Poison to 48.5%
+completion — suddenly the *strongest* archetype in the pool, not a fixed
+one, for the same reason the first curse-card pass overshot: a themed
+sweep will find and lean into whatever's actually strongest, and Poison's
+armour-piercing damage compounds harder than a flat ATK increase of the
+same size. Retuned down to roughly half that increase and re-measured
+(`tools/archetypes.mjs`, 600 runs):
+
+```
+              before this pass          after this pass
+poison   completion= 0.3%  duelWin=3.2%   →  completion=16.7%  duelWin=27.0%
+rally    completion= 1.3%  duelWin=2.4%   →  completion= 6.2%  duelWin= 9.7%
+```
+
+Poison now sits ahead of Tank, behind ATK and Balanced — a real, viable
+archetype rather than a trap card, without becoming the new dominant
+strategy. Rally moved into the same tier as Tank and Thorns — still the
+weakest four, still short of Balanced/ATK, but no longer a near-guaranteed
+loss. The Bloodbound and The Adept (see "Four more decks" below) didn't
+move, and that's diagnostic rather than a miss: their own numbers by
+round 5 were never the problem (The Bloodbound's ATK and max HP already
+beat Balanced's) — they lose to the hearts-elimination mechanism described
+there, a different failure mode that a card-value buff can't reach. Task
+#7 isn't closed — the canonAtk architecture is still stale for every
+archetype whose damage isn't ATK, this pass just found the two keywords
+where the gap happened to be large enough, and the fix simple enough, to
+close most of the way with values alone.
+
 ### What He Is Coming does that this doesn't, and what was worth taking
 
 He Is Coming is a closer relative than Chronicle in one specific way: it's

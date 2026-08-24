@@ -236,7 +236,7 @@ test('an item set pays its bonus only once both halves are owned', () => {
     { ...base, hand: ['venomfang_dagger', 'serpent_scale_mail'] },
     [{ id: 'venomfang_dagger', from: 'hand' }, { id: 'serpent_scale_mail', from: 'hand' }, null, null],
   ).state;
-  assert.equal(paired.kw.poison, 2 + 2, "the dagger's own Poison 2, plus the set's +2");
+  assert.equal(paired.kw.poison, 3 + 2, "the dagger's own Poison 3, plus the set's +2");
   assert.equal(paired.kw.armour, 2, "the mail's own Armour 2 is untouched by the set bonus");
 });
 
@@ -281,7 +281,7 @@ test('a keyword only has so many gear slots, and a full one fizzles the buy', ()
     { ...day1, round: 2, hand: ['venom_flask'] },
     [{ id: 'venom_flask', from: 'hand' }, null, null, null],
   ).state;
-  assert.equal(otherKeyword.kw.poison, 2, "Poison has its own, untouched budget");
+  assert.equal(otherKeyword.kw.poison, 3, "Poison has its own, untouched budget");
 });
 
 test('adjacency cards read where they were placed, so ordering is a real choice', () => {

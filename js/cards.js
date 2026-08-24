@@ -54,8 +54,8 @@ export const MONSTERS = [
   // ---- Tier 2 ----
   { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 14, atk: 5, kw: {},
     gold: 9, trophy: { maxHp: 3 }, anim: 'smash' },
-  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 2 },
-    gold: 8, trophy: { poison: 1 }, anim: 'magic' },
+  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 3 },
+    gold: 8, trophy: { poison: 2 }, anim: 'magic' },
   { no: 12, id: 'bandit_captain', name: 'Bandit Captain', tier: 2, hp: 12, atk: 6, kw: {},
     gold: 6, drop: 'rusty_sword', anim: 'slash' },
   { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 },
@@ -70,13 +70,13 @@ export const MONSTERS = [
   // ---- Tier 3 ----
   { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {},
     gold: 16, trophy: { maxHp: 4 }, anim: 'smash' },
-  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 4 },
+  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 6 },
     gold: 9, drop: 'basilisk_fang', anim: 'bite' },
   { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 30, atk: 8, kw: { armour: 5 },
     gold: 18, trophy: { armour: 2 }, anim: 'smash' },
   { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true },
     gold: 17, trophy: { atk: 2 }, anim: 'claw' },
-  { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 32, atk: 10, kw: { rally: 2 },
+  { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 32, atk: 10, kw: { rally: 3 },
     gold: 12, drop: 'dragonplate', anim: 'fire' },
   { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {},
     gold: 14, trophy: { atk: 2 }, anim: 'fire' },
@@ -92,11 +92,11 @@ export const MONSTERS = [
     gold: 6, drop: 'spiked_vambrace', anim: 'smash' },
   { no: 76, id: 'grave_knight', name: 'Grave Knight', tier: 2, hp: 17, atk: 6, kw: { armour: 2 },
     gold: 5, drop: 'steel_longsword', anim: 'slash' },
-  { no: 77, id: 'bog_horror', name: 'Bog Horror', tier: 3, hp: 28, atk: 8, kw: { poison: 3 },
+  { no: 77, id: 'bog_horror', name: 'Bog Horror', tier: 3, hp: 28, atk: 8, kw: { poison: 5 },
     gold: 12, trophy: { maxHp: 4 }, anim: 'lash' },
   { no: 78, id: 'frost_wraith', name: 'Frost Wraith', tier: 3, hp: 23, atk: 9, kw: { armour: 2 },
     gold: 9, drop: 'chainmail', anim: 'magic' },
-  { no: 79, id: 'warlord_of_ash', name: 'Warlord of Ash', tier: 3, hp: 27, atk: 10, kw: { rally: 1 },
+  { no: 79, id: 'warlord_of_ash', name: 'Warlord of Ash', tier: 3, hp: 27, atk: 10, kw: { rally: 2 },
     gold: 8, drop: 'executioners_blade', anim: 'chop' },
 ].map((m) => ({ ...m, type: 'monster' }));
 
@@ -125,22 +125,22 @@ export const GEAR = [
   { no: 27, id: 'leather_jerkin', name: 'Leather Jerkin', tier: 1, cost: 4, fx: { armour: 1, maxHp: 3 }, slot: 'armour' },
   { no: 28, id: 'spiked_vambrace', name: 'Spiked Vambrace', tier: 1, cost: 4, fx: { thorns: 2 }, slot: 'thorns' },
   { no: 29, id: 'hunting_bow', name: 'Hunting Bow', tier: 1, cost: 5, fx: { atk: 2, firstStrike: true }, slot: 'atk', durability: 2, anim: 'arrow' },
-  { no: 30, id: 'venom_flask', name: 'Venom Flask', tier: 1, cost: 5, fx: { poison: 2 }, slot: 'poison' },
-  { no: 63, id: 'battle_drum', name: 'Battle Drum', tier: 1, cost: 5, fx: { rally: 1 }, slot: 'rally' },
+  { no: 30, id: 'venom_flask', name: 'Venom Flask', tier: 1, cost: 5, fx: { poison: 3 }, slot: 'poison' },
+  { no: 63, id: 'battle_drum', name: 'Battle Drum', tier: 1, cost: 5, fx: { rally: 2 }, slot: 'rally' },
 
   // ---- Tier 2 ----
   { no: 31, id: 'chainmail', name: 'Chainmail', tier: 2, cost: 8, fx: { armour: 2, maxHp: 6 }, slot: 'armour' },
   { no: 32, id: 'tower_shield', name: 'Tower Shield', tier: 2, cost: 9, fx: { armour: 3 }, slot: 'armour' },
   { no: 33, id: 'steel_longsword', name: 'Steel Longsword', tier: 2, cost: 9, fx: { atk: 6 }, slot: 'atk', durability: 4, anim: 'slash' },
-  { no: 34, id: 'assassins_kris', name: "Assassin's Kris", tier: 2, cost: 10, fx: { atk: 4, firstStrike: true, poison: 2 }, slot: 'atk', durability: 3, anim: 'stab' },
-  { no: 35, id: 'warhorn', name: 'Warhorn', tier: 2, cost: 10, fx: { rally: 2 }, slot: 'rally' },
+  { no: 34, id: 'assassins_kris', name: "Assassin's Kris", tier: 2, cost: 10, fx: { atk: 4, firstStrike: true, poison: 3 }, slot: 'atk', durability: 3, anim: 'stab' },
+  { no: 35, id: 'warhorn', name: 'Warhorn', tier: 2, cost: 10, fx: { rally: 3 }, slot: 'rally' },
   { no: 36, id: 'serrated_axe', name: 'Serrated Axe', tier: 2, cost: 11, fx: { atk: 5, thorns: 3 }, slot: 'atk', durability: 3, anim: 'chop' },
 
   // ---- Tier 3 ----
-  { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 5 }, slot: 'atk', durability: 3, anim: 'stab' },
+  { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 7 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 38, id: 'dragonplate', name: 'Dragonplate', tier: 3, cost: 17, fx: { armour: 5, maxHp: 10 }, slot: 'armour' },
   { no: 39, id: 'runed_greatsword', name: 'Runed Greatsword', tier: 3, cost: 18, fx: { atk: 11 }, slot: 'atk', durability: 6, anim: 'slash' },
-  { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 4 }, slot: 'rally' },
+  { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 6 }, slot: 'rally' },
   { no: 41, id: 'executioners_blade', name: "Executioner's Blade", tier: 3, cost: 22, fx: { atk: 9, firstStrike: true }, slot: 'atk', durability: 5, anim: 'chop' },
 
   // Poison and Thorns used to exist only as Tier 1 gear (Venom Flask, Spiked
@@ -148,9 +148,9 @@ export const GEAR = [
   // player who wanted to *keep* building either keyword past round 3 with
   // nothing to buy — the archetype was reachable early and then quietly
   // stranded. These four are the missing rungs.
-  { no: 59, id: 'plague_censer', name: 'Plague Censer', tier: 2, cost: 9, fx: { poison: 3 }, slot: 'poison' },
+  { no: 59, id: 'plague_censer', name: 'Plague Censer', tier: 2, cost: 9, fx: { poison: 4 }, slot: 'poison' },
   { no: 60, id: 'barbed_cuirass', name: 'Barbed Cuirass', tier: 2, cost: 10, fx: { armour: 1, thorns: 3 }, slot: 'thorns' },
-  { no: 61, id: 'wyrmvenom_vial', name: 'Wyrmvenom Vial', tier: 3, cost: 16, fx: { poison: 6 }, slot: 'poison' },
+  { no: 61, id: 'wyrmvenom_vial', name: 'Wyrmvenom Vial', tier: 3, cost: 16, fx: { poison: 8 }, slot: 'poison' },
   { no: 62, id: 'bramble_aegis', name: 'Bramble Aegis', tier: 3, cost: 18, fx: { armour: 3, thorns: 4 }, slot: 'thorns' },
 
   // A second, deeper rank of equipment. With a deck to build (see js/deck.js)
@@ -167,15 +167,15 @@ export const GEAR = [
   { no: 85, id: 'war_pick', name: 'War Pick', tier: 2, cost: 9, fx: { atk: 5 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 86, id: 'scale_hauberk', name: 'Scale Hauberk', tier: 2, cost: 9, fx: { armour: 2, maxHp: 5 }, slot: 'armour' },
   { no: 87, id: 'twin_daggers', name: 'Twin Daggers', tier: 2, cost: 10, fx: { atk: 4, firstStrike: true }, slot: 'atk', durability: 3, anim: 'stab' },
-  { no: 88, id: 'coated_blade', name: 'Coated Blade', tier: 2, cost: 11, fx: { atk: 3, poison: 3 }, slot: 'atk', durability: 2, anim: 'slash' },
-  { no: 89, id: 'rally_standard', name: 'Rally Standard', tier: 2, cost: 11, fx: { rally: 1, maxHp: 5 }, slot: 'rally' },
+  { no: 88, id: 'coated_blade', name: 'Coated Blade', tier: 2, cost: 11, fx: { atk: 3, poison: 4 }, slot: 'atk', durability: 2, anim: 'slash' },
+  { no: 89, id: 'rally_standard', name: 'Rally Standard', tier: 2, cost: 11, fx: { rally: 2, maxHp: 5 }, slot: 'rally' },
 
   { no: 90, id: 'titan_maul', name: 'Titan Maul', tier: 3, cost: 21, fx: { atk: 12 }, slot: 'atk', durability: 7, anim: 'smash' },
-  { no: 91, id: 'wyrmfang_spear', name: 'Wyrmfang Spear', tier: 3, cost: 17, fx: { atk: 7, poison: 3 }, slot: 'atk', durability: 4, anim: 'stab' },
-  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 2 }, slot: 'atk', durability: 5, anim: 'chop' },
-  { no: 93, id: 'shadowsteel_blade', name: 'Shadowsteel Blade', tier: 3, cost: 20, fx: { atk: 8, firstStrike: true, poison: 2 }, slot: 'atk', durability: 5, anim: 'slash' },
+  { no: 91, id: 'wyrmfang_spear', name: 'Wyrmfang Spear', tier: 3, cost: 17, fx: { atk: 7, poison: 4 }, slot: 'atk', durability: 4, anim: 'stab' },
+  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 3 }, slot: 'atk', durability: 5, anim: 'chop' },
+  { no: 93, id: 'shadowsteel_blade', name: 'Shadowsteel Blade', tier: 3, cost: 20, fx: { atk: 8, firstStrike: true, poison: 3 }, slot: 'atk', durability: 5, anim: 'slash' },
   { no: 94, id: 'aegis_of_dawn', name: 'Aegis of Dawn', tier: 3, cost: 19, fx: { armour: 4, maxHp: 8, thorns: 2 }, slot: 'armour' },
-  { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 3, maxHp: 6 }, slot: 'rally' },
+  { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 4, maxHp: 6 }, slot: 'rally' },
   { no: 96, id: 'reaver_plate', name: 'Reaver Plate', tier: 3, cost: 20, fx: { armour: 4, atk: 3 }, slot: 'armour' },
 
   // ---- Cards that read the character you've been building -----------------
@@ -294,7 +294,7 @@ export const GEAR = [
   // read (see the note on Grindstone above); the bonus always sits on the
   // non-weapon half instead.
   { no: 130, id: 'venomfang_dagger', name: 'Venomfang Dagger', tier: 2, cost: 10,
-    fx: { atk: 3, poison: 2 }, slot: 'atk', durability: 3, anim: 'stab' },
+    fx: { atk: 3, poison: 3 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 131, id: 'serpent_scale_mail', name: 'Serpent Scale Mail', tier: 2, cost: 10,
     dyn: (ctx) => ({ armour: 2, maxHp: 3, poison: ctx.gear.includes('venomfang_dagger') ? 2 : 0 }),
     slot: 'armour',
@@ -302,9 +302,9 @@ export const GEAR = [
   { no: 132, id: 'vanguards_edge', name: "Vanguard's Edge", tier: 2, cost: 11,
     fx: { atk: 6 }, slot: 'atk', durability: 4, anim: 'slash' },
   { no: 133, id: 'vanguards_banner', name: "Vanguard's Banner", tier: 2, cost: 10,
-    dyn: (ctx) => ({ rally: 2, atk: ctx.gear.includes('vanguards_edge') ? 3 : 0 }),
+    dyn: (ctx) => ({ rally: 3, atk: ctx.gear.includes('vanguards_edge') ? 3 : 0 }),
     slot: 'rally',
-    text: 'Rally 2. +3 more ATK if you also carry a Vanguard\'s Edge.' },
+    text: 'Rally 3. +3 more ATK if you also carry a Vanguard\'s Edge.' },
   { no: 134, id: 'sentinel_plate', name: 'Sentinel Plate', tier: 3, cost: 18,
     fx: { armour: 4, maxHp: 6 }, slot: 'armour' },
   { no: 135, id: 'sentinel_spikes', name: 'Sentinel Spikes', tier: 3, cost: 17,
@@ -340,10 +340,10 @@ export const ALLIES = [
   // genuinely worthless there once hands got tighter and every gold coin had
   // to earn its keep; Tier 2 (days 3-5) gives the recurring ones one or two
   // real future days to compound into.
-  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 2, cost: 11, fx: { rally: 1 }, slot: 'rally',
-    perk: { roundStart: { rally: 1 } }, text: 'Rally 1. +1 Rally at the start of each future day.' },
-  { no: 98, id: 'venom_alchemist', name: 'Venom Alchemist', tier: 2, cost: 10, fx: { poison: 2 }, slot: 'poison',
-    perk: { roundStart: { poison: 1 } }, text: 'Poison 2. +1 Poison at the start of each future day.' },
+  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 2, cost: 11, fx: { rally: 2 }, slot: 'rally',
+    perk: { roundStart: { rally: 1 } }, text: 'Rally 2. +1 Rally at the start of each future day.' },
+  { no: 98, id: 'venom_alchemist', name: 'Venom Alchemist', tier: 2, cost: 10, fx: { poison: 3 }, slot: 'poison',
+    perk: { roundStart: { poison: 1 } }, text: 'Poison 3. +1 Poison at the start of each future day.' },
   { no: 99, id: 'war_priest', name: 'War Priest', tier: 2, cost: 10, fx: { heal: 8 },
     perk: { roundStart: { heal: 4 } }, text: 'Heal 8 now. Heal 4 at the start of each future day.' },
   { no: 100, id: 'master_smith', name: 'Master Smith', tier: 2, cost: 11,
