@@ -64,8 +64,8 @@ export const MONSTERS = [
     gold: 12, trophy: { maxHp: 3 }, anim: 'smash' },
   { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 11, atk: 5, kw: { firstStrike: true },
     gold: 9, trophy: { atk: 1 }, anim: 'fire' },
-  { no: 16, id: 'thornback_boar', name: 'Thornback Boar', tier: 2, hp: 13, atk: 4, kw: { thorns: 2 },
-    gold: 8, trophy: { thorns: 1 }, anim: 'stab' },
+  { no: 16, id: 'thornback_boar', name: 'Thornback Boar', tier: 2, hp: 13, atk: 4, kw: { thorns: 3 },
+    gold: 8, trophy: { thorns: 2 }, anim: 'stab' },
 
   // ---- Tier 3 ----
   { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {},
@@ -88,7 +88,7 @@ export const MONSTERS = [
   // the reason to pick a fight you could have walked past.
   { no: 74, id: 'dire_wolf', name: 'Dire Wolf', tier: 2, hp: 12, atk: 6, kw: { firstStrike: true },
     gold: 7, trophy: { atk: 1 }, anim: 'claw' },
-  { no: 75, id: 'forest_troll', name: 'Forest Troll', tier: 2, hp: 15, atk: 5, kw: { thorns: 1 },
+  { no: 75, id: 'forest_troll', name: 'Forest Troll', tier: 2, hp: 15, atk: 5, kw: { thorns: 2 },
     gold: 6, drop: 'spiked_vambrace', anim: 'smash' },
   { no: 76, id: 'grave_knight', name: 'Grave Knight', tier: 2, hp: 17, atk: 6, kw: { armour: 2 },
     gold: 5, drop: 'steel_longsword', anim: 'slash' },
@@ -123,10 +123,10 @@ export const GEAR = [
   { no: 25, id: 'travellers_boots', name: "Traveller's Boots", tier: 1, cost: 3, fx: { maxHp: 4, heal: 4 } },
   { no: 26, id: 'rusty_sword', name: 'Rusty Sword', tier: 1, cost: 4, fx: { atk: 3 }, slot: 'atk', durability: 2, anim: 'slash' },
   { no: 27, id: 'leather_jerkin', name: 'Leather Jerkin', tier: 1, cost: 4, fx: { armour: 1, maxHp: 3 }, slot: 'armour' },
-  { no: 28, id: 'spiked_vambrace', name: 'Spiked Vambrace', tier: 1, cost: 4, fx: { thorns: 2 }, slot: 'thorns' },
+  { no: 28, id: 'spiked_vambrace', name: 'Spiked Vambrace', tier: 1, cost: 4, fx: { thorns: 3 }, slot: 'thorns' },
   { no: 29, id: 'hunting_bow', name: 'Hunting Bow', tier: 1, cost: 5, fx: { atk: 2, firstStrike: true }, slot: 'atk', durability: 2, anim: 'arrow' },
   { no: 30, id: 'venom_flask', name: 'Venom Flask', tier: 1, cost: 5, fx: { poison: 3 }, slot: 'poison' },
-  { no: 63, id: 'battle_drum', name: 'Battle Drum', tier: 1, cost: 5, fx: { rally: 2 }, slot: 'rally' },
+  { no: 63, id: 'battle_drum', name: 'Battle Drum', tier: 1, cost: 5, fx: { rally: 3 }, slot: 'rally' },
 
   // ---- Tier 2 ----
   { no: 31, id: 'chainmail', name: 'Chainmail', tier: 2, cost: 8, fx: { armour: 2, maxHp: 6 }, slot: 'armour' },
@@ -140,7 +140,7 @@ export const GEAR = [
   { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 7 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 38, id: 'dragonplate', name: 'Dragonplate', tier: 3, cost: 17, fx: { armour: 5, maxHp: 10 }, slot: 'armour' },
   { no: 39, id: 'runed_greatsword', name: 'Runed Greatsword', tier: 3, cost: 18, fx: { atk: 11 }, slot: 'atk', durability: 6, anim: 'slash' },
-  { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 6 }, slot: 'rally' },
+  { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 8 }, slot: 'rally' },
   { no: 41, id: 'executioners_blade', name: "Executioner's Blade", tier: 3, cost: 22, fx: { atk: 9, firstStrike: true }, slot: 'atk', durability: 5, anim: 'chop' },
 
   // Poison and Thorns used to exist only as Tier 1 gear (Venom Flask, Spiked
@@ -149,9 +149,9 @@ export const GEAR = [
   // nothing to buy — the archetype was reachable early and then quietly
   // stranded. These four are the missing rungs.
   { no: 59, id: 'plague_censer', name: 'Plague Censer', tier: 2, cost: 9, fx: { poison: 4 }, slot: 'poison' },
-  { no: 60, id: 'barbed_cuirass', name: 'Barbed Cuirass', tier: 2, cost: 10, fx: { armour: 1, thorns: 3 }, slot: 'thorns' },
+  { no: 60, id: 'barbed_cuirass', name: 'Barbed Cuirass', tier: 2, cost: 10, fx: { armour: 1, thorns: 4 }, slot: 'thorns' },
   { no: 61, id: 'wyrmvenom_vial', name: 'Wyrmvenom Vial', tier: 3, cost: 16, fx: { poison: 8 }, slot: 'poison' },
-  { no: 62, id: 'bramble_aegis', name: 'Bramble Aegis', tier: 3, cost: 18, fx: { armour: 3, thorns: 4 }, slot: 'thorns' },
+  { no: 62, id: 'bramble_aegis', name: 'Bramble Aegis', tier: 3, cost: 18, fx: { armour: 3, thorns: 5 }, slot: 'thorns' },
 
   // A second, deeper rank of equipment. With a deck to build (see js/deck.js)
   // a shallow pool means every deck looks the same, so each tier needs enough
@@ -159,7 +159,7 @@ export const GEAR = [
   // gear that a build can commit to two keywords at once rather than picking
   // one and topping up with raw ATK.
   { no: 80, id: 'iron_cap', name: 'Iron Cap', tier: 1, cost: 2, fx: { armour: 1, maxHp: 1 }, slot: 'armour' },
-  { no: 81, id: 'leather_gloves', name: 'Leather Gloves', tier: 1, cost: 2, fx: { thorns: 1 }, slot: 'thorns' },
+  { no: 81, id: 'leather_gloves', name: 'Leather Gloves', tier: 1, cost: 2, fx: { thorns: 2 }, slot: 'thorns' },
   { no: 82, id: 'hunting_knife', name: 'Hunting Knife', tier: 1, cost: 3, fx: { atk: 2 }, slot: 'atk', durability: 2, anim: 'stab' },
   { no: 83, id: 'sling', name: 'Sling', tier: 1, cost: 3, fx: { atk: 1, firstStrike: true }, slot: 'atk', durability: 1, anim: 'arrow' },
 
@@ -172,10 +172,10 @@ export const GEAR = [
 
   { no: 90, id: 'titan_maul', name: 'Titan Maul', tier: 3, cost: 21, fx: { atk: 12 }, slot: 'atk', durability: 7, anim: 'smash' },
   { no: 91, id: 'wyrmfang_spear', name: 'Wyrmfang Spear', tier: 3, cost: 17, fx: { atk: 7, poison: 4 }, slot: 'atk', durability: 4, anim: 'stab' },
-  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 3 }, slot: 'atk', durability: 5, anim: 'chop' },
+  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 4 }, slot: 'atk', durability: 5, anim: 'chop' },
   { no: 93, id: 'shadowsteel_blade', name: 'Shadowsteel Blade', tier: 3, cost: 20, fx: { atk: 8, firstStrike: true, poison: 3 }, slot: 'atk', durability: 5, anim: 'slash' },
   { no: 94, id: 'aegis_of_dawn', name: 'Aegis of Dawn', tier: 3, cost: 19, fx: { armour: 4, maxHp: 8, thorns: 2 }, slot: 'armour' },
-  { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 4, maxHp: 6 }, slot: 'rally' },
+  { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 5, maxHp: 6 }, slot: 'rally' },
   { no: 96, id: 'reaver_plate', name: 'Reaver Plate', tier: 3, cost: 20, fx: { armour: 4, atk: 3 }, slot: 'armour' },
 
   // ---- Cards that read the character you've been building -----------------
@@ -308,9 +308,9 @@ export const GEAR = [
   { no: 134, id: 'sentinel_plate', name: 'Sentinel Plate', tier: 3, cost: 18,
     fx: { armour: 4, maxHp: 6 }, slot: 'armour' },
   { no: 135, id: 'sentinel_spikes', name: 'Sentinel Spikes', tier: 3, cost: 17,
-    dyn: (ctx) => ({ thorns: 3, armour: ctx.gear.includes('sentinel_plate') ? 3 : 0 }),
+    dyn: (ctx) => ({ thorns: 4, armour: ctx.gear.includes('sentinel_plate') ? 3 : 0 }),
     slot: 'thorns',
-    text: 'Thorns 3. +3 more Armour if you also carry Sentinel Plate.' },
+    text: 'Thorns 4. +3 more Armour if you also carry Sentinel Plate.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -340,8 +340,8 @@ export const ALLIES = [
   // genuinely worthless there once hands got tighter and every gold coin had
   // to earn its keep; Tier 2 (days 3-5) gives the recurring ones one or two
   // real future days to compound into.
-  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 2, cost: 11, fx: { rally: 2 }, slot: 'rally',
-    perk: { roundStart: { rally: 1 } }, text: 'Rally 2. +1 Rally at the start of each future day.' },
+  { no: 49, id: 'banner_squire', name: 'Banner Squire', tier: 2, cost: 11, fx: { rally: 3 }, slot: 'rally',
+    perk: { roundStart: { rally: 1 } }, text: 'Rally 3. +1 Rally at the start of each future day.' },
   { no: 98, id: 'venom_alchemist', name: 'Venom Alchemist', tier: 2, cost: 10, fx: { poison: 3 }, slot: 'poison',
     perk: { roundStart: { poison: 1 } }, text: 'Poison 3. +1 Poison at the start of each future day.' },
   { no: 99, id: 'war_priest', name: 'War Priest', tier: 2, cost: 10, fx: { heal: 8 },
@@ -419,8 +419,8 @@ export const PLACES = [
     dyn: (ctx) => ({ gold: 3 + (ctx.left?.type === 'monster' ? 5 : 0) }),
     text: '+3 gold. +5 more if the card to its left is a monster.' },
   { no: 116, id: 'ambushers_nook', name: "Ambusher's Nook", tier: 2, cost: 0,
-    dyn: (ctx) => ({ thorns: 2 + (ctx.right?.type === 'monster' ? 3 : 0) }),
-    text: 'Thorns 2. Thorns 3 more if the card to its right is a monster.' },
+    dyn: (ctx) => ({ thorns: 3 + (ctx.right?.type === 'monster' ? 4 : 0) }),
+    text: 'Thorns 3. Thorns 4 more if the card to its right is a monster.' },
   { no: 117, id: 'ritual_circle', name: 'Ritual Circle', tier: 2, cost: 0,
     dyn: (ctx) => {
       const flanked = ctx.left?.type === 'place' && ctx.right?.type === 'place';

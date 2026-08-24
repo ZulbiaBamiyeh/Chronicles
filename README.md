@@ -492,6 +492,89 @@ archetype whose damage isn't ATK, this pass just found the two keywords
 where the gap happened to be large enough, and the fix simple enough, to
 close most of the way with values alone.
 
+### Closing the rest of the spread: nine decks, one at a time
+
+The Bloodbound and Adept diagnosis above ("they lose to hearts-elimination,
+a different failure mode") turned out to be wrong in an interesting way —
+not wrong that they were losing early, wrong about *why*. A day-by-day
+trace (not just round-5 snapshots) told a different story: The Bloodbound's
+day-one duel win rate was 0.5%, against a ~38-40% rate every other deck
+gets on the same day-one ghosts. That's not "weak early, strong late" —
+day one is supposed to be close to a coin flip for anyone. Something was
+actually broken, not just slow to pay off.
+
+The actual cause, once isolated: The Bloodbound's four Tier 1 ATK cards
+(Whetstone, Rusty Sword, Blacksmith, Grindstone) all either need a weapon
+already in hand or need gold from a kill first — there was no card that
+just adds ATK unconditionally, cheaply, regardless of what else got dealt.
+Balanced has exactly this in Flanking Strike (+2 ATK baseline, +5 beside a
+monster). Swapping one weak Tier 1 card for Flanking Strike — nothing else
+touched — took The Bloodbound's day-one win rate from 0.5% to 24.5%, and
+its full-run completion from 0.5% to 15.5%. The same diagnosis, the same
+fix, applied to The Adept (0.2% → 10.5%) and The Fence (6.0% → 19.5%, this
+one needed more Armour rather than more ATK — its day-three average HP was
+crashing to 5 out of a 30+ max before players could count on affording any
+defense at all).
+
+The Hunter had a different problem once traced the same way: five monsters
+per tier (its whole "fight more of the path" identity) left only five
+slots per tier for actual gear, half the density every other preset runs
+at. Trimming to four monsters and using the freed slot for a flat ATK or
+Armour card took it from 3.3% to 14.0%.
+
+Tank and Thorns (which share one preset, The Bulwark, under two different
+scoring leans) didn't respond to the same lever — adding ATK cards made
+both *worse*, confirming their identity is genuinely different: they win
+by outlasting, not outracing, so a card that shortens the fight works
+against them. What moved them was raising Thorns' own printed values by
+roughly 30-50% (mirroring the Poison fix above, at the smaller scale that
+worked instead of the one that overshot) — Tank 9.0% → 21.3%, Thorns
+5.3% → 15.3%.
+
+Rally needed the same kind of values pass — Battle Drum, Banner of the
+Vanguard, Crown of Command, Berserker's Axe, Banner Squire all raised
+30-40% — landing it at 13.0%, up from 6.2%.
+
+Every change here was tested the same way: isolate one deck, change one
+thing, re-run `tools/archetypes.mjs` (600 runs), keep it only if the
+number actually moved the right direction. Several attempts that sounded
+reasonable didn't survive contact with the measurement and were reverted
+in place — more Armour for The Bloodbound (made it worse: losing a
+guaranteed ATK card for it cost more than the Armour returned), fewer
+monsters for Rally (same trade, same result), a shared armour-scoring
+weight bump for The Bloodbound (no effect, confirming the deck's own card
+pool was the actual bottleneck, not the planner's choices). None of that
+is visible in the final diffs — only the changes that measured as real are
+still here, which is the same discipline every other pass in this file
+followed.
+
+Final standing (600 runs, `tools/archetypes.mjs`):
+
+```
+balanced    completion=37.2%  duelWin=43.8%
+atk         completion=22.7%  duelWin=30.4%
+tank        completion=21.3%  duelWin=20.8%
+fence       completion=19.5%  duelWin=28.3%
+poison      completion=16.7%  duelWin=27.0%
+bloodbound  completion=15.5%  duelWin=23.8%
+thorns      completion=15.3%  duelWin=14.9%
+hunter      completion=14.0%  duelWin=26.1%
+rally       completion=13.0%  duelWin=17.7%
+adept       completion=10.5%  duelWin=27.4%
+```
+
+Down from a spread of 37.2 to 0.2 (a themed deck could be 180× worse than
+the best one) to 37.2 to 10.5 — roughly 3.5×, and every single themed
+archetype is a real, playable strategy rather than a trap. Balanced still
+leads by a wide margin, and that's the one gap left deliberately alone:
+it's the deck `js/ghosts.js`'s `TARGETS` band is anchored to (see "Weapon
+durability capped the ceiling"), so trimming it down would mean re-deriving
+that whole band again rather than a targeted fix — a bigger, riskier move
+than anything else in this pass, and not one this session's remaining
+budget was spent chasing. "Balancedish," not perfectly balanced: nine
+different ways to play that all have a real shot, with one deliberate
+generalist still slightly ahead, same as most games in this genre.
+
 ### What He Is Coming does that this doesn't, and what was worth taking
 
 He Is Coming is a closer relative than Chronicle in one specific way: it's

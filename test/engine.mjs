@@ -298,8 +298,8 @@ test('adjacency cards read where they were placed, so ordering is a real choice'
 
   // Ambusher's Nook looks *forward*, so it has to be planned before the fight
   // rather than reacted to after one.
-  assert.equal(played(base, 'ambushers_nook', 0, [null, 'wild_boar']).thorns, 5);
-  assert.equal(played(base, 'ambushers_nook', 0, [null, 'roadside_shrine']).thorns, 2);
+  assert.equal(played(base, 'ambushers_nook', 0, [null, 'wild_boar']).thorns, 7);
+  assert.equal(played(base, 'ambushers_nook', 0, [null, 'roadside_shrine']).thorns, 3);
 
   const flanked = played(base, 'ritual_circle', 1, ['roadside_shrine', null, 'market_square']);
   assert.equal(flanked.atk, 4);
