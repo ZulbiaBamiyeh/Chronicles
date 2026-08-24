@@ -10,6 +10,7 @@ import {
   settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter, applySecrets,
   PATH_SLOTS, HAND_SIZE, HAND_TARGET, MIN_HAND_MONSTERS, START,
   refillHand, mulligan, MULLIGAN_LIMIT, resolveAmbush,
+  gearSlotsFor, gearSlotsUsed,
 } from '../js/engine.js';
 import * as deckLib from '../js/deck.js';
 import {
@@ -237,6 +238,50 @@ test('an item set pays its bonus only once both halves are owned', () => {
   ).state;
   assert.equal(paired.kw.poison, 2 + 2, "the dagger's own Poison 2, plus the set's +2");
   assert.equal(paired.kw.armour, 2, "the mail's own Armour 2 is untouched by the set bonus");
+});
+
+test('a keyword only has so many gear slots, and a full one fizzles the buy', () => {
+  const base = { ...newRun(907), gold: 99 };
+  assert.equal(gearSlotsFor(1), 4);
+  assert.equal(gearSlotsFor(2), 4, "the cap doesn't loosen every day, just every other one");
+  assert.equal(gearSlotsFor(3), 5);
+  assert.equal(gearSlotsFor(5), 6);
+
+  // Day one, cap 4: four Armour-slot items fill every slot with room to spare.
+  const day1 = resolvePath(
+    { ...base, round: 1, hand: ['buckler', 'leather_jerkin', 'iron_cap', 'chainmail'] },
+    ['buckler', 'leather_jerkin', 'iron_cap', 'chainmail'].map((id) => ({ id, from: 'hand' })),
+  ).state;
+  assert.equal(gearSlotsUsed(day1.gear, 'armour'), 4);
+  const armourSoFar = day1.kw.armour;
+
+  // Day two: the cap is still 4 (it only loosens every other day), so a
+  // fifth Armour item fizzles — the gold is never spent and the stat never
+  // moves, the same as a card that couldn't be afforded.
+  const day2 = resolvePath(
+    { ...day1, round: 2, hand: ['tower_shield'] },
+    [{ id: 'tower_shield', from: 'hand' }, null, null, null],
+  );
+  const fizzle = day2.events.find((e) => e.kind === 'fizzle' && e.id === 'tower_shield');
+  assert.ok(fizzle?.noRoom, 'no room, so it fizzles the same way an unaffordable card does');
+  assert.equal(day2.state.gold, day1.gold, 'a fizzled buy never spends its gold');
+  assert.equal(day2.state.kw.armour, armourSoFar, "and Tower Shield's own Armour never lands");
+
+  // Day three, cap 5: the same card, the same hand, now fits.
+  const day3 = resolvePath(
+    { ...day1, round: 3, hand: ['tower_shield'] },
+    [{ id: 'tower_shield', from: 'hand' }, null, null, null],
+  ).state;
+  assert.equal(gearSlotsUsed(day3.gear, 'armour'), 5);
+  assert.equal(day3.kw.armour, armourSoFar + 3, "now it lands — same card, more room");
+
+  // A different keyword's slots are entirely separate — Poison gear was
+  // never in competition with the four Armour items above.
+  const otherKeyword = resolvePath(
+    { ...day1, round: 2, hand: ['venom_flask'] },
+    [{ id: 'venom_flask', from: 'hand' }, null, null, null],
+  ).state;
+  assert.equal(otherKeyword.kw.poison, 2, "Poison has its own, untouched budget");
 });
 
 test('adjacency cards read where they were placed, so ordering is a real choice', () => {

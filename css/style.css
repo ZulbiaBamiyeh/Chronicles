@@ -199,6 +199,11 @@ body.no-webgl #app {
 .kw-rally  { color: var(--gold); }
 .kw-first  { color: var(--ghost); }
 
+/* How many of this keyword's gear slots are already spent — the answer to
+   "do I have room for one more" before a card is even tapped. */
+.kw-slots { opacity: 0.65; }
+.kw-slots.full { opacity: 1; color: var(--curse); font-weight: 700; }
+
 .shake { animation: shake 0.32s ease; }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

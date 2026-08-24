@@ -4,7 +4,7 @@
 // and calls in.
 
 import { card, cardText, keywordBadges, equipment, counterText, contributionsFor } from './cards.js';
-import { costFor } from './engine.js';
+import { costFor, CAPPED_SLOTS, gearSlotsFor, gearSlotsUsed } from './engine.js';
 
 // One glyph per card. Emoji rather than 70 pieces of commissioned art is an
 // honest prototype trade: it reads instantly at thumb size on a phone, it costs
@@ -226,8 +226,17 @@ export function renderHud(run, tierLabel) {
 
   const kw = $('#hud-kw');
   kw.textContent = '';
+  const cap = gearSlotsFor(run.round);
   for (const [k, label] of Object.entries(KW_LABEL)) {
-    if (run.kw[k]) kw.appendChild(el('span', `kw kw-${k}`, `${label} ${run.kw[k]}`));
+    const used = CAPPED_SLOTS.includes(k) ? gearSlotsUsed(run.gear || [], k) : 0;
+    if (!run.kw[k] && !used) continue;
+    const badge = el('span', `kw kw-${k}`, `${label} ${run.kw[k]}`);
+    // A keyword's gear slots, so "can I fit one more of these" is answered
+    // before a card is even tapped, not discovered as a fizzle afterward.
+    if (CAPPED_SLOTS.includes(k)) {
+      badge.appendChild(el('span', `kw-slots${used >= cap ? ' full' : ''}`, ` ${used}/${cap}`));
+    }
+    kw.appendChild(badge);
   }
   if (run.kw.firstStrike) kw.appendChild(el('span', 'kw kw-first', 'First Strike'));
   kw.classList.toggle('hidden', !kw.childElementCount);

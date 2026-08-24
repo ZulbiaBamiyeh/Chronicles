@@ -465,11 +465,10 @@ mechanics turned up three things:
   stat for another.
 
 Bosses countering the dominant build (some heal, some drain a stat, some
-front-load damage) and equip slots that grow with progress didn't make the
-cut this pass — the first would mean hand-authoring specific ghost
-behaviour instead of the procedural generation §8's snapshot model depends
-on, and the second is the "slot scarcity" idea below, big enough to be its
-own section.
+front-load damage) didn't make the cut this pass — it would mean
+hand-authoring specific ghost behaviour instead of the procedural
+generation §8's snapshot model depends on. Equip slots that grow with
+progress did — see "Gear slots" below, big enough to be its own section.
 
 **Item sets**, three pairs added to `js/cards.js`: Venomfang Dagger +
 Serpent Scale Mail (bonus Poison), Vanguard's Edge + Vanguard's Banner
@@ -502,6 +501,41 @@ the original `atk:5/-3` up to `atk:14/-7`) — re-measured, the ATK sweep
 landed back within two points of its pre-curse completion rate. "Can my
 build actually afford this" is a real question now instead of a formality
 that resolves to "yes, always."
+
+### Gear slots
+
+Before this, Armour, Poison, Thorns, and Rally gear all stacked the way
+weapon ATK used to before durability: every item ever bought added its
+number permanently, forever, with nothing to stop a run from owning every
+keyword's entire ladder of gear at once. A weapon slot already meant
+something, because only one weapon's ATK could ever count — this generalises
+that same idea to the other four keywords, via `js/engine.js`'s
+`gearSlotsFor(round)`: a per-keyword cap on how many Armour/Poison/Thorns/
+Rally-slot items can be worn at once, starting at 4 and loosening to 6 by
+day five. Buying past the cap fizzles the purchase exactly the way an
+unaffordable card does — the slot is spent, the gold isn't, the card does
+nothing — and the HUD shows every keyword's `used/cap` live, so "do I have
+room for this" is answerable before a card is even tapped.
+
+The first version was a *single shared* pool across all four keywords — the
+more literal read of He Is Coming's own generic equipment slots, where any
+item competes with any other for the same handful of spaces. Measured, it
+was actively harmful: a hybrid defensive build (Tank leans on Armour *and*
+Thorns at once) has to split one small budget across both, while an
+ATK-leaning build spends almost nothing from that budget at all, since its
+power mostly comes from the weapon slot, which is already exempt. Under a
+shared cap tight enough to actually matter, Tank's completion rate
+collapsed from 10% to under 1% (`tools/archetypes.mjs`, 600 runs) and ATK
+didn't even notice — the mechanic amplified exactly the imbalance the
+durability pass above had spent real effort correcting, in the same
+direction, for the same reason: unmetered stacking that ATK didn't need but
+everything else did. Capping *per keyword instead* fixed that: a Tank build
+still gets its own honest ladder of Armour and, separately, of Thorns — the
+scarcity is real without cross-keyword builds paying for a fight that was
+never theirs. Re-measured, Tank and Thorns land within a point of their
+pre-cap numbers (10.0%→9.0%, 5.5%→5.3% completion) and nothing else moved
+at all, since only the two archetypes that actually stack one keyword
+heavily enough to reach even a per-type cap of 4-6 ever feel it.
 
 ### Four more decks, loosely after Chronicle's own Legends
 

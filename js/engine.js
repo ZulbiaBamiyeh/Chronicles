@@ -26,6 +26,55 @@ export const PATH_SLOTS = 4;
 export const HAND_SIZE = 6;
 
 // ---------------------------------------------------------------------------
+// Gear slots
+// ---------------------------------------------------------------------------
+//
+// Gold and hand size already ration *how often* you get to buy — this rations
+// *how much of one keyword you can be wearing at once*. Before this, Armour,
+// Poison, Thorns, and Rally gear all stacked exactly the way weapon ATK used
+// to before durability: every item you ever bought added its number
+// permanently, forever, with no ceiling on how many of one keyword's ladder
+// a single build could own at once.
+//
+// This was tried first as a single *shared* pool across all four keywords —
+// the more literal read of He Is Coming's own generic equipment slots — and
+// measured out badly: a hybrid defensive build (Tank leans on Armour *and*
+// Thorns at once) has to split one small budget across both, while an ATK
+// build spends almost nothing from that budget at all, since its power
+// mostly comes from the weapon slot, which was already exempt. Tank's
+// completion rate collapsed from 10% to under 1% under a shared cap tight
+// enough to matter, and ATK didn't even notice — the mechanic amplified
+// exactly the imbalance a whole earlier pass (see "Weapon durability capped
+// the ceiling") had spent real effort correcting. Capping *per keyword*
+// instead avoids that: a Tank build can still carry its own honest ladder of
+// Armour and, separately, its own ladder of Thorns — the scarcity is real
+// (can't own six Armour items instead of two) without cross-keyword builds
+// paying for a fight that was never theirs. First Strike and the weapon slot
+// sit outside this entirely: a weapon already has its own one-at-a-time rule
+// via durability, and no card grants more than one First Strike worth of
+// value no matter how many sources it has.
+//
+// Unlike the weapon slot, a full gear slot doesn't silently drop the newest
+// or the weakest item — it fizzles the purchase outright, the same as not
+// having the gold: the slot is spent, the card does nothing. A player always
+// knows going in whether they have room, because the HUD shows the count.
+export const CAPPED_SLOTS = ['armour', 'poison', 'thorns', 'rally'];
+
+/** How many Armour/Poison/Thorns/Rally-slot items a character can carry at
+ *  once, on a given day. Starts tight and loosens as a run goes on — day one
+ *  is a real, early choice about what to commit to; day five has room for a
+ *  build that's actually come together. */
+export function gearSlotsFor(round) {
+  return 4 + Math.floor(Math.max(0, round - 1) / 2);
+}
+
+/** How many of a character's currently-owned cards are occupying a
+ *  particular capped gear slot right now. */
+export function gearSlotsUsed(gear = [], slot) {
+  return gear.filter((id) => card(id)?.slot === slot).length;
+}
+
+// ---------------------------------------------------------------------------
 // Seeded RNG
 // ---------------------------------------------------------------------------
 
@@ -563,6 +612,14 @@ export function resolvePath(run, slots) {
     const cost = costFor(s, c);
     if (cost > s.gold) {
       push({ slot: i, kind: 'fizzle', id: c.id, cost });
+      return;
+    }
+    // Fizzle, the other way it can happen: the gold is there but the room
+    // isn't. A weapon is exempt — it already only ever holds one slot's
+    // worth of value via durability, so buying a second is wasteful but
+    // never blocked.
+    if (CAPPED_SLOTS.includes(c.slot) && gearSlotsUsed(s.gear, c.slot) >= gearSlotsFor(s.round)) {
+      push({ slot: i, kind: 'fizzle', id: c.id, cost, noRoom: true });
       return;
     }
     if (cost) s.gold -= cost;
