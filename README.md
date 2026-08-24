@@ -287,6 +287,11 @@ their damage was never routed through the ATK stat durability caps, it's in
 Poison ticks and Rally growth, and a ghost's HP is still solved from
 `canonAtk` alone. Fixing that is still its own pass.
 
+**Correction, from the next balance pass:** "unchanged" above wasn't quite
+right — durability didn't touch the canonAtk problem, but it made a second,
+separate problem worse for these two specifically. See "Poison and Rally
+were quietly starved of their own ATK floor" below.
+
 ### Why the path is easy and the duel is hard
 
 `balance.mjs` reports path damage at ~11% of max HP against §12's 30–50%
@@ -393,6 +398,47 @@ numbers reported there: ATK-stacking dominant, Poison and Rally essentially
 unplayable. That section is the current, correct account of archetype
 viability; this one is left in place, corrected, so the history of the claim
 isn't quietly erased.
+
+### Poison and Rally were quietly starved of their own ATK floor
+
+Every fix attempt this task has tried so far went after `js/ghosts.js`'s
+canonAtk-only ghost sizing — the architectural half of the problem. Debugging
+alongside the Fence/Bloodbound decks below (both measured at effectively 0%
+duel win rate for a reason that turned out to be `tools/*.mjs` scoring blind
+to live weapon ATK — see "Four more decks" below) surfaced a second,
+completely different bug in The Alchemist and The Warlord themselves: every
+ATK source in both decks was weapon-slot, and nothing else. That was always
+a soft spot — one weapon per tier, no flat backup — but it was survivable
+before durability, when a weapon's ATK banked onto the permanent stat the
+moment it was bought and stayed there even after the item itself became
+irrelevant. Once durability shipped, a broken weapon's contribution
+disappears the moment it breaks, and if the hand that round doesn't happen
+to hold a replacement, ATK falls straight back to the bare starting stat —
+which a trace confirmed was happening on most rounds: `s.atk` sitting at 2
+(bare, no weapon) well into Tier 2 and Tier 3 for both decks, far below what
+even a modest, no-weapon Poison or Rally item requires to land a real hit.
+
+Fixed the same way the Fence and Bloodbound needed fixing: a flat,
+non-weapon ATK card — Whetstone (T1), Ritual Circle (T2), War Camp (T3) —
+swapped in for a redundant card in each tier, so both decks always have
+*some* real combat power regardless of which weapon the hand happens to
+deal. Re-measured (`tools/archetypes.mjs`, 600 runs):
+
+```
+              before fix              after fix
+poison   completion= 0.0%  duelWin=1.3%   →  completion= 0.3%  duelWin= 3.2%
+rally    completion= 0.5%  duelWin=1.3%   →  completion= 1.3%  duelWin= 2.4%
+```
+
+Real movement, not noise — round-5 ATK for both went from sitting near the
+bare starting stat (2.0 / 9.0) to something a themed build should actually
+have (6.4 / 11.5). Still the weakest decks in the pool by a wide margin,
+and that's expected: this fixed a specific, newly-introduced reliability
+bug, not the older canonAtk-sizing problem the section above already
+diagnosed — that one is still open, still architectural, and still the
+larger of the two reasons Poison and Rally trail everything else. Both
+problems are tracked together now rather than as separate claims, since
+this session found they'd been compounding each other.
 
 ### Four more decks, loosely after Chronicle's own Legends
 

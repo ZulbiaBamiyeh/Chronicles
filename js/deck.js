@@ -153,15 +153,15 @@ const PRESETS = {
     name: 'The Alchemist',
     blurb: 'Poison ignores Armour, and every vial you carry makes the next one worse.',
     cards: [
-      'giant_spider', 'bog_toad', 'sewer_rat', 'wild_boar',
+      'giant_spider', 'bog_toad', 'sewer_rat',
       'venom_flask', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
-      'roadside_shrine', 'rust_powder',
-      'marsh_wraith', 'cave_troll', 'thornback_boar', 'grave_knight',
-      'plague_censer', 'coated_blade', 'venom_alchemist', 'toxinsmith',
+      'roadside_shrine', 'rust_powder', 'whetstone',
+      'marsh_wraith', 'cave_troll', 'grave_knight',
+      'ritual_circle', 'plague_censer', 'coated_blade', 'venom_alchemist', 'toxinsmith',
       'hidden_cache', 'barb_file',
-      'basilisk', 'bog_horror', 'hill_giant', 'stone_warden',
+      'basilisk', 'bog_horror', 'hill_giant',
       'wyrmvenom_vial', 'wyrmfang_spear', 'shadowsteel_blade', 'dragonplate',
-      'sacred_spring', 'purge_ritual',
+      'sacred_spring', 'war_camp', 'purge_ritual',
     ],
   },
   rally: {
@@ -170,7 +170,7 @@ const PRESETS = {
     cards: [
       'bog_toad', 'skeleton_picket', 'wild_boar',
       'battle_drum', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
-      'roadside_shrine', 'boneyard', 'snare_wire',
+      'roadside_shrine', 'whetstone', 'snare_wire',
       'cave_troll', 'ogre_brute', 'iron_golem', 'grave_knight',
       'warhorn', 'rally_standard',
       'berserkers_rite', 'ritual_circle', 'dousing_rain',
@@ -178,9 +178,9 @@ const PRESETS = {
       // a late-game card, which is exactly how this deck ended up 11/9 and
       // illegal. Counted where it actually belongs, the tier blocks below are
       // nine Tier 2 above and ten Tier 3 here.
-      'elder_wyrm', 'stone_warden', 'hill_giant', 'warlord_of_ash',
+      'elder_wyrm', 'hill_giant', 'warlord_of_ash',
       'banner_of_the_vanguard', 'crown_of_command', 'berserkers_axe', 'banner_squire',
-      'dragonplate', 'sacred_spring', 'ambush_pit',
+      'dragonplate', 'sacred_spring', 'war_camp', 'ambush_pit',
     ],
   },
 
