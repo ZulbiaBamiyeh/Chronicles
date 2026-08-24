@@ -9,7 +9,7 @@
 // randomness in Ghostwalk is in what you're dealt — never in what happens
 // once the cards are down.
 
-import { card, DEAL_POOL, MONSTERS } from './cards.js';
+import { card, DEAL_POOL, MONSTERS, weaponAtk, equipment } from './cards.js';
 
 // Matches Chronicle: RuneScape Legends' own starting line (2 ATK, 0 gold, no
 // weapon) rather than easing the player in with a free head start. Zero gold
@@ -203,10 +203,18 @@ export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer'
     hearts: START.hearts,
     kw: { armour: 0, thorns: 0, poison: 0, rally: 0, firstStrike: false },
     // Every gear and ally card actually bought, in the order they were bought.
-    // The rules never read this — stats are what the rules care about — but the
-    // equipment panel and the attack animations do, so the fight can show the
-    // weapon you're really holding rather than a generic sword.
+    // The rules never read this directly — stats are what the rules care
+    // about — but the equipment panel and the attack animations do, so the
+    // fight can show the weapon you're really holding rather than a generic
+    // sword. A weapon's own ATK does come from here, live, every fight —
+    // see playerFighter() and weaponAtk() in cards.js.
     gear: [],
+    // Uses remaining, weapon id → count. Seeded from the card's own printed
+    // durability the moment a weapon is bought or dropped; every attack it
+    // lands on the path costs one. At zero it's still in `gear` — nothing is
+    // ever deleted from a player's history — but weaponAtk() stops counting
+    // it, the same as if the slot were empty.
+    durability: {},
     // The cards currently held, unplayed — persisted across days, refilled by
     // refillHand() rather than re-dealt from scratch every round. `seenCards`
     // is the full draw history (everything ever dealt, played or not), so
@@ -375,13 +383,24 @@ export function costFor(run, c) {
   return Math.max(1, base - (run.perks.gearDiscount || 0));
 }
 
-function applyFx(s, fx) {
+/**
+ * @param {object} s
+ * @param {object} fx
+ * @param {boolean} [isWeapon] a physical weapon's own `fx.atk` is never added
+ *   here — it's solved live every fight from whichever weapon is currently
+ *   held and unbroken (see playerFighter()/weaponAtk()), not banked onto the
+ *   permanent stat the moment it's bought. Everything else the same card
+ *   grants (a bundled First Strike or Poison, say) still applies immediately
+ *   and permanently, same as ever — durability only ever gates the ATK
+ *   number itself.
+ */
+function applyFx(s, fx, isWeapon = false) {
   if (!fx) return;
   // Max HP is a ceiling, not a heal — Toll Bridge and Traveller's Boots both
   // spell out a separate heal, which would be redundant if raising the max
   // filled it. Current HP is untouched.
   if (fx.maxHp) s.maxHp += fx.maxHp;
-  if (fx.atk) s.atk = Math.max(0, s.atk + fx.atk);
+  if (fx.atk && !isWeapon) s.atk = Math.max(0, s.atk + fx.atk);
   if (fx.gold) s.gold += fx.gold;
   if (fx.healFull) s.hp = s.maxHp;
   if (fx.heal) s.hp = Math.min(s.maxHp, s.hp + fx.heal);
@@ -393,11 +412,30 @@ function applyFx(s, fx) {
 }
 
 /**
+ * Wears down whatever weapon the player was actually swinging in a fight —
+ * one point of durability per attack it landed. `log` is a resolveCombat
+ * log, so "the player landed an attack" reads as "side b took a hit tagged
+ * `attack`", since both sides swing simultaneously every exchange and never
+ * miss. Only ever called with the player's own fights — a ghost's weapon is
+ * flavour text over a fixed, already-solved statline, not a resource it's
+ * actually spending.
+ */
+function wearWeapon(s, log) {
+  const hits = log.filter((e) => e.target === 'b' && e.source === 'attack').length;
+  if (!hits) return;
+  const weapon = equipment(s.gear, s.durability).atk;
+  if (!weapon || !weapon.durability) return;
+  const left = s.durability[weapon.id] ?? weapon.durability;
+  s.durability[weapon.id] = Math.max(0, left - hits);
+}
+
+/**
  * Fights one monster and applies the result to `s` in place: gold, trophy,
- * a drop if it has one, healPerKill. Shared by resolvePath's own monster
- * slots and resolveAmbush below, so a rival's invasion monster pays off
- * exactly the same way a monster from the player's own hand would — there's
- * no second, quietly-diverging copy of "what happens when you beat something."
+ * a drop if it has one, healPerKill, and the wear this fight put on whatever
+ * weapon the player was actually swinging. Shared by resolvePath's own
+ * monster slots and resolveAmbush below, so a rival's invasion monster pays
+ * off — and costs — exactly the same way a monster from the player's own
+ * hand would.
  *
  * @returns {object} everything a `fight` event needs to animate and summarise
  */
@@ -411,10 +449,13 @@ function fightMonster(s, c) {
   if (c.trophy) applyFx(s, c.trophy);
   const dropped = c.drop ? card(c.drop) : null;
   if (dropped) {
-    applyFx(s, dropped.fx);
+    const isWeapon = dropped.type === 'gear' && dropped.slot === 'atk';
+    applyFx(s, dropped.fx, isWeapon);
     s.gear.push(dropped.id);
+    if (isWeapon && dropped.durability) s.durability[dropped.id] = dropped.durability;
   }
   if (s.perks.healPerKill) s.hp = Math.min(s.maxHp, s.hp + s.perks.healPerKill);
+  wearWeapon(s, fight.log);
   return {
     damage: before - s.hp, exchanges: fight.exchanges, gold: c.gold,
     trophy: c.trophy || null, drop: dropped ? dropped.id : null,
@@ -510,6 +551,7 @@ export function resolvePath(run, slots) {
       hp: s.hp,
       maxHp: s.maxHp,
       gear: [...s.gear],
+      durability: { ...s.durability },
       heartsLost: START.hearts - s.hearts,
       round: s.round,
     };
@@ -530,13 +572,16 @@ export function resolvePath(run, slots) {
       return;
     }
 
-    // Everything else is a stat card: gear, ally, or place.
+    // Everything else is a stat card: gear, ally, or place. A weapon's own
+    // ATK doesn't land here — see applyFx()'s isWeapon note — it's solved
+    // live from the gear list every fight instead.
+    const isWeapon = c.type === 'gear' && c.slot === 'atk';
     const fx = c.dyn ? c.dyn(ctx) : c.fx;
-    applyFx(s, fx);
+    applyFx(s, fx, isWeapon);
     let upgraded = false;
     if (c.option && slot.upgrade && s.gold >= c.option.cost) {
       s.gold -= c.option.cost;
-      applyFx(s, c.option.fx);
+      applyFx(s, c.option.fx, isWeapon);
       upgraded = true;
     }
     if (c.perk) {
@@ -549,7 +594,10 @@ export function resolvePath(run, slots) {
       }
     }
     if (c.scout) usedWatchtower = true;
-    if (c.type === 'gear' || c.type === 'ally') s.gear.push(c.id);
+    if (c.type === 'gear' || c.type === 'ally') {
+      s.gear.push(c.id);
+      if (isWeapon && c.durability) s.durability[c.id] = c.durability;
+    }
     // A secret does nothing to you — it's spent here and fires in the duel.
     if (c.type === 'secret') {
       secrets.push(c.id);
@@ -573,19 +621,29 @@ export function resolvePath(run, slots) {
 // resolver's snapshot() drops everything it doesn't recognise, so nothing here
 // can reach the rules even by accident.
 
-/** The player as a Fighter. `bonusArmour` carries Shieldbearer into the duel. */
+/**
+ * The player as a Fighter. `bonusArmour` carries Shieldbearer into the duel.
+ *
+ * `s.atk` is only the non-weapon total now — base stat, Blacksmith, monster
+ * trophies, the weapon-arc trainers, everything that isn't a physical
+ * weapon in the ATK slot. The weapon itself is added here, live, from
+ * whichever one currently wins the slot and still has durability — see
+ * `weaponAtk()` in cards.js. A broken weapon simply isn't in this number,
+ * the same as if it had never been bought.
+ */
 export function playerFighter(s, bonusArmour = 0) {
   return {
     name: s.name || 'You',
     hp: s.hp,
     maxHp: s.maxHp,
-    atk: s.atk,
+    atk: s.atk + weaponAtk(s.gear, s.durability),
     armour: s.kw.armour + bonusArmour,
     thorns: s.kw.thorns,
     poison: s.kw.poison,
     rally: s.kw.rally,
     firstStrike: s.kw.firstStrike,
     gear: [...(s.gear || [])],
+    durability: { ...(s.durability || {}) },
   };
 }
 

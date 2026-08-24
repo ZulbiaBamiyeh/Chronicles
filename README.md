@@ -245,6 +245,48 @@ touches enough cards, in enough decks, that it needs its own pass rather than
 being folded into this one. Left as the clearest known gap in the game as it
 stands, not swept into a number that reads better than the game plays.
 
+**Weapon durability capped the ceiling; it did not close the Poison/Rally
+gap, because that was never the same bug.** Chronicle: RuneScape Legends'
+own weapons carried a durability stat printed alongside ATK (a "5/3" blade
+is 5 ATK, 3 uses) — it breaks after N attacks and stops contributing. This
+prototype's weapons never had that: buying a weapon added its ATK straight
+onto the permanent stat total, forever, the moment it was bought, regardless
+of which weapon the equipment panel showed as worn. An ATK-stacking build's
+"one weapon" was fiction — under the hood it was banking every weapon it
+ever bought, with no ceiling, which is exactly the kind of unbounded growth
+§9's band can't be sized against. Implementing durability meant more than
+adding a counter: weapon ATK had to stop being added to the permanent total
+at all, and instead be computed live every combat from whichever weapon is
+currently held and unbroken (`weaponAtk()` in `js/cards.js`,
+`playerFighter()` in `js/engine.js`) — a broken weapon's contribution now
+disappears on its own rather than needing to be subtracted back out. Duels
+don't wear a weapon down, only path fights do, matching the existing rule
+that duel damage never carries out of the duel either.
+
+Re-measured on the default deck, this alone dropped a themed ATK build's
+round-5 ATK from a 44–64+ range with no real ceiling down to a median of 23
+(and top-of-the-curve builds around 29) — enough that `js/ghosts.js`'s
+`TARGETS` band needed a full re-anchor to the new numbers, not just a nudge.
+The archetype spread after retuning:
+
+```
+balanced  completion= 31.5%  duelWin= 39.7%
+atk       completion= 23.8%  duelWin= 34.5%
+tank      completion= 11.8%  duelWin= 12.2%
+thorns    completion= 10.7%  duelWin= 10.5%
+rally     completion=  0.7%  duelWin=  1.9%
+poison    completion=  0.2%  duelWin=  1.5%
+```
+
+ATK is no longer a runaway dominant strategy — it now sits close to
+Balanced, the same neighbourhood as Tank and Thorns, instead of miles ahead
+of all three. That's the half of the problem durability actually targets,
+and it worked. Poison and Rally are unchanged and still essentially
+unplayable, which confirms the diagnosis above rather than reopening it:
+their damage was never routed through the ATK stat durability caps, it's in
+Poison ticks and Rally growth, and a ghost's HP is still solved from
+`canonAtk` alone. Fixing that is still its own pass.
+
 ### Why the path is easy and the duel is hard
 
 `balance.mjs` reports path damage at ~11% of max HP against §12's 30–50%
@@ -274,6 +316,21 @@ pacing at the mercy of whatever the draft rolled. The stats stay
 authoritative; the kit explains them. A test asserts the presentation data
 can never reach the resolver — `snapshot()` drops every field it doesn't
 recognise, and that test is what keeps it honest as fields get added.
+
+Every weapon-slot gear card also carries a `durability` field — Chronicle's
+own "ATK/uses" notation, printed on the card face the same way (a Rusty
+Sword reads `3/2`). Durability only ticks down against path monsters, never
+in the duel, and only the weapon actually winning the equip slot (the
+highest-ranked one still above zero) is the one taking the wear — buying a
+second blade doesn't split damage between them. At zero it's simply gone:
+`equipment()` stops it from winning its slot, `weaponAtk()` stops counting
+it, and the fighter's attack animation falls back to a bare-handed punch.
+Only the weapon's own `fx.atk` is durability-gated this way; a weapon that
+also carries a bundled effect (Assassin's Kris's First Strike + Poison, say)
+keeps that half as a permanent bonus the way gear always has — unwinding
+which keyword bonus came from which now-broken item was judged not worth
+doing for this pass. See "Weapon durability capped the ceiling" above for
+why this needed a live-computed weapon ATK, not just a counter.
 
 ### Ghosts are fixed snapshots, not opponents sized to fit
 

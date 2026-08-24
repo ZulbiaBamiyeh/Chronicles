@@ -840,7 +840,7 @@ async function replayLog({ side, fighter, log, speed = 1 }) {
 }
 
 /** How a fighter's blows are drawn: a monster's own style, or their weapon. */
-const animFor = (f) => f.anim || attackAnim(f.gear || []);
+const animFor = (f) => f.anim || attackAnim(f.gear || [], f.durability || {});
 
 /**
  * Secrets firing, before the first exchange. Theirs go first — you find out

@@ -420,6 +420,12 @@ body.no-webgl #app {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.gear-chip-dur {
+  font-family: var(--pixel);
+  font-size: 0.56rem;
+  color: var(--dim);
+  flex: none;
+}
 .gear-atk    { border-color: rgba(255, 176, 138, 0.5); }
 .gear-armour { border-color: rgba(159, 192, 255, 0.5); }
 .gear-poison { border-color: rgba(122, 231, 106, 0.5); }
@@ -1450,6 +1456,15 @@ body.is-dragging { cursor: grabbing; }
 .equip-first.filled  { border-color: var(--ghost); color: var(--ghost); }
 .equip-slot.filled .equip-value { color: inherit; }
 
+/* A weapon's uses remaining, shown small under its ATK — the number that
+   says "this is about to break" before it actually does. */
+.equip-durability {
+  font-family: var(--pixel);
+  font-size: 0.52rem;
+  color: var(--dim);
+  opacity: 0.85;
+}
+
 /* Pulses once when this slot is what just landed or answered a blow — the
    thing that makes "the player's attack, armour, thorns" traceable moment
    to moment, not just stated afterward in a log line. */
@@ -1519,6 +1534,7 @@ body.is-dragging { cursor: grabbing; }
   font-style: italic;
 }
 .equip-tip-rest .equip-tip-amount { color: var(--dim); }
+.equip-tip-durability .equip-tip-amount { color: var(--bone); }
 
 .versus {
   align-self: center;

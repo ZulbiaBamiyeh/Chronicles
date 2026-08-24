@@ -102,32 +102,44 @@ export const MONSTERS = [
 // the panel shows the real item you're carrying rather than a generic keyword
 // icon, and the weapon you're holding is what picks your attack animation. A
 // fighter with no weapon at all swings a fist.
+//
+// `durability` (weapons only) is what stopped ATK from ever being a running
+// total: a weapon's `fx.atk` used to add permanently the moment it was
+// bought, so five weapons across a run gave the sum of all five forever, no
+// matter which one the equipment panel showed as worn. Real weapon ATK is
+// solved live every fight instead, from whichever weapon currently wins the
+// slot *and* still has durability left — see `weaponAtk()` below — and every
+// attack it lands costs it one point of durability. At zero it breaks and
+// drops out of the slot, same as it never mattered which sword you were
+// technically still carrying in your bag. Roughly durability ≈ 0.55–0.75×
+// the weapon's own ATK, so a cheap early sword is a couple of good fights
+// and a Titan Maul is a real investment, not an annuity.
 export const GEAR = [
   // ---- Tier 1 ----
   { no: 23, id: 'whetstone', name: 'Whetstone', tier: 1, cost: 2, fx: { atk: 2 } },
   { no: 24, id: 'buckler', name: 'Buckler', tier: 1, cost: 3, fx: { armour: 1 }, slot: 'armour' },
   { no: 25, id: 'travellers_boots', name: "Traveller's Boots", tier: 1, cost: 3, fx: { maxHp: 4, heal: 4 } },
-  { no: 26, id: 'rusty_sword', name: 'Rusty Sword', tier: 1, cost: 4, fx: { atk: 3 }, slot: 'atk', anim: 'slash' },
+  { no: 26, id: 'rusty_sword', name: 'Rusty Sword', tier: 1, cost: 4, fx: { atk: 3 }, slot: 'atk', durability: 2, anim: 'slash' },
   { no: 27, id: 'leather_jerkin', name: 'Leather Jerkin', tier: 1, cost: 4, fx: { armour: 1, maxHp: 3 }, slot: 'armour' },
   { no: 28, id: 'spiked_vambrace', name: 'Spiked Vambrace', tier: 1, cost: 4, fx: { thorns: 2 }, slot: 'thorns' },
-  { no: 29, id: 'hunting_bow', name: 'Hunting Bow', tier: 1, cost: 5, fx: { atk: 2, firstStrike: true }, slot: 'atk', anim: 'arrow' },
+  { no: 29, id: 'hunting_bow', name: 'Hunting Bow', tier: 1, cost: 5, fx: { atk: 2, firstStrike: true }, slot: 'atk', durability: 2, anim: 'arrow' },
   { no: 30, id: 'venom_flask', name: 'Venom Flask', tier: 1, cost: 5, fx: { poison: 2 }, slot: 'poison' },
   { no: 63, id: 'battle_drum', name: 'Battle Drum', tier: 1, cost: 5, fx: { rally: 1 }, slot: 'rally' },
 
   // ---- Tier 2 ----
   { no: 31, id: 'chainmail', name: 'Chainmail', tier: 2, cost: 8, fx: { armour: 2, maxHp: 6 }, slot: 'armour' },
   { no: 32, id: 'tower_shield', name: 'Tower Shield', tier: 2, cost: 9, fx: { armour: 3 }, slot: 'armour' },
-  { no: 33, id: 'steel_longsword', name: 'Steel Longsword', tier: 2, cost: 9, fx: { atk: 6 }, slot: 'atk', anim: 'slash' },
-  { no: 34, id: 'assassins_kris', name: "Assassin's Kris", tier: 2, cost: 10, fx: { atk: 4, firstStrike: true, poison: 2 }, slot: 'atk', anim: 'stab' },
+  { no: 33, id: 'steel_longsword', name: 'Steel Longsword', tier: 2, cost: 9, fx: { atk: 6 }, slot: 'atk', durability: 4, anim: 'slash' },
+  { no: 34, id: 'assassins_kris', name: "Assassin's Kris", tier: 2, cost: 10, fx: { atk: 4, firstStrike: true, poison: 2 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 35, id: 'warhorn', name: 'Warhorn', tier: 2, cost: 10, fx: { rally: 2 }, slot: 'rally' },
-  { no: 36, id: 'serrated_axe', name: 'Serrated Axe', tier: 2, cost: 11, fx: { atk: 5, thorns: 3 }, slot: 'atk', anim: 'chop' },
+  { no: 36, id: 'serrated_axe', name: 'Serrated Axe', tier: 2, cost: 11, fx: { atk: 5, thorns: 3 }, slot: 'atk', durability: 3, anim: 'chop' },
 
   // ---- Tier 3 ----
-  { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 5 }, slot: 'atk', anim: 'stab' },
+  { no: 37, id: 'basilisk_fang', name: 'Basilisk Fang', tier: 3, cost: 16, fx: { atk: 5, poison: 5 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 38, id: 'dragonplate', name: 'Dragonplate', tier: 3, cost: 17, fx: { armour: 5, maxHp: 10 }, slot: 'armour' },
-  { no: 39, id: 'runed_greatsword', name: 'Runed Greatsword', tier: 3, cost: 18, fx: { atk: 11 }, slot: 'atk', anim: 'slash' },
+  { no: 39, id: 'runed_greatsword', name: 'Runed Greatsword', tier: 3, cost: 18, fx: { atk: 11 }, slot: 'atk', durability: 6, anim: 'slash' },
   { no: 40, id: 'banner_of_the_vanguard', name: 'Banner of the Vanguard', tier: 3, cost: 20, fx: { rally: 4 }, slot: 'rally' },
-  { no: 41, id: 'executioners_blade', name: "Executioner's Blade", tier: 3, cost: 22, fx: { atk: 9, firstStrike: true }, slot: 'atk', anim: 'chop' },
+  { no: 41, id: 'executioners_blade', name: "Executioner's Blade", tier: 3, cost: 22, fx: { atk: 9, firstStrike: true }, slot: 'atk', durability: 5, anim: 'chop' },
 
   // Poison and Thorns used to exist only as Tier 1 gear (Venom Flask, Spiked
   // Vambrace) plus a couple of weapons that happen to carry them. That left a
@@ -146,20 +158,20 @@ export const GEAR = [
   // one and topping up with raw ATK.
   { no: 80, id: 'iron_cap', name: 'Iron Cap', tier: 1, cost: 2, fx: { armour: 1, maxHp: 1 }, slot: 'armour' },
   { no: 81, id: 'leather_gloves', name: 'Leather Gloves', tier: 1, cost: 2, fx: { thorns: 1 }, slot: 'thorns' },
-  { no: 82, id: 'hunting_knife', name: 'Hunting Knife', tier: 1, cost: 3, fx: { atk: 2 }, slot: 'atk', anim: 'stab' },
-  { no: 83, id: 'sling', name: 'Sling', tier: 1, cost: 3, fx: { atk: 1, firstStrike: true }, slot: 'atk', anim: 'arrow' },
+  { no: 82, id: 'hunting_knife', name: 'Hunting Knife', tier: 1, cost: 3, fx: { atk: 2 }, slot: 'atk', durability: 2, anim: 'stab' },
+  { no: 83, id: 'sling', name: 'Sling', tier: 1, cost: 3, fx: { atk: 1, firstStrike: true }, slot: 'atk', durability: 1, anim: 'arrow' },
 
   { no: 84, id: 'kite_shield', name: 'Kite Shield', tier: 2, cost: 8, fx: { armour: 2, thorns: 1 }, slot: 'armour' },
-  { no: 85, id: 'war_pick', name: 'War Pick', tier: 2, cost: 9, fx: { atk: 5 }, slot: 'atk', anim: 'stab' },
+  { no: 85, id: 'war_pick', name: 'War Pick', tier: 2, cost: 9, fx: { atk: 5 }, slot: 'atk', durability: 3, anim: 'stab' },
   { no: 86, id: 'scale_hauberk', name: 'Scale Hauberk', tier: 2, cost: 9, fx: { armour: 2, maxHp: 5 }, slot: 'armour' },
-  { no: 87, id: 'twin_daggers', name: 'Twin Daggers', tier: 2, cost: 10, fx: { atk: 4, firstStrike: true }, slot: 'atk', anim: 'stab' },
-  { no: 88, id: 'coated_blade', name: 'Coated Blade', tier: 2, cost: 11, fx: { atk: 3, poison: 3 }, slot: 'atk', anim: 'slash' },
+  { no: 87, id: 'twin_daggers', name: 'Twin Daggers', tier: 2, cost: 10, fx: { atk: 4, firstStrike: true }, slot: 'atk', durability: 3, anim: 'stab' },
+  { no: 88, id: 'coated_blade', name: 'Coated Blade', tier: 2, cost: 11, fx: { atk: 3, poison: 3 }, slot: 'atk', durability: 2, anim: 'slash' },
   { no: 89, id: 'rally_standard', name: 'Rally Standard', tier: 2, cost: 11, fx: { rally: 1, maxHp: 5 }, slot: 'rally' },
 
-  { no: 90, id: 'titan_maul', name: 'Titan Maul', tier: 3, cost: 21, fx: { atk: 12 }, slot: 'atk', anim: 'smash' },
-  { no: 91, id: 'wyrmfang_spear', name: 'Wyrmfang Spear', tier: 3, cost: 17, fx: { atk: 7, poison: 3 }, slot: 'atk', anim: 'stab' },
-  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 2 }, slot: 'atk', anim: 'chop' },
-  { no: 93, id: 'shadowsteel_blade', name: 'Shadowsteel Blade', tier: 3, cost: 20, fx: { atk: 8, firstStrike: true, poison: 2 }, slot: 'atk', anim: 'slash' },
+  { no: 90, id: 'titan_maul', name: 'Titan Maul', tier: 3, cost: 21, fx: { atk: 12 }, slot: 'atk', durability: 7, anim: 'smash' },
+  { no: 91, id: 'wyrmfang_spear', name: 'Wyrmfang Spear', tier: 3, cost: 17, fx: { atk: 7, poison: 3 }, slot: 'atk', durability: 4, anim: 'stab' },
+  { no: 92, id: 'berserkers_axe', name: "Berserker's Axe", tier: 3, cost: 19, fx: { atk: 8, rally: 2 }, slot: 'atk', durability: 5, anim: 'chop' },
+  { no: 93, id: 'shadowsteel_blade', name: 'Shadowsteel Blade', tier: 3, cost: 20, fx: { atk: 8, firstStrike: true, poison: 2 }, slot: 'atk', durability: 5, anim: 'slash' },
   { no: 94, id: 'aegis_of_dawn', name: 'Aegis of Dawn', tier: 3, cost: 19, fx: { armour: 4, maxHp: 8, thorns: 2 }, slot: 'armour' },
   { no: 95, id: 'crown_of_command', name: 'Crown of Command', tier: 3, cost: 18, fx: { rally: 3, maxHp: 6 }, slot: 'rally' },
   { no: 96, id: 'reaver_plate', name: 'Reaver Plate', tier: 3, cost: 20, fx: { armour: 4, atk: 3 }, slot: 'armour' },
@@ -198,7 +210,7 @@ export const GEAR = [
   // with a real payoff — and carrying one great weapon beats hoarding four
   // mediocre ones.
   { no: 111, id: 'grindstone', name: 'Grindstone', tier: 1, cost: 3,
-    dyn: (ctx) => ({ atk: weaponAtk(ctx.gear) > 0 ? 4 : 2 }),
+    dyn: (ctx) => ({ atk: weaponAtk(ctx.gear, ctx.durability) > 0 ? 4 : 2 }),
     text: '+2 ATK, or +4 instead if you are carrying a weapon.' },
   // Deliberately not a weapon itself. A weapon whose ATK is dynamic has no
   // printed number for `weaponAtk()` to read, so if it ever won the weapon
@@ -212,7 +224,7 @@ export const GEAR = [
   // ghost's own band from this card alone. A small bonus for a broad arsenal
   // is still the idea; it just can't be the run's main ATK source on its own.
   { no: 112, id: 'armsmaster', name: 'Armsmaster', tier: 2, cost: 8,
-    dyn: (ctx) => ({ atk: 2 + 2 * Math.min(3, weaponCount(ctx.gear)) }),
+    dyn: (ctx) => ({ atk: 2 + 2 * Math.min(3, weaponCount(ctx.gear, ctx.durability)) }),
     text: '+2 ATK, and 2 more per weapon you own (up to 3).' },
   // Was a straight 1:1 copy of your weapon's ATK — on top of already wearing
   // that weapon, that's doubling your single biggest number, and doubling
@@ -221,7 +233,7 @@ export const GEAR = [
   // (Warden's Oath pays Armour at half Thorns, rounded up) — still a real
   // reward for carrying something enormous, not a second copy of it.
   { no: 113, id: 'masters_forge', name: "Master's Forge", tier: 3, cost: 14,
-    dyn: (ctx) => ({ atk: Math.ceil(weaponAtk(ctx.gear) / 2) }),
+    dyn: (ctx) => ({ atk: Math.ceil(weaponAtk(ctx.gear, ctx.durability) / 2) }),
     text: 'ATK equal to half the weapon you are carrying, rounded up.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
@@ -448,46 +460,66 @@ export function fxText(fx) {
 const rank = (c) => c.tier * 100 + (c.cost || 0);
 
 /**
+ * A weapon still counts as "held" only if it has durability left. Every other
+ * slot (armour, poison, thorns, rally) never breaks, so this only matters for
+ * `atk` — a broken weapon is worth exactly what an empty slot is worth: the
+ * fist you're left swinging.
+ *
+ * @param {object} c
+ * @param {Record<string, number>} durability id → uses remaining
+ */
+const isBroken = (c, durability) => c.slot === 'atk' && c.durability && (durability[c.id] ?? c.durability) <= 0;
+
+/**
  * Resolves a list of owned card ids into the item actually shown in each
  * equipment slot. Better gear wins its slot outright, so buying a Runed
  * Greatsword visibly replaces the Rusty Sword you opened the run with — the
- * stats still stack (that's the engine's business), but you only ever *hold*
- * one weapon.
+ * stats still stack for everything except ATK (that's the engine's business),
+ * but you only ever *hold* one weapon. A weapon at 0 durability doesn't win
+ * the slot at all, the same as if you'd never bought it.
  *
  * @param {string[]} ids
+ * @param {Record<string, number>} [durability] id → uses remaining, weapons only
  * @returns {Record<string, object>} slot key → card
  */
-export function equipment(ids = []) {
+export function equipment(ids = [], durability = {}) {
   const worn = {};
   for (const id of ids) {
     const c = card(id);
-    if (!c || !c.slot) continue;
+    if (!c || !c.slot || isBroken(c, durability)) continue;
     if (!worn[c.slot] || rank(c) > rank(worn[c.slot])) worn[c.slot] = c;
   }
   return worn;
 }
 
 /** The attack animation a fighter plays, taken from the weapon they hold. */
-export function attackAnim(ids = []) {
-  return equipment(ids).atk?.anim || 'punch';
+export function attackAnim(ids = [], durability = {}) {
+  return equipment(ids, durability).atk?.anim || 'punch';
 }
 
 /**
  * The printed ATK of the weapon a fighter is actually holding — the one that
- * wins the `atk` slot, not the sum of every weapon they ever bought.
+ * wins the `atk` slot and still has durability, not the sum of every weapon
+ * they ever bought.
  *
  * This is what makes a weapon an *investment* rather than another stat stick.
  * Cards that read it pay off in proportion to the weapon you committed to, so
  * carrying one great blade beats carrying four mediocre ones, and the run-long
- * arc of trading up to something enormous has a payoff at the end of it.
+ * arc of trading up to something enormous has a payoff at the end of it. It's
+ * also what the resolver itself adds to base ATK every fight — see
+ * `playerFighter()` in engine.js — since a weapon's ATK was never a thing you
+ * could bank and keep once it broke.
  */
-export function weaponAtk(ids = []) {
-  return equipment(ids).atk?.fx?.atk || 0;
+export function weaponAtk(ids = [], durability = {}) {
+  return equipment(ids, durability).atk?.fx?.atk || 0;
 }
 
-/** How many distinct weapons a fighter has bought over the run. */
-export function weaponCount(ids = []) {
-  return new Set(ids.filter((id) => card(id)?.slot === 'atk')).size;
+/** How many distinct, unbroken weapons a fighter currently owns. */
+export function weaponCount(ids = [], durability = {}) {
+  return new Set(ids.filter((id) => {
+    const c = card(id);
+    return c?.slot === 'atk' && !isBroken(c, durability);
+  })).size;
 }
 
 /** How many owned cards carry a given keyword — "each Poison item you carry". */
@@ -514,6 +546,11 @@ export function contributionsFor(ids = [], key) {
   const out = [];
   for (const id of ids) {
     const c = card(id);
+    // A weapon's own ATK isn't part of the flat stat total any more — it's
+    // solved live from whichever weapon is currently held, durability and
+    // all, and shown as its own line by the caller rather than folded in
+    // here as if it were still a permanent purchase.
+    if (key === 'atk' && c?.slot === 'atk') continue;
     const amount = c?.fx?.[key];
     if (amount) out.push({ id, name: c.name, amount });
   }

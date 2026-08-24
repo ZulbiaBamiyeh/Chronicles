@@ -14,7 +14,7 @@ import {
 import * as deckLib from '../js/deck.js';
 import {
   card, ALL_CARDS, DEAL_POOL, MONSTERS, GEAR, ALLIES, PLACES, SECRETS,
-  equipment, attackAnim,
+  equipment, attackAnim, weaponAtk, contributionsFor,
 } from '../js/cards.js';
 import { drawGhost, ARCHETYPES } from '../js/ghosts.js';
 import { drawRival, rivalOnDay, intel, RUN_DAYS } from '../js/rival.js';
@@ -144,6 +144,61 @@ test('the weapon cards read the blade actually in your hand', () => {
     played({ ...base, gear: ['rusty_sword', 'hunting_bow', 'hunting_knife', 'sling'] }, 'armsmaster').atk,
     8, 'a fourth weapon adds nothing more',
   );
+});
+
+test('a weapon wears out: durability caps how long its ATK lasts', () => {
+  // Rusty Sword: +3 atk, 2 durability. Buying it must not bank that +3 onto
+  // the permanent atk total the way every other gear card does — it should
+  // only ever show up live, through the weapon actually held.
+  const base = { ...newRun(903), gold: 99 };
+  const bought = resolvePath(
+    { ...base, hand: ['rusty_sword'] },
+    [{ id: 'rusty_sword', from: 'hand' }, null, null, null],
+  ).state;
+  assert.equal(bought.atk, 2, 'the permanent atk stat is untouched by buying a weapon');
+  assert.equal(bought.durability.rusty_sword, 2, 'freshly bought, at full durability');
+  assert.equal(weaponAtk(bought.gear, bought.durability), 3, 'but it does swing for its printed atk');
+  assert.equal(playerFighter(bought).atk, 5, 'base + the held weapon, computed live');
+
+  // Field Mouse (hp 2) and Sewer Rat (hp 3) both die in one exchange to a 5
+  // atk fighter, so this path lands exactly two landed hits — one per fight —
+  // and should cost the sword exactly one point of durability each.
+  const worn = resolvePath(
+    { ...base, hand: ['rusty_sword', 'field_mouse', 'sewer_rat'] },
+    [{ id: 'rusty_sword', from: 'hand' }, { id: 'field_mouse', from: 'hand' },
+      { id: 'sewer_rat', from: 'hand' }, null],
+  ).state;
+  assert.equal(worn.durability.rusty_sword, 0, 'two landed hits against a two-use blade');
+  assert.equal(worn.atk, 2, 'the permanent stat still never absorbed the weapon');
+  assert.equal(weaponAtk(worn.gear, worn.durability), 0, 'broken, so it swings for nothing');
+  assert.equal(playerFighter(worn).atk, 2, 'combat atk falls back to bare-handed');
+  assert.equal(equipment(worn.gear, worn.durability).atk, undefined, 'a broken blade no longer wins its slot');
+  assert.equal(attackAnim(worn.gear, worn.durability), 'punch', 'and the fists come back out');
+
+  // contributionsFor() backs the equip-tooltip breakdown, which now has its
+  // own atk-specific branch (see ui.js) — but the function itself must still
+  // agree that a weapon's atk isn't a traceable permanent contribution.
+  const contribs = contributionsFor(worn.gear, 'atk');
+  assert.ok(!contribs.some((c) => c.name === 'Rusty Sword'), 'weapon atk is not a banked contribution');
+
+  // A weapon that outlives the round it broke in stays broken next round —
+  // durability never resets on its own.
+  const stillBroken = resolvePath(
+    { ...worn, hand: ['field_mouse'] },
+    [{ id: 'field_mouse', from: 'hand' }, null, null, null],
+  ).state;
+  assert.equal(stillBroken.durability.rusty_sword, 0, "a broken weapon doesn't repair itself");
+});
+
+test("the duel doesn't wear out a weapon — only the path does", () => {
+  const base = { ...newRun(904), gold: 99 };
+  const bought = resolvePath(
+    { ...base, hand: ['rusty_sword'] },
+    [{ id: 'rusty_sword', from: 'hand' }, null, null, null],
+  ).state;
+  const ghost = drawGhost(1, 0, 12345);
+  duel(bought, ghost, false);
+  assert.equal(bought.durability.rusty_sword, 2, 'the duel is a trial snapshot, not a fight the gear was carried into');
 });
 
 test('adjacency cards read where they were placed, so ordering is a real choice', () => {
@@ -866,14 +921,14 @@ test('a duel against a ghost from its own band lands in the §12 window', () => 
   const scenarios = [
     { label: 'round 1, low band', round: 1, wins: 0, atk: 8, maxHp: 20, kw: {}, band: [0.25, 0.75] },
     { label: 'round 3, mid band', round: 3, wins: 1, atk: 20, maxHp: 29, kw: { armour: 1 }, band: [0.25, 0.78] },
-    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 46, maxHp: 56, kw: { armour: 3 }, band: [0.25, 0.82] },
+    { label: 'round 5, mid band, one keyword', round: 5, wins: 2, atk: 30, maxHp: 46, kw: { armour: 3 }, band: [0.25, 0.82] },
     // Two keywords stacked on top of an already-mid-band statline is a
     // genuinely strong hybrid build — the archetype-viability sweep backs
     // this up (tools/balance.mjs's README section, and the archetype
     // simulation behind it: a build that leans into a synergy consistently
     // outperforms one that spreads thin). It should win more than a
     // single-keyword build — just not be an unloseable lock.
-    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 46, maxHp: 56, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
+    { label: 'round 5, mid band, Armour + Rally', round: 5, wins: 2, atk: 30, maxHp: 46, kw: { armour: 4, rally: 2 }, band: [0.55, 0.99] },
     // Top of the band plus a keyword no archetype gets "for free" (First
     // Strike is only ~34% of the pool, and cancels entirely against another
     // First Strike ghost) is a genuinely strong build. It should win more

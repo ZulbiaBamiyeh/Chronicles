@@ -83,12 +83,26 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 // that reason. Landed at 26.6% completion, 36.0% duel win rate, and a curve
 // of roughly 40/30/34/42/37 across the five days — no day is a formality,
 // and none of them is a wall either.
+//
+// Re-anchored a fourth time after weapon durability shipped (see README's
+// "Weapon durability capped the ceiling" section). Durability moved a
+// weapon's ATK out of the permanent stat total and into a live, breakable
+// contribution — the single biggest lever on a themed ATK build's growth —
+// so the medians this band was anchored to were no longer real: measured
+// fresh on the default deck, round-5 ATK fell from this band's old 94-117 to
+// a median of 23. The days-1-3 numbers below track those fresh medians
+// directly; days 4-5 are pulled up past their own medians by roughly the
+// same proportion the pre-durability band was, for the same reason given
+// above — a player's growth still compounds faster than a straight
+// day-by-day read of the median would predict, durability or not. Landed at
+// 31.5% completion, 39.7% duel win rate, curve 40/36/42/40/43 — the same
+// shape as before, on numbers that are real again.
 const TARGETS = {
   1: { atk: [7, 10], maxHp: [20, 23] },
-  2: { atk: [19, 25], maxHp: [28, 35] },
-  3: { atk: [36, 45], maxHp: [37, 47] },
-  4: { atk: [63, 79], maxHp: [52, 66] },
-  5: { atk: [94, 117], maxHp: [68, 87] },
+  2: { atk: [16, 21], maxHp: [27, 32] },
+  3: { atk: [21, 27], maxHp: [33, 40] },
+  4: { atk: [33, 42], maxHp: [46, 55] },
+  5: { atk: [48, 60], maxHp: [58, 70] },
 };
 
 // ---------------------------------------------------------------------------

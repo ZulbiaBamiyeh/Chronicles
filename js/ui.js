@@ -121,7 +121,10 @@ export function cardEl(id, opts = {}) {
   const fx = c.fx || {};
   const atkVal = c.type === 'monster' ? c.atk : fx.atk;
   const defVal = c.type === 'monster' ? c.hp : fx.armour;
-  if (atkVal) node.appendChild(badge('atk', '⚔', atkVal));
+  // A weapon prints its durability right on the ATK badge, ATK/uses — the
+  // same notation Chronicle itself used (e.g. a 5/3 blade), so "how many
+  // fights does this actually last" is legible without opening anything.
+  if (atkVal) node.appendChild(badge('atk', '⚔', c.durability ? `${atkVal}/${c.durability}` : atkVal));
   if (defVal) node.appendChild(badge(c.type === 'monster' ? 'hp' : 'def', c.type === 'monster' ? '♥' : '🛡', defVal));
 
   const frame = el('div', 'card-frame');
@@ -216,7 +219,7 @@ export function renderHud(run, tierLabel) {
   if (run.kw.firstStrike) kw.appendChild(el('span', 'kw kw-first', 'First Strike'));
   kw.classList.toggle('hidden', !kw.childElementCount);
 
-  renderGearStrip($('#hud-gear'), run.gear || []);
+  renderGearStrip($('#hud-gear'), run.gear || [], run.durability || {});
 }
 
 /**
@@ -225,10 +228,10 @@ export function renderHud(run, tierLabel) {
  * "do I already have a weapon" is answerable without opening anything, which
  * is the question half the gear cards in the pool turn on.
  */
-function renderGearStrip(mount, gear) {
+function renderGearStrip(mount, gear, durability = {}) {
   if (!mount) return;
   mount.textContent = '';
-  const worn = equipment(gear);
+  const worn = equipment(gear, durability);
   const items = EQUIP_SLOTS
     .map((slot) => ({ slot, item: worn[slot.key] }))
     .filter(({ item }) => item);
@@ -238,7 +241,13 @@ function renderGearStrip(mount, gear) {
     const chip = el('span', `gear-chip gear-${slot.kind}`);
     chip.appendChild(glyphEl('gear-chip-icon', ICON[item.id] || slot.icon, item.name));
     chip.appendChild(el('span', 'gear-chip-name', item.name));
-    chip.title = `${item.name} — ${cardText(item)}`;
+    let title = `${item.name} — ${cardText(item)}`;
+    if (item.durability) {
+      const left = durability[item.id] ?? item.durability;
+      chip.appendChild(el('span', 'gear-chip-dur', `${left}/${item.durability}`));
+      title += ` (${left} of ${item.durability} uses left)`;
+    }
+    chip.title = title;
     mount.appendChild(chip);
   }
 }
@@ -319,6 +328,34 @@ function buildTipContent(tip, fighter, slot, value, item) {
     tip.appendChild(el('div', 'equip-tip-empty', item ? `Granted by ${item.name}` : 'Granted by something in this kit'));
     return;
   }
+  // The weapon slot doesn't bank onto a permanent total like the others —
+  // its ATK is only ever what the currently-held, unbroken weapon prints
+  // (see weaponAtk() in cards.js), so it gets its own breakdown: the
+  // weapon's own contribution and durability, separate from the base/trophy
+  // remainder every other slot lumps together.
+  if (slot.key === 'atk') {
+    const list = el('div', 'equip-tip-list');
+    const weaponAtkVal = item?.fx?.atk || 0;
+    if (item && weaponAtkVal) {
+      const row = el('div', 'equip-tip-row');
+      row.append(el('span', null, item.name), el('span', 'equip-tip-amount', `+${weaponAtkVal}`));
+      list.appendChild(row);
+      if (item.durability) {
+        const left = fighter.durability?.[item.id] ?? item.durability;
+        const durRow = el('div', 'equip-tip-row equip-tip-durability');
+        durRow.append(el('span', null, 'Durability'), el('span', 'equip-tip-amount', `${left} / ${item.durability}`));
+        list.appendChild(durRow);
+      }
+    }
+    const rest = value - weaponAtkVal;
+    if (rest > 0) {
+      const row = el('div', 'equip-tip-row equip-tip-rest');
+      row.append(el('span', null, 'Base, trophies & perks'), el('span', 'equip-tip-amount', `+${rest}`));
+      list.appendChild(row);
+    }
+    tip.appendChild(list);
+    return;
+  }
   const contributions = contributionsFor(fighter.gear || [], slot.key);
   const list = el('div', 'equip-tip-list');
   for (const { name, amount } of contributions) {
@@ -350,7 +387,7 @@ function buildTipContent(tip, fighter, slot, value, item) {
 function equipGrid(fighter) {
   const grid = el('div', 'equip-grid');
   const cells = {};
-  const worn = equipment(fighter.gear || []);
+  const worn = equipment(fighter.gear || [], fighter.durability || {});
   for (const slot of EQUIP_SLOTS) {
     const value = fighter[slot.key];
     const item = worn[slot.key];
@@ -359,6 +396,12 @@ function equipGrid(fighter) {
     cell.dataset.tipId = `t${++tipSeq}`;
     cell.appendChild(glyphEl('equip-icon', (active && item && ICON[item.id]) || slot.icon, slot.label));
     if (active && slot.key !== 'firstStrike') cell.appendChild(el('span', 'equip-value', String(value)));
+    // The weapon slot is the one that can visibly run out — show what's left,
+    // so "this blade is about to break" is readable before it does.
+    if (slot.key === 'atk' && item?.durability) {
+      const left = fighter.durability?.[item.id] ?? item.durability;
+      cell.appendChild(el('span', 'equip-durability', `${left}/${item.durability}`));
+    }
 
     const build = (tip) => buildTipContent(tip, fighter, slot, value, item);
     // A device that can hover gets it for free; a click there just re-fires
