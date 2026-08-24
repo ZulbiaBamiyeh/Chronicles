@@ -1,4 +1,4 @@
-// The whole card pool: 58 cards that can be dealt to a hand.
+// The whole card pool: 124 cards that can be dealt to a hand.
 //
 // Cards are data, not behaviour. A card describes *what* it does with an `fx`
 // bag of stat deltas; the handful of cards whose value depends on the state of
@@ -11,8 +11,10 @@
 //   armour, thorns, poison, rally      keyword stacks (additive, permanent)
 //   firstStrike                        boolean, sticky once granted
 //
-// ctx passed to dyn():
-//   { slot, slots, gold, monstersDefeated, usedWatchtower, paidUpgrade }
+// ctx passed to dyn() — see resolvePath() in js/engine.js for exactly what
+// each one is:
+//   { slot, slots, gold, monstersDefeated, usedWatchtower, paidUpgrade,
+//     left, right, kw, atk, hp, maxHp, gear, durability, heartsLost, round }
 //
 // `anim` is purely presentational — which attack animation this fighter or
 // weapon plays when it lands a blow. It never touches resolution; a Runed
@@ -235,6 +237,20 @@ export const GEAR = [
   { no: 113, id: 'masters_forge', name: "Master's Forge", tier: 3, cost: 14,
     dyn: (ctx) => ({ atk: Math.ceil(weaponAtk(ctx.gear, ctx.durability) / 2) }),
     text: 'ATK equal to half the weapon you are carrying, rounded up.' },
+
+  // Reckless Thirst is one card of a five-card batch (the other four are in
+  // PLACES below) giving the pool routes to playstyles no existing keyword
+  // covers — deliberately not a sixth keyword axis. A new stat axis needs
+  // its own resolveCombat support, its own ghost archetype, its own
+  // equip-panel slot and its own re-pacing of every TARGETS band (see
+  // README's "Weapon durability capped the ceiling" section for what that
+  // cost, once); these five are built entirely from primitives — dyn(),
+  // ctx.gold/hp/monstersDefeated/left — the pool already had. A fighter who
+  // has taken real damage this run swings harder for it: the wound is the
+  // resource, not something to avoid.
+  { no: 120, id: 'reckless_thirst', name: 'Reckless Thirst', tier: 3, cost: 14,
+    dyn: (ctx) => ({ atk: Math.floor((ctx.maxHp - ctx.hp) / 3) }),
+    text: 'ATK equal to a third of the damage you have taken this run, rounded down.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -362,6 +378,22 @@ export const PLACES = [
   { no: 119, id: 'bloodforge', name: 'Bloodforge', tier: 3, cost: 0,
     dyn: (ctx) => ({ atk: Math.floor(Math.max(0, ctx.maxHp - 20) / 4) }),
     text: '+1 ATK for every 4 max HP you have above 20.' },
+
+  // The other four cards of the batch described above Reckless Thirst in
+  // GEAR — a rogue who reads wealth as power, a hunter who reads the tier of
+  // what they killed, and a caster who reads the board itself.
+  { no: 121, id: 'gilded_edge', name: 'Gilded Edge', tier: 2, cost: 0,
+    dyn: (ctx) => ({ atk: Math.min(6, Math.floor(ctx.gold / 4)) }),
+    text: '+1 ATK for every 4 gold you are holding, up to +6.' },
+  { no: 122, id: 'vein_drain', name: 'Vein Drain', tier: 2, cost: 0,
+    dyn: (ctx) => ({ heal: 2 + 3 * ctx.monstersDefeated, maxHp: ctx.monstersDefeated }),
+    text: 'Heal 2, plus 3 more and +1 max HP for each monster defeated earlier this path.' },
+  { no: 123, id: 'marked_quarry', name: 'Marked Quarry', tier: 1, cost: 0,
+    dyn: (ctx) => ({ atk: 1 + (ctx.left?.type === 'monster' ? ctx.left.tier * 2 : 0) }),
+    text: '+1 ATK. +2 more per tier of the monster to its left.' },
+  { no: 124, id: 'arcane_surge', name: 'Arcane Surge', tier: 2, cost: 0,
+    dyn: (ctx) => ({ atk: 1 + (ctx.usedWatchtower ? 3 : 0) + (ctx.slot === 3 ? 2 : 0) }),
+    text: '+1 ATK. +3 more if you scouted with Watchtower this round. +2 more if this is your fourth slot.' },
 ].map((p) => ({ ...p, type: 'place' }));
 
 // Secrets are the one card type that reaches across the table. A secret is

@@ -10,6 +10,7 @@ import {
   rng, PATH_SLOTS, refillHand, resolveAmbush,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
+import { weaponAtk } from '../js/cards.js';
 import * as deckLib from '../js/deck.js';
 
 // Drawing from `newRun(seed)` with no deck argument pulls from the entire
@@ -85,9 +86,20 @@ function bestPath(run, hand, score, ctx) {
   return best;
 }
 
+// Weapon ATK stopped being part of the permanent s.atk stat once durability
+// shipped (see README's "Weapon durability capped the ceiling" section) —
+// it's only ever added live, from whichever weapon is currently held and
+// unbroken. A ranking heuristic that reads bare s.atk is blind to that: it
+// sees a weapon purchase as pure downside (gold spent, no atk gained) and
+// systematically avoids equipping one. Invisible for a deck with plenty of
+// other atk sources to lean on instead; catastrophic for one that doesn't —
+// see the same fix in tools/archetypes.mjs for how badly it broke a
+// weapon-dependent deck before this was caught.
+const effectiveAtk = (s) => s.atk + weaponAtk(s.gear, s.durability);
+
 /** Rough duel strength, used only to rank candidate paths. */
 const power = (s) =>
-  s.atk * 2.6 + s.hp * 1.0 + s.maxHp * 0.35 + s.gold * 0.25 +
+  effectiveAtk(s) * 2.6 + s.hp * 1.0 + s.maxHp * 0.35 + s.gold * 0.25 +
   s.kw.armour * 4 + s.kw.poison * 3 + s.kw.rally * 5.5 +
   s.kw.thorns * 2 + (s.kw.firstStrike ? 4 : 0);
 

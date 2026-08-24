@@ -21,7 +21,21 @@ import {
   newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand, resolveAmbush,
 } from '../js/engine.js';
 import { drawRival, rivalOnDay } from '../js/rival.js';
+import { weaponAtk } from '../js/cards.js';
 import * as deckLib from '../js/deck.js';
+
+// Weapon ATK stopped being part of the permanent s.atk stat once durability
+// shipped — it's only ever added live, from whichever weapon is currently
+// held and unbroken (see README's "Weapon durability capped the ceiling").
+// Every strategy below reads s.atk directly to score a candidate path; blind
+// to a weapon's live contribution, a purchase reads as pure downside (gold
+// spent, nothing gained) and gets systematically avoided. Harmless for a
+// deck with plenty of other atk sources to fall back on; it silently
+// starved The Fence and The Bloodbound of the only real atk either deck
+// has, before this was caught (both measured at 0% completion, 0.1% duel
+// win — losing essentially every duel because the planner never once chose
+// to equip the sword it was holding).
+const effectiveAtk = (s) => s.atk + weaponAtk(s.gear, s.durability);
 
 // Every themed strategy weighted current HP far below the generalist's own
 // 1.0 (0.25-0.5 here against 1.0 there), which let the planner walk into path
@@ -33,15 +47,27 @@ import * as deckLib from '../js/deck.js';
 // signature stat without that self-inflicted fragility being what the sweep
 // actually measures.
 const STRATEGIES = {
-  atk: (s) => s.atk * 6 + s.hp * 0.9 + s.maxHp * 0.3,
-  tank: (s) => s.kw.armour * 6 + s.atk * 1.8 + s.maxHp * 0.5 + s.hp * 0.9,
-  poison: (s) => s.kw.poison * 6 + s.atk * 2.2 + s.hp * 0.9 + s.kw.armour * 1.5,
-  rally: (s) => s.kw.rally * 6 + s.atk * 2.2 + s.hp * 0.9 + s.maxHp * 0.3 + s.kw.armour * 1.5,
-  thorns: (s) => s.kw.thorns * 6 + s.kw.armour * 2.5 + s.atk * 1.8 + s.hp * 0.9,
+  atk: (s) => effectiveAtk(s) * 6 + s.hp * 0.9 + s.maxHp * 0.3,
+  tank: (s) => s.kw.armour * 6 + effectiveAtk(s) * 1.8 + s.maxHp * 0.5 + s.hp * 0.9,
+  poison: (s) => s.kw.poison * 6 + effectiveAtk(s) * 2.2 + s.hp * 0.9 + s.kw.armour * 1.5,
+  rally: (s) => s.kw.rally * 6 + effectiveAtk(s) * 2.2 + s.hp * 0.9 + s.maxHp * 0.3 + s.kw.armour * 1.5,
+  thorns: (s) => s.kw.thorns * 6 + s.kw.armour * 2.5 + effectiveAtk(s) * 1.8 + s.hp * 0.9,
   // The generalist from tools/balance.mjs, included as the reference point
   // every themed strategy is measured against.
-  balanced: (s) => s.atk * 2.6 + s.hp * 1.0 + s.maxHp * 0.35 + s.gold * 0.25 +
+  balanced: (s) => effectiveAtk(s) * 2.6 + s.hp * 1.0 + s.maxHp * 0.35 + s.gold * 0.25 +
     s.kw.armour * 4 + s.kw.poison * 3 + s.kw.rally * 5.5 + s.kw.thorns * 2 + (s.kw.firstStrike ? 4 : 0),
+  // The four hero-inspired decks (see js/deck.js) don't lean on a permanent
+  // kw stack the way the §5 four do — their payoff cards (Gilded Edge, Vein
+  // Drain, Marked Quarry, ...) all convert into plain atk/hp/maxHp the
+  // moment they resolve, so there's nothing extra for these scores to read:
+  // whatever their signature card earned is already sitting in effectiveAtk
+  // by the time a path is scored. Each still weights gold or maxHp a bit
+  // above the generalist's own, to prefer the paths that actually lean into
+  // the theme when two orderings would otherwise score close to even.
+  fence: (s) => effectiveAtk(s) * 3 + s.hp * 0.9 + s.maxHp * 0.4 + s.gold * 0.9 + s.kw.armour * 2,
+  bloodbound: (s) => effectiveAtk(s) * 3.2 + s.hp * 1.0 + s.maxHp * 0.7 + s.kw.armour * 2.5,
+  hunter: (s) => effectiveAtk(s) * 4 + s.hp * 0.9 + s.maxHp * 0.3 + s.gold * 0.4 + s.kw.armour * 1.5,
+  adept: (s) => effectiveAtk(s) * 2 + s.hp * 1.0 + s.maxHp * 0.4 + s.gold * 0.4 + s.kw.armour * 1.5,
 };
 
 // This tool used to draw every strategy from the full 119-card pool instead of
@@ -54,6 +80,7 @@ const STRATEGIES = {
 const STRATEGY_DECK = {
   atk: 'aggro', tank: 'tank', poison: 'poison', rally: 'rally',
   thorns: 'tank', balanced: 'balanced',
+  fence: 'fence', bloodbound: 'bloodbound', hunter: 'hunter', adept: 'adept',
 };
 
 /**
@@ -142,4 +169,11 @@ const spread = Math.max(...themed) - Math.min(...themed);
 console.log(
   `\nSpread across the four themed archetypes: ${(spread * 100).toFixed(1)} points of completion.` +
   ' A wide spread here means one keyword archetype is dead weight or dominant; a narrow one means the §5 "loose triangle" is actually holding.',
+);
+
+const allThemed = Object.keys(STRATEGIES).filter((k) => k !== 'balanced' && k !== 'atk')
+  .map((k) => results[k].completed);
+const allSpread = Math.max(...allThemed) - Math.min(...allThemed);
+console.log(
+  `Spread across every themed archetype, hero decks included: ${(allSpread * 100).toFixed(1)} points of completion.`,
 );

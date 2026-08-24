@@ -41,7 +41,7 @@ its full text. Nothing commits until **Embark**.
 
 | | |
 |---|---|
-| **Cards** | 119 — 28 monsters, 48 gear, 13 allies, 20 places, 10 secrets |
+| **Cards** | 124 — 28 monsters, 49 gear, 13 allies, 24 places, 10 secrets |
 | **Builds** | Cards that read the rest of your character: Armour paid out as Thorns, a weapon you sharpen all run, payoffs that scale with what you already committed to |
 | **Ordering** | Cards that read their neighbours in the path, so the same four cards are worth more in the right order |
 | **Keywords** | First Strike, Armour, Thorns, Poison, Rally. There is no sixth. |
@@ -70,7 +70,7 @@ testable without a browser.
 
 ```
 js/engine.js     the rules: combat resolver, path resolution, run state
-js/cards.js      all 119 cards, as data
+js/cards.js      all 124 cards, as data
 js/ghosts.js     opponent generation, the four archetypes
 js/storage.js    localStorage: the run, ghost buckets, lifetime record
 js/main.js       flow control, gestures, the shared exchange-by-exchange replay
@@ -394,10 +394,98 @@ unplayable. That section is the current, correct account of archetype
 viability; this one is left in place, corrected, so the history of the claim
 isn't quietly erased.
 
+### Four more decks, loosely after Chronicle's own Legends
+
+The Bulwark and the Duellist already cover two of Chronicle's own six
+Legends — The Raptor (armour, physical might) and Linza (gear durability,
+striking power) respectively — without any changes. `js/deck.js` adds one
+preset for each of the other four, translated into what this game's systems
+can actually support rather than ported keyword-for-keyword (Ariane's
+card-draw and hand-size play, for instance, has no equivalent here — a hand's
+shape is fixed by §9's curve — so The Adept reads as "commit to almost no
+gear, stake everything on secrets and reading the fight" instead):
+
+- **The Fence** (Ozan — gold, cheap tricks): leans on Quartermaster's
+  discount, Coin Clipper's recurring gold, and a new card, Gilded Edge
+  (+1 ATK per 4 gold held, capped at +6) — wealth converts into power instead
+  of sitting in a pocket.
+- **The Bloodbound** (Vanescula — fragile but powerful): stacks max HP far
+  past what any other preset does, then cashes it in with Bloodforge (ATK
+  per max HP above 20), a new card, Reckless Thirst (ATK equal to a third of
+  damage already taken this run), and Vein Drain, also new (heal and max HP
+  scaling with kills this path) — Vanescula's own "drains life from monsters
+  and rivals alike" read through fx the pool already had (heal, maxHp), not
+  a new keyword.
+- **The Hunter** (Morvran — monster-slaying bounties): carries more monsters
+  per tier than any other preset and reads what it killed — Training
+  Yard/The Arena/Boneyard's existing kill-scaling, plus a new card, Marked
+  Quarry (+1 ATK, +2 more per tier of the monster to its left) standing in
+  for Morvran's own per-creature Slayer Tasks.
+- **The Adept** (Ariane — reads over gear): the thinnest gear count of any
+  preset, backed by the pool's heaviest secret density and a new card,
+  Arcane Surge (+1 ATK, +3 more if scouted with Watchtower, +2 more on the
+  fourth slot) rewarding the same "read the board before committing" instinct
+  a spellcaster plays with.
+
+None of the five new cards is a sixth keyword axis — every one is `dyn()`
+reading state (`ctx.gold`, `ctx.hp`, `ctx.monstersDefeated`, `ctx.left`,
+`ctx.usedWatchtower`) the pool already exposed. That was a deliberate scope
+line: a new stat axis needs its own `resolveCombat` support, its own ghost
+archetype, its own equip-panel slot, and its own re-pacing of every `TARGETS`
+band — see "Weapon durability capped the ceiling" above for what that cost,
+once, for a single new axis. Four new decks didn't need it, so they didn't
+get it, and every ghost a player fights is still built from exactly the same
+armour/poison/rally/thorns/atk/maxHp space these decks operate in — "the
+ghost is representative of what a player could create" holds without change.
+
+`tools/archetypes.mjs` measures all nine presets now, not five. Building it
+out caught a real bug on the way: every strategy's scoring function read
+`s.atk` directly to rank candidate paths, which stopped being the whole
+picture the moment durability shipped — a weapon's ATK is added live, not
+banked onto `s.atk`, so a blind scorer sees equipping one as pure downside
+(gold spent, nothing gained) and avoids it. Invisible for a deck with other
+ATK sources to fall back on; it silently reduced The Fence and The Bloodbound
+to 0.1% duel win rate, never once equipping the sword either deck was
+holding, before `effectiveAtk()` (bare atk plus whatever weapon is actually
+held) replaced every bare `s.atk` in both `tools/balance.mjs` and
+`tools/archetypes.mjs`.
+
+Fixing that, plus a first pass of real deck-composition tuning (an armour
+floor and a guaranteed non-weapon ATK card for two decks that had neither),
+landed:
+
+```
+balanced    completion= 29.7%  duelWin= 37.6%
+atk         completion= 20.2%  duelWin= 30.1%
+tank        completion= 10.0%  duelWin= 10.2%
+thorns      completion=  5.5%  duelWin=  5.6%
+fence       completion=  3.8%  duelWin= 14.8%
+hunter      completion=  3.3%  duelWin= 17.4%
+bloodbound  completion=  0.5%  duelWin=  2.0%
+rally       completion=  0.5%  duelWin=  1.3%
+adept       completion=  0.2%  duelWin=  7.1%
+poison      completion=  0.0%  duelWin=  1.3%
+```
+
+Read honestly: The Fence and The Hunter landed in real, if weak, company
+with Tank and Thorns — playable, not competitive with Balanced or ATK. The
+Bloodbound and The Adept landed beside Rally and Poison at the bottom, and
+debugging The Bloodbound specifically turned up why: its payoff cards
+(Bloodforge, Reckless Thirst) don't matter until Tier 3, and a themed deck
+that isn't strong until day four has to survive three hearts' worth of
+losses first to get there — the exact shape Rally's own blurb already
+names ("weak on the first exchange, terrifying by the fourth — and worse
+when losing") and the exact mechanism task #7 is tracking. Adding two new
+decks with that same shape didn't invent a new problem, it added two more
+data points to the one already open. Fixing it properly — most likely
+softening how hard a slow-ramping deck gets punished for early losses,
+separately from the still-open ATK-vs-Poison/Rally ceiling gap — stays its
+own pass, not folded into this one.
+
 ### No dead cards — mostly
 
 `tools/card-coverage.mjs` runs the same six strategies and records which of
-the 119 cards each one ever actually chose. **117 of 119 get picked by at
+the 124 cards each one ever actually chose. **123 of 124 get picked by at
 least one strategy.** The rarest are almost entirely Tier 3 (fewer runs ever
 reach round 5, so those cards get fewer opportunities to be dealt at all —
 that's a sampling effect, not a balance problem) or cards that trade a

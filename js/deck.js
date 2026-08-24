@@ -183,6 +183,70 @@ const PRESETS = {
       'dragonplate', 'sacred_spring', 'ambush_pit',
     ],
   },
+
+  // Four more, each pointed at a playstyle none of the five above cover —
+  // loosely after Chronicle's own Legends, translated into what this game's
+  // systems can actually support rather than ported keyword-for-keyword.
+  // The Raptor (armour/defence) already is the Bulwark above, and Linza
+  // (gear durability, striking power) already is the Duellist's weapon arc —
+  // neither needed a new deck. These four did.
+  fence: {
+    name: 'The Fence',
+    blurb: "Ozan's trade: hoard gold, spend it fast, and let the pile itself hit harder.",
+    cards: [
+      'sewer_rat', 'wild_boar', 'bandit_lookout',
+      'coin_clipper', 'leather_jerkin', 'flanking_strike',
+      'rusty_sword', 'grindstone', 'scout', 'blacksmith',
+      'bandit_captain', 'ogre_brute', 'grave_knight',
+      'quartermaster', 'hidden_cache', 'gilded_edge',
+      'watchtower', 'the_arena', 'war_pick', 'kite_shield',
+      'flame_imp', 'hill_giant', 'warlord_of_ash',
+      'dragon_altar', 'sacred_spring', 'war_camp',
+      'runed_greatsword', 'shield_maiden', 'bloodforge', 'sabotage',
+    ],
+  },
+  bloodbound: {
+    name: 'The Bloodbound',
+    blurb: "Vanescula's wager: a max HP pool nobody else builds, cashed in the worse it's dented.",
+    cards: [
+      'bog_toad', 'wild_boar', 'feral_hound',
+      'travellers_boots', 'leather_jerkin', 'field_medic',
+      'whetstone', 'rusty_sword', 'blacksmith', 'grindstone',
+      'cave_troll', 'ogre_brute', 'bandit_captain',
+      'chainmail', 'scale_hauberk', 'war_priest', 'berserkers_rite',
+      'armsmaster', 'steel_longsword', 'vein_drain',
+      'hill_giant', 'bog_horror', 'flame_imp',
+      'dragonplate', 'aegis_of_dawn', 'sacred_spring', 'bloodforge',
+      'reckless_thirst', 'runed_greatsword', 'ironblood_rite',
+    ],
+  },
+  hunter: {
+    name: 'The Hunter',
+    blurb: "Morvran's trade: fight more of the path than anyone, and get paid per kill for it.",
+    cards: [
+      'field_mouse', 'sewer_rat', 'wild_boar', 'goblin_scrapper', 'bandit_lookout',
+      'flanking_strike', 'scavengers_cache', 'training_yard', 'marked_quarry', 'rusty_sword',
+      'cave_troll', 'bandit_captain', 'iron_golem', 'dire_wolf', 'grave_knight',
+      'ambushers_nook', 'the_arena', 'war_pick', 'houndmaster', 'watchtower',
+      'hill_giant', 'chimera', 'flame_imp', 'warlord_of_ash', 'bog_horror',
+      'runed_greatsword', 'war_camp', 'standing_stones', 'dragon_altar', 'shield_maiden',
+    ],
+  },
+  adept: {
+    name: 'The Adept',
+    blurb: "Ariane's trade: barely any gear at all, everything staked on reading the fight right.",
+    cards: [
+      'field_mouse', 'sewer_rat', 'wild_boar',
+      'roadside_shrine', 'market_square', 'blacksmith', 'training_yard', 'boneyard',
+      'rusty_sword', 'caltrops',
+      'cave_troll', 'bandit_captain', 'grave_knight',
+      'watchtower', 'ritual_circle', 'arcane_surge', 'steel_longsword',
+      'hamstring', 'dousing_rain', 'kite_shield',
+      'hill_giant', 'chimera', 'elder_wyrm',
+      'standing_stones', 'sacred_spring', 'dragon_altar', 'runed_greatsword',
+      'sabotage', 'purge_ritual', 'ambush_pit',
+    ],
+  },
 };
 
 export const PRESET_KEYS = Object.keys(PRESETS);

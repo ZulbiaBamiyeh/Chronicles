@@ -36,13 +36,13 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 119 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 119);
-  assert.equal(ALL_CARDS.length, 119);
+test('the pool is 124 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 124);
+  assert.equal(ALL_CARDS.length, 124);
   assert.equal(MONSTERS.length, 28);
-  assert.equal(GEAR.length, 48);
+  assert.equal(GEAR.length, 49);
   assert.equal(ALLIES.length, 13);
-  assert.equal(PLACES.length, 20);
+  assert.equal(PLACES.length, 24);
   assert.equal(SECRETS.length, 10);
 });
 
@@ -234,7 +234,7 @@ test("Berserker's Rite pays for hearts you've lost, so a losing series is fighta
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 119);
+  assert.equal(ids.size, 124);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
 });
