@@ -7,16 +7,18 @@ import { ShaderBackground } from './bg.js';
 import { AudioEngine } from './audio.js';
 import { card, cardText, fxText, attackAnim, counterText } from './cards.js';
 import {
-  newRun, startRound, resolvePath, duel, settleRound, toGhost,
-  tiersForRound, rng, costFor, PATH_SLOTS, RUN_DAYS,
-  refillHand, mulligan, MULLIGAN_LIMIT, resolveAmbush,
+  newRun, startRound, resolvePath, duel, settleFinale, advanceDay,
+  toGhost, spendCard, resolveSendFight, ghostFighter,
+  tiersForRound, rng, PATH_SLOTS, RUN_DAYS,
+  refillHand, mulliganHand, resolveAmbush,
 } from './engine.js';
 import { randomName } from './ghosts.js';
-import { drawRival, rivalOnDay, intel } from './rival.js';
+import { drawRival, rivalOnDay, intel, tickRivalHp } from './rival.js';
 import * as deckLib from './deck.js';
 import * as store from './storage.js';
 import {
   $, el, glyphEl, cardEl, renderHud, duelistEl, feedLine, rivalPanel, MONSTER_GLYPH, ICON,
+  PORTRAIT, portraitFor, ANIM,
 } from './ui.js';
 
 const audio = new AudioEngine();
@@ -26,6 +28,7 @@ const bg = new ShaderBackground(document.getElementById('bg-canvas'));
 
 let run = null;          // the persisted run (see storage.js)
 let slots = [];          // PATH_SLOTS entries of {id, from, upgrade} | null
+let send = null;         // {id, from} — the monster you play at the rival
 let roundSeed = 0;       // seeds this round's deal
 let outcome = null;      // the resolved path, kept for the duel and the result
 let rival = null;        // one opponent for the whole run (see js/rival.js)
@@ -221,12 +224,22 @@ function beginRound() {
     run = { ...run, hand, seenCards, handDrawnForRound: run.round };
   }
   slots = new Array(PATH_SLOTS).fill(null);
+  send = null;
   outcome = null;
   scouted = false;
   // The rival was decided when the run started and doesn't change; today's
   // opponent is simply them, as they stood on this day of their own run.
   if (!rival) rival = drawRival(run.rivalSeed);
   ghost = rivalOnDay(rival, run.round);
+  // HP carries across days the same way yours does — only tick once per day
+  // so resuming a save doesn't heal them a second time.
+  if (run.rivalTickedForRound !== run.round) {
+    run = {
+      ...run,
+      rivalCombat: tickRivalHp(run.rivalCombat, ghost),
+      rivalTickedForRound: run.round,
+    };
+  }
   store.saveRun(run);
 
   $('#plan-area').classList.remove('hidden');
@@ -238,6 +251,8 @@ function beginRound() {
   renderPlan();
   show('run');
   audio.setStyle('plan');
+  if (run.round === 1 && !run.mulliganDone) openMulligan();
+  else closeMulligan();
 }
 
 // ---- planning -------------------------------------------------------------
@@ -247,34 +262,68 @@ function renderPlan() {
   renderRival();
   renderPath();
   renderHand();
-  renderMulligan();
   // A day's hand can legitimately come back thinner than the path is long —
   // late in a run, once a deck's tier pool is running dry — so embarking only
   // needs every placeable card placed, not literally four full slots.
-  const placed = slots.filter(Boolean).length;
-  const unplaced = run.hand.length;
-  const full = slots.every(Boolean) || (placed > 0 && unplaced === 0);
+  const pathPlaced = slots.filter(Boolean).length;
+  const busy = pathPlaced + (send ? 1 : 0);
+  const unplaced = run.hand.length - busy;
+  const pathReady = slots.every(Boolean) || (pathPlaced > 0 && unplaced === 0);
+  const sendReady = Boolean(send && card(send.id)?.type === 'monster');
+  const full = pathReady && sendReady;
   $('#btn-embark').disabled = !full;
   $('#hand-hint').textContent = full
     ? 'Drag slots to reorder'
-    : `Tap to place · ${placed}/${PATH_SLOTS}`;
+    : sendReady
+      ? `Tap to place · ${pathPlaced}/${PATH_SLOTS}`
+      : 'Send a monster at them to embark';
 }
 
-/**
- * The mulligan strip: day one only, a limited number of swaps for whoever
- * doesn't like their opener. Chronicle's own mercy on a bad opening hand,
- * capped so it thins a hand rather than becoming "reroll until perfect."
- */
-function renderMulligan() {
-  const bar = $('#mulligan-bar');
-  if (run.round > 1 || (run.mulligansLeft ?? 0) <= 0) {
-    bar.classList.add('hidden');
-    return;
-  }
-  bar.classList.remove('hidden');
-  bar.textContent = '';
-  bar.appendChild(el('span', 'mulligan-label',
-    `Swap unwanted cards · ${run.mulligansLeft} left`));
+const mulliganPick = new Set();
+
+function openMulligan() {
+  mulliganPick.clear();
+  $('#mulligan-overlay').classList.remove('hidden');
+  document.querySelector('.path-wrap')?.classList.add('hidden');
+  $('#plan-area').classList.add('hidden');
+  $('#rival-panel').classList.add('hidden');
+  renderMulliganHand();
+}
+
+function closeMulligan() {
+  $('#mulligan-overlay')?.classList.add('hidden');
+  document.querySelector('.path-wrap')?.classList.remove('hidden');
+  $('#plan-area').classList.remove('hidden');
+  $('#rival-panel').classList.remove('hidden');
+}
+
+function renderMulliganHand() {
+  const mount = $('#mulligan-hand');
+  mount.textContent = '';
+  run.hand.forEach((id, i) => {
+    const wrap = el('div', `mulligan-card${mulliganPick.has(i) ? ' replace' : ''}`);
+    wrap.dataset.index = String(i);
+    wrap.appendChild(cardEl(id, { run, size: 'hand' }));
+    if (mulliganPick.has(i)) wrap.appendChild(el('div', 'mulligan-x', 'REPLACE'));
+    wrap.addEventListener('click', () => {
+      if (mulliganPick.has(i)) mulliganPick.delete(i);
+      else mulliganPick.add(i);
+      audio.click();
+      renderMulliganHand();
+    });
+    mount.appendChild(wrap);
+  });
+  const n = mulliganPick.size;
+  $('#btn-mulligan-confirm').textContent = n ? `CONFIRM · REPLACE ${n}` : 'KEEP ALL';
+}
+
+function confirmMulligan() {
+  const spin = (roundSeed ^ 0x1357bd91) >>> 0;
+  run = mulliganHand(run, [...mulliganPick], rng(spin));
+  store.saveRun(run);
+  audio.place();
+  closeMulligan();
+  renderPlan();
 }
 
 /**
@@ -284,7 +333,12 @@ function renderMulligan() {
  */
 function renderRival() {
   const willScout = slots.some((s) => s && card(s.id)?.scout);
-  rivalPanel($('#rival-panel'), intel(rival, run.round, willScout), {
+  const info = intel(rival, run.round, willScout);
+  if (run.rivalCombat) {
+    info.hp = run.rivalCombat.hp;
+    info.maxHp = run.rivalCombat.maxHp;
+  }
+  rivalPanel($('#rival-panel'), info, {
     wins: run.wins, losses: run.losses, days: RUN_DAYS,
   });
 }
@@ -303,14 +357,28 @@ function renderPath() {
     }
     mount.appendChild(cell);
   });
+  renderSend();
+}
+
+function renderSend() {
+  const cell = $('#send-slot');
+  if (!cell) return;
+  const label = document.querySelector('.send-label');
+  if (label) label.textContent = ghost ? `FOR ${ghost.name.split(' ')[0]}` : 'FOR THEM';
+  cell.textContent = '';
+  cell.classList.toggle('filled', Boolean(send));
+  if (send) cell.appendChild(cardEl(send.id, { run, size: 'slot' }));
+  else cell.appendChild(el('span', 'slot-num', '⚔'));
 }
 
 function renderHand() {
   const mount = $('#hand');
   mount.textContent = '';
-  const placed = slots.filter((s) => s && s.from === 'hand').map((s) => s.id);
+  const placed = [
+    ...slots.filter((s) => s && s.from === 'hand').map((s) => s.id),
+    ...(send ? [send.id] : []),
+  ];
   const spent = new Set();
-  const canMulligan = run.round === 1 && (run.mulligansLeft ?? 0) > 0;
   run.hand.forEach((id) => {
     const node = cardEl(id, { run, size: 'hand' });
     // A dealt card that's already in the path stays in place, greyed out, so
@@ -322,42 +390,52 @@ function renderHand() {
     }
     const wrap = el('div', 'hand-card');
     wrap.appendChild(node);
-    if (canMulligan && !isPlaced) {
-      const swap = el('button', 'mulligan-btn', '↻');
-      swap.type = 'button';
-      swap.dataset.role = 'mulligan';
-      swap.dataset.id = id;
-      swap.title = 'Swap for a new card';
-      wrap.appendChild(swap);
-    }
     mount.appendChild(wrap);
   });
 }
 
-function mulliganCard(id) {
-  if (run.round > 1 || (run.mulligansLeft ?? 0) <= 0) return;
-  const spin = (roundSeed ^ 0x1357bd91 ^ ((run.mulligansLeft ?? 0) << 8)) >>> 0;
-  run = mulligan(run, id, rng(spin));
-  store.saveRun(run);
-  audio.lift2();
-  renderPlan();
-}
-
-/** Put a card in the first free slot. Returns false if the path is full. */
+/** Put a card in the first free path slot, or the send slot if it's a leftover monster. */
 function place(id, from) {
   const free = slots.indexOf(null);
-  if (free < 0) return false;
-  slots[free] = { id, from, upgrade: false };
-  audio.place();
-  renderPlan();
-  return true;
+  if (free >= 0) {
+    slots[free] = { id, from, upgrade: false };
+    audio.place();
+    renderPlan();
+    return true;
+  }
+  if (!send && card(id)?.type === 'monster') {
+    send = { id, from };
+    audio.place();
+    renderPlan();
+    return true;
+  }
+  return false;
 }
 
 function unplace(index) {
+  if (index === 'send') {
+    if (!send) return;
+    send = null;
+    audio.lift2();
+    renderPlan();
+    return;
+  }
   if (!slots[index]) return;
   slots[index] = null;
   audio.lift2();
   renderPlan();
+}
+
+function placeSend(id, from) {
+  if (card(id)?.type !== 'monster') {
+    shake($('#send-slot'));
+    audio.fizzle();
+    return false;
+  }
+  send = { id, from };
+  audio.place();
+  renderPlan();
+  return true;
 }
 
 function placeAt(index, id, from) {
@@ -389,7 +467,9 @@ const DRAG_THRESHOLD = 8;
 let gesture = null;
 
 function cardSource(target) {
-  const slotCell = target.closest('.slot');
+  const sendCell = target.closest('#send-slot');
+  if (sendCell && send) return { kind: 'send', id: send.id };
+  const slotCell = target.closest('#path .slot');
   if (slotCell && slotCell.querySelector('.card')) {
     return { kind: 'slot', index: Number(slotCell.dataset.slot), id: slots[Number(slotCell.dataset.slot)].id };
   }
@@ -402,12 +482,6 @@ function onPointerDown(ev) {
   // Planning only — during resolution and on every other screen the path is
   // a readout, not a board.
   if (current !== 'run' || $('#plan-area').classList.contains('hidden')) return;
-
-  if (ev.target.closest('[data-role="mulligan"]')) {
-    mulliganCard(ev.target.closest('[data-role="mulligan"]').dataset.id);
-    ev.preventDefault();
-    return;
-  }
 
   // The paid-upgrade toggle on a placed Place card is a button, not a handle.
   if (ev.target.closest('[data-role="upgrade"]')) {
@@ -463,14 +537,15 @@ function onPointerMove(ev) {
 
 function highlightSlotUnder(x, y) {
   const over = slotUnder(x, y);
-  for (const cell of document.querySelectorAll('#path .slot')) {
+  for (const cell of document.querySelectorAll('#path .slot, #send-slot')) {
     cell.classList.toggle('over', cell === over);
   }
 }
 
 function slotUnder(x, y) {
   const node = document.elementFromPoint(x, y);
-  return node ? node.closest('#path .slot') : null;
+  if (!node) return null;
+  return node.closest('#send-slot') || node.closest('#path .slot');
 }
 
 function onPointerUp(ev) {
@@ -483,22 +558,53 @@ function onPointerUp(ev) {
     if (g.opened) return;
     // A plain tap: into the path from the hand, back out from a slot.
     if (g.src.kind === 'slot') unplace(g.src.index);
+    else if (g.src.kind === 'send') unplace('send');
     else if (!place(g.src.id, g.src.kind)) shake($('#path'));
     return;
   }
 
   g.node.remove();
   document.body.classList.remove('is-dragging');
-  for (const cell of document.querySelectorAll('#path .slot')) cell.classList.remove('over');
+  for (const cell of document.querySelectorAll('#path .slot, #send-slot')) cell.classList.remove('over');
 
   const target = slotUnder(ev.clientX, ev.clientY);
-  if (target) {
+  if (target && target.id === 'send-slot') {
+    if (g.src.kind === 'slot') {
+      const from = g.src.index;
+      const occupant = send;
+      if (card(slots[from].id)?.type !== 'monster') {
+        shake(target);
+        audio.fizzle();
+      } else {
+        send = { id: slots[from].id, from: slots[from].from };
+        slots[from] = occupant ? { ...occupant, upgrade: false } : null;
+        audio.place();
+        renderPlan();
+      }
+    } else {
+      placeSend(g.src.id, g.src.kind);
+    }
+  } else if (target) {
     const index = Number(target.dataset.slot);
     if (g.src.kind === 'slot') swapSlots(g.src.index, index);
-    else placeAt(index, g.src.id, g.src.kind);
+    else if (g.src.kind === 'send') {
+      const occupant = slots[index];
+      slots[index] = { id: send.id, from: send.from, upgrade: false };
+      send = occupant && card(occupant.id)?.type === 'monster'
+        ? { id: occupant.id, from: occupant.from }
+        : null;
+      if (occupant && !send) {
+        // Occupant wasn't a monster — it goes back to hand, send stays empty
+        // unless we can keep it on the path. Already placed on the path.
+      }
+      audio.place();
+      renderPlan();
+    } else placeAt(index, g.src.id, g.src.kind);
   } else if (g.src.kind === 'slot') {
     // Dragged off the path entirely — put it back.
     unplace(g.src.index);
+  } else if (g.src.kind === 'send') {
+    unplace('send');
   }
 }
 
@@ -517,7 +623,7 @@ function openDetail(id) {
   mount.appendChild(cardEl(id, { run, size: 'detail' }));
   const note = el('p', 'detail-note');
   if (c.type === 'monster') {
-    note.textContent = `Fights for ${c.gold} gold.`;
+    note.textContent = `Fight it for ${c.gold} gold — or send it at your rival.`;
   } else if (c.type === 'gear' || c.type === 'ally') {
     note.textContent = 'Permanent for the rest of the run.';
   } else {
@@ -533,6 +639,9 @@ function openDetail(id) {
 async function embark() {
   audio.click();
   outcome = resolvePath(run, slots);
+  if (send) {
+    outcome = { ...outcome, state: spendCard(outcome.state, send.id), sendId: send.id };
+  }
   scouted = outcome.usedWatchtower;
   // No draw here any more: today's opponent has been fixed since the run
   // began. That's the point — the path you just committed to was planned
@@ -577,31 +686,67 @@ async function embark() {
       pathDamage: outcome.pathDamage + ambush.damage,
       cleanPath: outcome.cleanPath && ambush.damage === 0,
     };
-    audio.kill();
-    const bits = [
-      `${invCard.name} falls in ${ambush.event.exchanges} exchange${ambush.event.exchanges === 1 ? '' : 's'}`,
-      `−${ambush.damage} HP`, `+${ambush.event.gold} gold`,
-    ];
-    if (ambush.event.trophy) bits.push(fxText(ambush.event.trophy));
-    if (ambush.event.drop) bits.push(`took ${card(ambush.event.drop).name}`);
-    feedLine($('#resolve-log'), `${bits.join(' · ')}.`, ambush.damage > 0 ? '' : 'log-good');
+    if (ambush.killed) audio.kill();
+    else audio.defeat();
+    const bits = [];
+    if (ambush.killed) {
+      bits.push(`${invCard.name} falls in ${ambush.event.exchanges} exchange${ambush.event.exchanges === 1 ? '' : 's'}`);
+      bits.push(`−${ambush.damage} HP`);
+      if (ambush.event.gold) bits.push(`+${ambush.event.gold} gold`);
+      if (ambush.event.trophy) bits.push(fxText(ambush.event.trophy));
+      if (ambush.event.drop) bits.push(`took ${card(ambush.event.drop).name}`);
+    } else {
+      bits.push(`You go down to ${invCard.name}`);
+      bits.push('no spoils');
+      bits.push("you won't heal tomorrow");
+    }
+    if (ambush.killed && ambush.down) bits.push("you fall with it — you won't heal tomorrow");
+    feedLine($('#resolve-log'), `${bits.join(' · ')}.`,
+      ambush.killed && !ambush.down ? 'log-good' : 'log-bad');
     renderHud(ambush.state, tierLabel(run.round));
     await sleep(500);
   }
 
-  await sleep(500);
+  if (outcome.sendId) {
+    await sleep(400);
+    const sentCard = card(outcome.sendId);
+    const them = ghostFighter({
+      ...ghost,
+      hp: run.rivalCombat?.hp ?? ghost.hp,
+      maxHp: run.rivalCombat?.maxHp ?? ghost.maxHp,
+    });
+    const watched = resolveSendFight(them, outcome.sendId);
+    outcome = {
+      ...outcome,
+      rivalCombat: { hp: watched.fighter.hp, maxHp: them.maxHp, bruised: watched.bruised },
+      sendFight: watched,
+    };
+    feedLine($('#resolve-log'),
+      `${ghost.name} faces the ${sentCard.name} you sent.`, 'log-ghost');
+    await playWatchThem(watched.event, sentCard);
+    const bits = [
+      `${sentCard.name} vs ${ghost.name} · ${watched.event.exchanges} exchange${watched.event.exchanges === 1 ? '' : 's'}`,
+    ];
+    if (watched.down) bits.push('they go down — they won’t heal tomorrow');
+    else bits.push(`they take ${watched.damage} · ${watched.fighter.hp}/${them.maxHp} left`);
+    feedLine($('#resolve-log'), `${bits.join(' — ')}.`, watched.down ? 'log-good' : (watched.damage > 0 ? 'log-good' : ''));
+    await sleep(400);
+  }
+
+  await sleep(300);
   const log = $('#resolve-log');
+  const finale = run.round >= RUN_DAYS;
   if (scouted && ghost.secrets.length) {
     const names = ghost.secrets.map((id) => card(id).name).join(' and ');
-    feedLine(log, `The Watchtower shows ${ghost.name} has laid ${names}.`, 'log-ghost');
-  } else if (scouted) {
-    feedLine(log, `The Watchtower shows ${ghost.name} has laid no secrets today.`, 'log-ghost');
-  } else if (ghost.secrets.length) {
-    feedLine(log, `${ghost.name} is waiting — and something has been laid for you.`, 'log-ghost');
+    feedLine(log, `Orbis Tower shows ${ghost.name} has laid ${names}.`, 'log-ghost');
+  } else if (finale) {
+    feedLine(log, `Day ${RUN_DAYS}. ${ghost.name} is waiting in the open.`, 'log-ghost');
   } else {
-    feedLine(log, `${ghost.name} is waiting.`, 'log-ghost');
+    feedLine(log, `${ghost.name} walks off with ${outcome.rivalCombat?.hp ?? ghost.hp} HP. You fight after day ${RUN_DAYS}.`, 'log-ghost');
   }
-  $('#btn-to-duel').classList.remove('hidden');
+  const btn = $('#btn-to-duel');
+  btn.textContent = finale ? 'FINAL BATTLE' : 'END DAY';
+  btn.classList.remove('hidden');
 }
 
 async function playSlot(ev, cell) {
@@ -684,10 +829,11 @@ async function playPathFight(ev, c) {
   const stage = $('#path-fight-stage');
   stage.classList.remove('hidden');
   const me = duelistEl($('#path-fight-me'), ev.me, {
-    glyph: '🧍', sub: `round ${run.round}`, facing: 'right',
+    glyph: PORTRAIT.player, anim: ANIM.player, sub: `day ${run.round}`, facing: 'right',
   });
   const monster = duelistEl($('#path-fight-them'), ev.monster, {
-    glyph: MONSTER_GLYPH[ev.id] || '❔',
+    glyph: MONSTER_GLYPH[ev.id] || ICON[ev.id] || '❔',
+    anim: ANIM[ev.id],
     sub: `Tier ${c.tier} monster`,
     facing: 'left',
   });
@@ -713,10 +859,11 @@ async function playAmbush(ev, c) {
   stage.classList.remove('hidden');
   stage.classList.add('ambush');
   const me = duelistEl($('#path-fight-me'), ev.me, {
-    glyph: '🧍', sub: 'ambushed', facing: 'right',
+    glyph: PORTRAIT.player, anim: ANIM.player, sub: 'they sent this', facing: 'right',
   });
   const monster = duelistEl($('#path-fight-them'), ev.monster, {
-    glyph: MONSTER_GLYPH[c.id] || '❔',
+    glyph: MONSTER_GLYPH[c.id] || ICON[c.id] || '❔',
+    anim: ANIM[c.id],
     sub: `sent by ${ghost.name}`,
     facing: 'left',
   });
@@ -728,6 +875,39 @@ async function playAmbush(ev, c) {
   });
   await sleep(300);
   stage.classList.remove('ambush');
+  stage.classList.add('hidden');
+}
+
+/**
+ * The rival fighting the monster you sent — same stage as a path fight, but
+ * you are watching, not swinging. Their kit is on the panel so you can see
+ * what they're actually wearing.
+ */
+async function playWatchThem(ev, c) {
+  const stage = $('#path-fight-stage');
+  stage.classList.remove('hidden');
+  stage.classList.add('watch');
+  // Left: the monster you sent. Right: the rival, kit visible.
+  const monster = duelistEl($('#path-fight-me'), ev.monster, {
+    glyph: MONSTER_GLYPH[c.id] || ICON[c.id] || '❔',
+    anim: ANIM[c.id],
+    sub: 'your send',
+    facing: 'right',
+  });
+  const them = duelistEl($('#path-fight-them'), ev.me, {
+    glyph: portraitFor(ghost.archetype),
+    anim: ANIM[ghost.archetype],
+    sub: `${ghost.archetype} · their kit`,
+    facing: 'left',
+  });
+  await sleep(500);
+  await replayLog({
+    side: { a: them, b: monster },
+    fighter: { a: ev.me, b: ev.monster },
+    log: ev.log,
+  });
+  await sleep(300);
+  stage.classList.remove('watch');
   stage.classList.add('hidden');
 }
 
@@ -824,6 +1004,7 @@ async function replayLog({ side, fighter, log, speed = 1 }) {
       // hitting things. A Hunting Bow puts an arrow in flight, a Cave Troll
       // lands a shockwave, a Basilisk bites.
       if (entry.source === 'attack' || entry.source === 'firstStrike') {
+        side[dealer].attack?.();
         target.strike(animFor(fighter[dealer]));
       } else {
         target.effect(entry.source);
@@ -926,6 +1107,51 @@ function burst(cell, kind, count) {
 
 // ---- the duel -------------------------------------------------------------
 
+function afterPath() {
+  if (run.round >= RUN_DAYS) runDuel();
+  else endDay();
+}
+
+function endDay() {
+  audio.click();
+  run = { ...outcome.state };
+  if (outcome.rivalCombat) run.rivalCombat = outcome.rivalCombat;
+  store.uploadGhost(toGhost(run, slots.filter(Boolean).map((s) => s.id)));
+  const day = run.round;
+  const sent = outcome.sendId ? card(outcome.sendId) : null;
+  const theyHp = run.rivalCombat?.hp ?? ghost.hp;
+  const theyMax = run.rivalCombat?.maxHp ?? ghost.maxHp;
+  const youBruised = Boolean(run.bruised);
+  const theyBruised = Boolean(run.rivalCombat?.bruised);
+  run = advanceDay(run);
+  store.saveRun(run);
+
+  $('#result-title').textContent = `DAY ${day} ENDS`;
+  $('#result-title').className = 'result-title';
+  const notes = [];
+  if (sent) notes.push(`${ghost.name} is on ${theyHp}/${theyMax} HP after your ${sent.name}.`);
+  if (youBruised) notes.push("You went down — no heal tomorrow.");
+  if (theyBruised) notes.push("They went down — they won't heal tomorrow.");
+  $('#result-sub').textContent = notes.join(' ') || `${ghost.name} is still out there.`;
+
+  const stats = $('#result-stats');
+  stats.textContent = '';
+  for (const [k, v] of [
+    ['Day', `${day} of ${RUN_DAYS}`],
+    ['Your HP', `${run.hp} / ${run.maxHp}${youBruised ? ' · bruised' : ''}`],
+    ['Their HP', `${theyHp} / ${theyMax}${theyBruised ? ' · bruised' : ''}`],
+    ['ATK', run.atk],
+    ['Gold', run.gold],
+  ]) {
+    const r = el('div', 'stat-row');
+    r.append(el('span', 'stat-key', k), el('span', 'stat-val', String(v)));
+    stats.appendChild(r);
+  }
+  $('#btn-next-round').textContent = 'NEXT DAY';
+  show('result');
+  audio.setStyle('plan');
+}
+
 async function runDuel() {
   audio.click();
   show('duel');
@@ -933,30 +1159,35 @@ async function runDuel() {
   audio.ghostRise();
 
   const s = outcome.state;
-  const result = duel(s, ghost, outcome.cleanPath, {
+  const wounded = {
+    ...ghost,
+    hp: outcome.rivalCombat?.hp ?? run.rivalCombat?.hp ?? ghost.hp,
+    maxHp: outcome.rivalCombat?.maxHp ?? run.rivalCombat?.maxHp ?? ghost.maxHp,
+  };
+  const result = duel(s, wounded, outcome.cleanPath, {
     mine: outcome.secrets,
     theirs: ghost.secrets,
   });
 
-  const isFinal = run.round >= RUN_DAYS;
   const heading = $('#duel-heading');
-  heading.textContent = isFinal
-    ? `DAY ${run.round} — THE LAST DAY`
-    : `DAY ${run.round} OF ${RUN_DAYS}`;
-  heading.classList.toggle('final', isFinal);
+  heading.textContent = 'THE FINAL BATTLE';
+  heading.classList.add('final');
   heading.classList.remove('win', 'loss');
 
   const meSub = result.bonusArmour
     ? `untouched on the path · +${result.bonusArmour} Armour`
-    : `${run.wins}–${run.losses} in the series`;
+    : `day ${RUN_DAYS} · finale`;
 
   // Both fighters are drawn at their *pre-secret* strength, so a secret can be
   // seen taking something off them rather than arriving as a number that was
   // always there.
-  const me = duelistEl($('#duel-me'), result.baseMe, { glyph: '🧍', sub: meSub, facing: 'right' });
+  const me = duelistEl($('#duel-me'), result.baseMe, {
+    glyph: PORTRAIT.player, anim: ANIM.player, sub: meSub, facing: 'right',
+  });
   const them = duelistEl($('#duel-them'), result.baseThem, {
-    glyph: '👻',
-    sub: `day ${run.round} · ${ghost.archetype}`,
+    glyph: portraitFor(ghost.archetype),
+    anim: ANIM[ghost.archetype],
+    sub: `${ghost.archetype} · ${wounded.hp}/${wounded.maxHp} HP`,
     facing: 'left',
   });
 
@@ -1001,15 +1232,15 @@ async function showResult() {
   // Upload the character as a ghost for other players — here, for future runs.
   store.uploadGhost(toGhost(run, slots.filter(Boolean).map((s) => s.id)));
 
-  run = settleRound(run, won);
+  run = settleFinale(run, won);
   store.saveRun(run);
 
   $('#result-title').textContent = won ? 'VICTORY' : 'DEFEAT';
   $('#result-title').className = `result-title ${won ? 'win' : 'loss'}`;
   const rivalName = duelResult.them.name;
   $('#result-sub').textContent = won
-    ? `${rivalName} falls. You lead the series ${run.wins}–${run.losses}.`
-    : `${rivalName} stands over you. ${run.hearts} heart${run.hearts === 1 ? '' : 's'} left.`;
+    ? `${rivalName} falls. The series is yours.`
+    : `${rivalName} stands over you. The run is over.`;
 
   const stats = $('#result-stats');
   stats.textContent = '';
@@ -1018,7 +1249,6 @@ async function showResult() {
     ['HP', `${run.hp} / ${run.maxHp}`],
     ['ATK', run.atk],
     ['Gold', run.gold],
-    ['Hearts', '♥'.repeat(run.hearts) || '—'],
   ];
   for (const [k, v] of rows) {
     const r = el('div', 'stat-row');
@@ -1044,8 +1274,8 @@ function showOver() {
   $('#over-title').textContent = run.completed ? 'SERIES WON' : 'RUN OVER';
   $('#over-title').className = `result-title ${run.completed ? 'win' : 'loss'}`;
   $('#over-sub').textContent = run.completed
-    ? `Five days survived. ${run.name} takes the series ${run.wins}–${run.losses} against ${rivalName}.`
-    : `${rivalName} took it ${run.losses}–${run.wins}. Three hearts spent on day ${run.round}.`;
+    ? `Five days, then the fight. ${run.name} takes the series against ${rivalName}.`
+    : `${rivalName} won the final battle on day ${run.round}.`;
   rival = null;
 
   const stats = $('#over-stats');
@@ -1127,8 +1357,9 @@ function wire() {
     audio.click();
     renderDeck();
   });
+  $('#btn-mulligan-confirm').addEventListener('click', confirmMulligan);
   $('#btn-embark').addEventListener('click', embark);
-  $('#btn-to-duel').addEventListener('click', runDuel);
+  $('#btn-to-duel').addEventListener('click', afterPath);
   $('#btn-duel-result').addEventListener('click', showResult);
   $('#btn-next-round').addEventListener('click', nextRound);
   $('#btn-again').addEventListener('click', () => { audio.click(); startRun(); });

@@ -13,7 +13,7 @@ rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
 
 const files = ['index.html'];
-const dirs = ['css', 'js', 'fonts', 'Music'];
+const dirs = ['css', 'js', 'fonts', 'Music', 'assets'];
 
 for (const f of files) {
   const src = join(root, f);

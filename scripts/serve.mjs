@@ -16,6 +16,8 @@ const TYPES = {
   '.mp3': 'audio/mpeg',
   '.woff2': 'font/woff2',
   '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
 };
@@ -31,4 +33,4 @@ createServer((req, res) => {
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
   }
-}).listen(port, () => console.log(`Ghostwalk on http://localhost:${port}`));
+}).listen(port, () => console.log(`Chronicles on http://localhost:${port}`));

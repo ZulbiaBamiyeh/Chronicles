@@ -4,12 +4,14 @@
 // and calls in.
 
 import { card, cardText, keywordBadges, equipment, counterText, contributionsFor } from './cards.js';
-import { costFor, CAPPED_SLOTS, gearSlotsFor, gearSlotsUsed } from './engine.js';
+import { costFor, CAPPED_SLOTS, gearSlotsFor, gearSlotsUsed, RUN_DAYS } from './engine.js';
+import { ART, PORTRAIT, portraitFor, ANIM, animForId } from './art.js';
 
-// One glyph per card. Emoji rather than 70 pieces of commissioned art is an
-// honest prototype trade: it reads instantly at thumb size on a phone, it costs
-// nothing, and it's the easiest thing in the project to replace later.
-export const ICON = {
+export { PORTRAIT, portraitFor, ANIM, animForId };
+
+// Emoji fallback if a MapleStory sprite is missing. Real art lives in ART
+// (js/art.js) and overwrites these keys below.
+const EMOJI = {
   // monsters
   field_mouse: '🐭', sewer_rat: '🐀', wild_boar: '🐗', goblin_scrapper: '👺',
   giant_spider: '🕷️', bandit_lookout: '🥷', bog_toad: '🐸', skeleton_picket: '💀',
@@ -63,15 +65,10 @@ export const ICON = {
   sentinel_plate: '🗿', sentinel_spikes: '🦔',
 };
 
+export const ICON = { ...EMOJI, ...ART };
+
 /** One monster glyph per fighting card, for the path-fight stage. */
-export const MONSTER_GLYPH = {
-  field_mouse: '🐭', sewer_rat: '🐀', wild_boar: '🐗', goblin_scrapper: '👺',
-  giant_spider: '🕷️', bandit_lookout: '🥷', bog_toad: '🐸', skeleton_picket: '💀',
-  feral_hound: '🐺', cave_troll: '🧌', marsh_wraith: '🌫️', bandit_captain: '🪖',
-  iron_golem: '⚙️', ogre_brute: '👹', wyvern_hatchling: '🥚', thornback_boar: '🦔',
-  hill_giant: '🏔️', basilisk: '🐍', stone_warden: '🗿', chimera: '🦁',
-  elder_wyrm: '🐉', flame_imp: '😈',
-};
+export const MONSTER_GLYPH = ICON;
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -98,6 +95,11 @@ function glyphEl(cls, glyph, alt = '') {
     img.src = glyph;
     img.alt = alt;
     img.loading = 'lazy';
+    img.decoding = 'async';
+    img.onerror = () => {
+      const id = String(glyph).replace(/^.*\//, '').replace(/\.\w+(\?.*)?$/, '');
+      img.replaceWith(el('span', cls, EMOJI[id] || '❔'));
+    };
     return img;
   }
   return el('span', cls, glyph);
@@ -120,7 +122,7 @@ const TYPE_LABEL = { monster: 'Monster', gear: 'Gear', ally: 'Ally', place: 'Pla
 export function cardEl(id, opts = {}) {
   const c = card(id);
   const size = opts.size || 'hand';
-  const node = el('div', `card card-${c.type} tier-${c.tier} card-${size}${c.curse ? ' card-curse' : ''}`);
+  const node = el('div', `card card-${c.type} tier-${c.tier} card-${size}${c.curse ? ' card-curse' : ''}${c.raid ? ' card-raid' : ''}`);
   node.dataset.id = id;
 
   // ATK and HP/Armour sit as badges on the shoulders of the art frame, the
@@ -134,12 +136,13 @@ export function cardEl(id, opts = {}) {
   // A weapon prints its durability right on the ATK badge, ATK/uses — the
   // same notation Chronicle itself used (e.g. a 5/3 blade), so "how many
   // fights does this actually last" is legible without opening anything.
-  if (atkVal) node.appendChild(badge('atk', '⚔', c.durability ? `${atkVal}/${c.durability}` : atkVal));
-  if (defVal) node.appendChild(badge(c.type === 'monster' ? 'hp' : 'def', c.type === 'monster' ? '♥' : '🛡', defVal));
+  if (atkVal) node.appendChild(badge('atk', 'ATK', c.durability ? `${atkVal}/${c.durability}` : atkVal));
+  if (defVal) node.appendChild(badge(c.type === 'monster' ? 'hp' : 'def', c.type === 'monster' ? 'HP' : 'ARM', defVal));
 
   const frame = el('div', 'card-frame');
   const art = el('div', 'card-art');
-  art.appendChild(glyphEl('card-art-glyph', ICON[id] || '❔', c.name));
+  const artSrc = (c.type === 'monster' && ANIM[id]?.stand) || ICON[id] || '❔';
+  art.appendChild(glyphEl('card-art-glyph', artSrc, c.name));
   frame.appendChild(art);
   node.appendChild(frame);
 
@@ -149,7 +152,7 @@ export function cardEl(id, opts = {}) {
   // A curse reads as a different kind of card at a glance — the type line
   // says so in words, since the border/glow treatment alone (card-curse,
   // see style.css) doesn't survive a screen reader or a colourblind eye.
-  node.appendChild(el('div', 'card-type', c.curse ? 'Cursed' : (TYPE_LABEL[c.type] || c.type)));
+  node.appendChild(el('div', 'card-type', c.curse ? 'Cursed' : c.raid ? 'Raid' : (TYPE_LABEL[c.type] || c.type)));
 
   const kws = keywordBadges(c.kw || c.fx || {});
   if (kws.length) {
@@ -188,9 +191,9 @@ export function cardEl(id, opts = {}) {
   return node;
 }
 
-function badge(kind, icon, value) {
+function badge(kind, label, value) {
   const b = el('div', `card-badge badge-${kind}`);
-  b.appendChild(el('span', 'badge-icon', icon));
+  b.appendChild(el('span', 'badge-lab', label));
   b.appendChild(el('span', 'badge-value', String(value)));
   return b;
 }
@@ -202,18 +205,13 @@ const KW_LABEL = {
 };
 
 export function renderHud(run, tierLabel) {
-  $('#hud-round').textContent = `ROUND ${run.round} · ${tierLabel}`;
-
-  const hearts = $('#hud-hearts');
-  hearts.textContent = '';
-  for (let i = 0; i < 3; i++) {
-    hearts.appendChild(el('span', `heart${i < run.hearts ? '' : ' spent'}`, '♥'));
-  }
+  $('#hud-round').textContent = `DAY ${run.round} / ${RUN_DAYS} · ${tierLabel}`;
 
   const wins = $('#hud-wins');
   wins.textContent = '';
-  for (let i = 0; i < 5; i++) {
-    wins.appendChild(el('span', `pip${i < run.wins ? ' won' : ''}`));
+  const daysDone = run.over ? RUN_DAYS : Math.max(0, run.round - 1);
+  for (let i = 0; i < RUN_DAYS; i++) {
+    wins.appendChild(el('span', `pip${i < daysDone ? ' won' : ''}`));
   }
 
   const pct = Math.max(0, Math.min(100, (run.hp / run.maxHp) * 100));
@@ -259,17 +257,18 @@ function renderGearStrip(mount, gear, durability = {}) {
     .filter(({ item }) => item);
   mount.classList.toggle('hidden', !items.length);
   if (!items.length) return;
+  mount.appendChild(el('div', 'rival-kit-label', 'EQUIPPED'));
   for (const { slot, item } of items) {
-    const chip = el('span', `gear-chip gear-${slot.kind}`);
-    chip.appendChild(glyphEl('gear-chip-icon', ICON[item.id] || slot.icon, item.name));
-    chip.appendChild(el('span', 'gear-chip-name', item.name));
-    let title = `${item.name} — ${cardText(item)}`;
+    const chip = el('span', `kit-item kit-${slot.kind}`);
+    chip.appendChild(glyphEl('kit-item-icon', ICON[item.id] || slot.icon, item.name));
+    chip.appendChild(el('span', 'kit-item-name', item.name));
+    let extra = slot.label;
     if (item.durability) {
       const left = durability[item.id] ?? item.durability;
-      chip.appendChild(el('span', 'gear-chip-dur', `${left}/${item.durability}`));
-      title += ` (${left} of ${item.durability} uses left)`;
+      chip.appendChild(el('span', 'kit-item-dur', `${left}/${item.durability}`));
+      extra += ` · ${left} of ${item.durability} uses left`;
     }
-    chip.title = title;
+    bindItemTip(chip, item, extra);
     mount.appendChild(chip);
   }
 }
@@ -333,6 +332,32 @@ window.addEventListener('scroll', closeTip, true);
 
 let tipSeq = 0;
 
+function bindItemTip(anchor, item, extra = '') {
+  if (!item) return;
+  anchor.dataset.tipId = `t${++tipSeq}`;
+  const key = `${item.id}-${anchor.dataset.tipId}`;
+  const build = (tip) => {
+    const head = el('div', 'equip-tip-head');
+    head.appendChild(glyphEl('equip-tip-art', ICON[item.id] || '❔', item.name));
+    const titles = el('div');
+    titles.appendChild(el('div', 'equip-tip-title', item.name));
+    titles.appendChild(el('div', 'equip-tip-empty', extra || item.type || ''));
+    head.appendChild(titles);
+    tip.appendChild(head);
+    tip.appendChild(el('div', 'equip-tip-text', cardText(item)));
+  };
+  if (CAN_HOVER) {
+    anchor.addEventListener('mouseenter', () => showTip(anchor, key, build));
+    anchor.addEventListener('mouseleave', closeTip);
+  } else {
+    anchor.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (openTip?.dataset.anchor === anchor.dataset.tipId) closeTip();
+      else showTip(anchor, key, build);
+    });
+  }
+}
+
 /**
  * The breakdown popover for one equip slot: the total, then every owned
  * card actually contributing to it, each with its own amount — "Armour 4"
@@ -341,9 +366,20 @@ let tipSeq = 0;
  * summed into one remainder line rather than guessed at item by item.
  */
 function buildTipContent(tip, fighter, slot, value, item) {
-  tip.appendChild(el('div', 'equip-tip-title', slot.key === 'firstStrike' ? slot.label : `${slot.label} ${value ?? 0}`));
+  if (item) {
+    const head = el('div', 'equip-tip-head');
+    head.appendChild(glyphEl('equip-tip-art', ICON[item.id] || slot.icon, item.name));
+    const titles = el('div');
+    titles.appendChild(el('div', 'equip-tip-title', item.name));
+    titles.appendChild(el('div', 'equip-tip-empty', slot.key === 'firstStrike' ? slot.label : `${slot.label} ${value ?? 0}`));
+    head.appendChild(titles);
+    tip.appendChild(head);
+    tip.appendChild(el('div', 'equip-tip-text', cardText(item)));
+  } else {
+    tip.appendChild(el('div', 'equip-tip-title', slot.key === 'firstStrike' ? slot.label : `${slot.label} ${value ?? 0}`));
+  }
   if (!value && slot.key !== 'atk') {
-    tip.appendChild(el('div', 'equip-tip-empty', `No ${slot.label}`));
+    if (!item) tip.appendChild(el('div', 'equip-tip-empty', `No ${slot.label}`));
     return;
   }
   if (slot.key === 'firstStrike') {
@@ -467,62 +503,57 @@ const KW_SHORT = {
 export function rivalPanel(mount, info, series) {
   mount.textContent = '';
 
-  // Say what this panel is. It shows a character you have never met, drawn
-  // from a bucket, who you will fight at the end of today's path — without a
-  // line saying so it reads as a second copy of your own statline sitting
-  // inexplicably beside your hand.
   const title = el('div', 'rival-title');
-  title.appendChild(el('span', 'rival-title-label', "TODAY'S RIVAL"));
-  title.appendChild(el('span', 'rival-title-note', 'you duel them after the path'));
+  title.appendChild(el('span', 'rival-title-label', 'THE RIVAL'));
+  title.appendChild(el('span', 'rival-title-note',
+    info.day >= 5 ? 'you fight them after this path' : `day ${info.day} of ${series.days} · fight after day 5`));
   mount.appendChild(title);
 
-  const head = el('div', 'rival-head');
-  head.appendChild(el('span', 'rival-glyph', '👻'));
-  const id = el('div', 'rival-id');
-  id.appendChild(el('div', 'rival-name', info.name));
-  id.appendChild(el('div', 'rival-arch', `${info.archetype} · day ${info.day} of ${series.days}`));
-  head.appendChild(id);
+  const sheet = el('div', 'rival-sheet');
+  const portrait = el('div', 'rival-portrait');
+  const idle = ANIM[info.archetype]?.stand || portraitFor(info.archetype);
+  portrait.appendChild(glyphEl('rival-glyph', idle, info.name));
+  sheet.appendChild(portrait);
 
-  // The series score, so "how am I doing against this person" is always on
-  // screen rather than something you reconstruct from the heart count.
-  const score = el('div', 'rival-score');
-  score.appendChild(el('b', 'score-me', String(series.wins)));
-  score.appendChild(el('span', 'score-sep', '–'));
-  score.appendChild(el('b', 'score-them', String(series.losses)));
-  head.appendChild(score);
-  mount.appendChild(head);
+  const body = el('div', 'rival-body');
+  body.appendChild(el('div', 'rival-name', info.name));
+  body.appendChild(el('div', 'rival-arch', info.archetype));
+
+  const bar = el('div', 'hpbar hpbar-rival');
+  const fill = el('div', 'hpbar-fill');
+  const pct = Math.max(0, Math.min(100, (info.hp / info.maxHp) * 100));
+  fill.style.width = `${pct}%`;
+  fill.classList.toggle('low', pct <= 30);
+  bar.append(fill, el('span', 'hpbar-text', `${info.hp} / ${info.maxHp}`));
+  body.appendChild(bar);
 
   const stats = el('div', 'rival-stats');
   stats.appendChild(statChip('ATK', info.atk, 'atk'));
-  stats.appendChild(statChip('HP', `${info.hp}/${info.maxHp}`, 'hp'));
   for (const [k, label] of Object.entries(KW_SHORT)) {
     if (info.keywords[k]) stats.appendChild(statChip(label, info.keywords[k], k));
   }
-  if (info.keywords.firstStrike) stats.appendChild(statChip('FIRST', '', 'first'));
-  mount.appendChild(stats);
+  if (info.keywords.firstStrike) stats.appendChild(statChip('1ST', '', 'first'));
+  body.appendChild(stats);
+  sheet.appendChild(body);
+  mount.appendChild(sheet);
 
-  // What they're carrying, so a counter can be read off the kit as well as
-  // the numbers.
   if (info.inventory.length) {
     const kit = el('div', 'rival-kit');
+    kit.appendChild(el('div', 'rival-kit-label', 'EQUIPPED'));
     for (const itemId of info.inventory) {
       const c = card(itemId);
       if (!c) continue;
-      // Named, not just a glyph. Reading a counter off the kit is the whole
-      // reason it's shown, and a row of unlabelled icons is a puzzle rather
-      // than intel — you can't decide whether Rust Powder is worth a slot from
-      // a shape you can't identify.
       const chip = el('span', 'kit-item');
       chip.appendChild(glyphEl('kit-item-icon', ICON[itemId] || '❔', c.name));
       chip.appendChild(el('span', 'kit-item-name', c.name));
-      chip.title = `${c.name} — ${cardText(c)}`;
+      bindItemTip(chip, c);
       kit.appendChild(chip);
     }
     mount.appendChild(kit);
   }
 
+  mount.appendChild(invasionRow(info));
   mount.appendChild(secretRow(info));
-  if (info.hasInvasion) mount.appendChild(invasionRow(info));
   return mount;
 }
 
@@ -533,12 +564,19 @@ export function rivalPanel(mount, info, series) {
  */
 function invasionRow(info) {
   const row = el('div', `rival-invasion${info.invasion ? ' known' : ''}`);
-  row.appendChild(el('span', 'invasion-icon', '⚔'));
+  row.appendChild(el('div', 'rival-kit-label', 'THEY SEND AT YOU'));
   if (info.invasion) {
     const c = card(info.invasion);
-    row.appendChild(el('span', 'invasion-label', `Sends ${c.name} today`));
-  } else {
-    row.appendChild(el('span', 'invasion-label', 'Something will ambush your path today'));
+    const body = el('div', 'rival-send');
+    body.appendChild(glyphEl('invasion-icon', (ANIM[c.id]?.stand) || ICON[c.id] || '?', c.name));
+    const meta = el('div', 'rival-send-meta');
+    meta.appendChild(el('div', 'rival-send-name', c.name));
+    meta.appendChild(el('div', 'rival-send-stats', `ATK ${c.atk} · HP ${c.hp}`));
+    body.appendChild(meta);
+    bindItemTip(body, c, `ATK ${c.atk} · HP ${c.hp}`);
+    row.appendChild(body);
+  } else if (info.hasInvasion) {
+    row.appendChild(el('div', 'rival-send unknown', 'Hidden — scout to reveal'));
   }
   return row;
 }
@@ -558,7 +596,7 @@ function secretRow(info) {
       const chip = el('span', 'secret-chip known');
       chip.appendChild(glyphEl('secret-chip-icon', ICON[id] || '❔', c.name));
       chip.appendChild(document.createTextNode(` ${c.name}`));
-      chip.title = `You: ${counterText(c.counter)}`;
+      bindItemTip(chip, c, `On them: ${counterText(c.counter)}`);
       row.appendChild(chip);
     }
     return row;
@@ -568,7 +606,7 @@ function secretRow(info) {
     `${info.secretCount} secret${info.secretCount === 1 ? '' : 's'} laid`));
   for (let i = 0; i < info.secretCount; i++) {
     const chip = el('span', 'secret-chip unknown', '?');
-    chip.title = 'Play a Watchtower to reveal';
+    chip.title = 'Play Orbis Tower to reveal';
     row.appendChild(chip);
   }
   return row;
@@ -592,10 +630,12 @@ const EFFECT_GLYPH = {
 // duel screen and, identically, for a path monster fight — same component,
 // same clarity, because §4's whole premise is that path and duel share one
 // resolver, so they should share one presentation too.
-export function duelistEl(mount, fighter, { glyph, sub, facing = 'right' }) {
+export function duelistEl(mount, fighter, { glyph, sub, facing = 'right', anim = null }) {
   mount.textContent = '';
   const portrait = el('div', 'duelist-portrait');
-  portrait.appendChild(glyphEl('duelist-glyph', glyph, fighter.name));
+  const standSrc = anim?.stand || glyph;
+  const attackSrc = anim?.attack;
+  portrait.appendChild(glyphEl('duelist-glyph', standSrc, fighter.name));
   // Every blow, status tick and pickup animation is drawn into this layer,
   // over the portrait of whoever it happened to.
   const fx = el('div', 'fx-layer');
@@ -617,7 +657,7 @@ export function duelistEl(mount, fighter, { glyph, sub, facing = 'right' }) {
 
   const spawn = (cls, ttl, build) => {
     const n = el('div', cls);
-    n.dataset.from = facing === 'right' ? 'left' : 'right';
+    n.dataset.from = facing;
     if (build) build(n);
     fx.appendChild(n);
     setTimeout(() => n.remove(), ttl);
@@ -640,6 +680,14 @@ export function duelistEl(mount, fighter, { glyph, sub, facing = 'right' }) {
           n.appendChild(el('span', 'strike-mark'));
         }
       });
+    },
+    /** Play this fighter's MapleStory attack GIF, then return to stand. */
+    attack() {
+      const node = portrait.querySelector('img.duelist-glyph');
+      if (!node || !attackSrc) return;
+      node.src = `${attackSrc}?t=${Date.now()}`;
+      clearTimeout(node._atkTimer);
+      node._atkTimer = setTimeout(() => { node.src = standSrc; }, 720);
     },
     /** A status effect ticking on this fighter: poison, thorns, rally, heal, gold. */
     effect(kind) {

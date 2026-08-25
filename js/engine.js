@@ -18,7 +18,7 @@ import { card, DEAL_POOL, MONSTERS, weaponAtk, equipment } from './cards.js';
 // the deckbuilder's floor (§ js/deck.js MIN_MONSTERS) isn't decoration — a
 // deck that couldn't reach gold on day one would be unplayable from turn one,
 // not just weak.
-export const START = { hp: 20, maxHp: 20, atk: 2, gold: 0, hearts: 3 };
+export const START = { hp: 20, maxHp: 20, atk: 2, gold: 0 };
 /** A run is five days against one rival — see js/rival.js. */
 export const RUN_DAYS = 5;
 export const WINS_TO_COMPLETE = RUN_DAYS;
@@ -249,7 +249,6 @@ export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer'
     maxHp: START.maxHp,
     atk: START.atk,
     gold: START.gold,
-    hearts: START.hearts,
     kw: { armour: 0, thorns: 0, poison: 0, rally: 0, firstStrike: false },
     // Every gear and ally card actually bought, in the order they were bought.
     // The rules never read this directly — stats are what the rules care
@@ -271,6 +270,7 @@ export function newRun(seed = (Math.random() * 2 ** 32) >>> 0, name = 'Wanderer'
     hand: [],
     seenCards: [],
     mulligansLeft: MULLIGAN_LIMIT,
+    mulliganDone: false,
     perks: { healPerKill: 0, gearDiscount: 0, cleanPathArmour: 0, roundStart: {} },
     // Marks that this round's upkeep (the between-rounds heal and every
     // recurring ally) has already been applied, so resuming a save mid-round
@@ -289,7 +289,7 @@ export function tiersForRound(round) {
   return [2, 3];
 }
 
-export const MIN_HAND_MONSTERS = 2;
+export const MIN_HAND_MONSTERS = 3;
 export const MIN_HAND_SPENDABLE = 1;
 /**
  * Every day opens on a full hand: whatever you didn't play carries over, and
@@ -310,11 +310,12 @@ export const MULLIGAN_LIMIT = 3;
 
 /**
  * Draws `count` new cards from the tiers a day allows, topping up whatever the
- * hand is short of — at least two monsters (so gold is always reachable) and
- * at least one gear or place (so gold is always spendable). `already` is what
- * the hand already has of each, so refilling on top of a hand that's still
- * holding two monsters doesn't force a third: the floor is a property of the
- * whole hand across the run, not a rule about any one draw.
+ * hand is short of — at least three monsters (gold from fights, plus one to
+ * send at the rival) and at least one gear or place (so gold is always
+ * spendable). `already` is what the hand already has of each, so refilling
+ * on top of a hand that's still holding three monsters doesn't force a
+ * fourth: the floor is a property of the whole hand across the run, not a
+ * rule about any one draw.
  *
  * A hand can come back short of `count` if the tier's pool has run dry — a
  * 10-card tier deck drawn from on three separate days can empty out — and
@@ -412,11 +413,40 @@ export function mulligan(run, cardId, r) {
   };
 }
 
-/** Start-of-round upkeep: heal 50% of max, then apply every recurring ally. */
+/**
+ * Hearthstone-style mulligan: mark any number of opening-hand indexes and
+ * replace them all at once. One confirm, then the phase is over.
+ */
+export function mulliganHand(run, indexes, r) {
+  if (run.round > 1 || run.mulliganDone) return run;
+  const seen = new Set(run.seenCards || []);
+  const hand = [...(run.hand || [])];
+  const unique = [...new Set(indexes)].filter((i) => i >= 0 && i < hand.length).sort((a, b) => a - b);
+  for (const i of unique) {
+    const [fresh] = drawCards(tiersForRound(run.round), run.deck, seen, r, 1, { monsters: 99, spendable: 99 });
+    if (!fresh) continue;
+    seen.add(fresh);
+    hand[i] = fresh;
+  }
+  return {
+    ...run,
+    hand,
+    seenCards: [...seen],
+    mulliganDone: true,
+    mulligansLeft: 0,
+  };
+}
+
+/** Start-of-round upkeep: heal 50% of max, then apply every recurring ally.
+ *  Going down to a sent monster sets `bruised` and skips this heal — that's
+ *  the setback, so a loss actually shows up on the next day's HP bar. */
 export function startRound(run) {
   if (run.upkeepDone) return run;
   const s = { ...run, kw: { ...run.kw }, upkeepDone: true };
-  if (s.round > 1) s.hp = Math.min(s.maxHp, s.hp + Math.ceil(s.maxHp / 2));
+  if (s.round > 1) {
+    if (s.bruised) s.bruised = false;
+    else s.hp = Math.min(s.maxHp, s.hp + Math.ceil(s.maxHp / 2));
+  }
   const rs = s.perks.roundStart || {};
   if (rs.gold) s.gold += rs.gold;
   if (rs.atk) s.atk += rs.atk;
@@ -490,12 +520,7 @@ function wearWeapon(s, log) {
  *
  * @returns {object} everything a `fight` event needs to animate and summarise
  */
-function fightMonster(s, c) {
-  const me = playerFighter(s);
-  const monster = monsterFighter(c);
-  const fight = resolveCombat(me, monster, { floorA: true });
-  const before = s.hp;
-  s.hp = fight.a.hp;
+function applyKillLoot(s, c) {
   s.gold += c.gold;
   if (c.trophy) applyFx(s, c.trophy);
   const dropped = c.drop ? card(c.drop) : null;
@@ -506,34 +531,150 @@ function fightMonster(s, c) {
     if (isWeapon && dropped.durability) s.durability[dropped.id] = dropped.durability;
   }
   if (s.perks.healPerKill) s.hp = Math.min(s.maxHp, s.hp + s.perks.healPerKill);
+  return dropped ? dropped.id : null;
+}
+
+function fightMonster(s, c) {
+  const me = playerFighter(s);
+  const monster = monsterFighter(c);
+  const fight = resolveCombat(me, monster, { floorA: true });
+  const before = s.hp;
+  s.hp = fight.a.hp;
+  const dropId = applyKillLoot(s, c);
   wearWeapon(s, fight.log);
   return {
     damage: before - s.hp, exchanges: fight.exchanges, gold: c.gold,
-    trophy: c.trophy || null, drop: dropped ? dropped.id : null,
-    me, monster, log: fight.log,
+    trophy: c.trophy || null, drop: dropId,
+    me, monster, log: fight.log, killed: true, down: false,
   };
 }
 
 /**
- * A rival's invasion: one monster, forced onto the player's path after the
- * four planned slots resolve and before the duel. Not a card either side
- * played — a consequence of who you're matched against, the same way a real
- * opponent's build affects you whether or not you have an answer for it.
- * Uses the player's stats *as they stood after the path*, so an invasion
- * genuinely costs something if the path already left them hurt.
+ * Spend one card out of the persisted hand without resolving it as a path
+ * slot — used for the monster you send at the rival. Same as a path play:
+ * it's gone from the hand whether the fight goes well or not.
+ */
+export function spendCard(run, id) {
+  const hand = [...(run.hand || [])];
+  const at = hand.indexOf(id);
+  if (at >= 0) hand.splice(at, 1);
+  return { ...run, hand };
+}
+
+/**
+ * A fighter (you, or the rival) vs a monster someone sent at them. No floor:
+ * going down is a real loss — you survive at 1 HP and skip tomorrow's heal.
+ * Killing the monster is a real win. The two are independent, so a dying
+ * blow that also drops the monster still pays.
+ *
+ * @param {Fighter} fighter
+ * @param {string} monsterId
+ */
+export function resolveSendFight(fighter, monsterId) {
+  const c = card(monsterId);
+  const monster = monsterFighter(c);
+  const fight = resolveCombat(fighter, monster);
+  const killed = fight.b.hp <= 0;
+  const down = fight.a.hp <= 0;
+  const hp = down ? 1 : fight.a.hp;
+  return {
+    fighter: { ...fighter, hp },
+    killed,
+    down,
+    bruised: down,
+    event: {
+      kind: 'fight',
+      id: c.id,
+      damage: Math.max(0, fighter.hp - hp),
+      exchanges: fight.exchanges,
+      gold: 0,
+      trophy: null,
+      drop: null,
+      me: { ...fighter },
+      monster,
+      log: fight.log,
+      killed,
+      down,
+    },
+    damage: Math.max(0, fighter.hp - hp),
+  };
+}
+
+/**
+ * Days 1–4 have no duel. The path and the two send-fights are the day;
+ * this just walks the calendar forward.
+ */
+export function advanceDay(run) {
+  const s = { ...run, kw: { ...run.kw }, upkeepDone: false };
+  if (s.round < RUN_DAYS) s.round++;
+  return s;
+}
+
+/**
+ * The only fight that can end the run: you vs them, after day five.
+ * Win takes the series; lose ends it.
+ */
+export function settleFinale(run, won) {
+  const s = { ...run, kw: { ...run.kw }, upkeepDone: false };
+  if (won) {
+    s.wins++;
+    s.gold += duelReward(s.round);
+    s.completed = true;
+  } else {
+    s.losses++;
+    s.completed = false;
+  }
+  s.over = true;
+  return s;
+}
+
+/**
+ * The monster the rival sent at you. Unlike a path fight, this one can
+ * actually be lost: no HP floor while it resolves. Kill it and you take its
+ * gold, trophy, and drop. Go down and you survive at 1 HP with no spoils,
+ * and tomorrow's half-max heal is skipped (`bruised`).
  *
  * @param {object} run  the post-path state (resolvePath's `out.state`)
  * @param {string} monsterId
  */
 export function resolveAmbush(run, monsterId) {
   const c = card(monsterId);
-  const s = { ...run, kw: { ...run.kw }, gear: [...(run.gear || [])] };
+  const s = {
+    ...run,
+    kw: { ...run.kw },
+    gear: [...(run.gear || [])],
+    durability: { ...(run.durability || {}) },
+  };
   const startHp = s.hp;
-  const result = fightMonster(s, c);
+  const me = playerFighter(s);
+  const monster = monsterFighter(c);
+  const fight = resolveCombat(me, monster);
+  const killed = fight.b.hp <= 0;
+  const down = fight.a.hp <= 0;
+  s.hp = down ? 1 : fight.a.hp;
+  let dropId = null;
+  if (killed) dropId = applyKillLoot(s, c);
+  else s.bruised = true;
+  if (down) {
+    s.bruised = true;
+    s.hp = 1;
+  }
+  wearWeapon(s, fight.log);
   return {
     state: s,
-    event: { kind: 'fight', id: c.id, ...result },
+    event: {
+      kind: 'fight', id: c.id,
+      damage: Math.max(0, startHp - s.hp),
+      exchanges: fight.exchanges,
+      gold: killed ? c.gold : 0,
+      trophy: killed ? (c.trophy || null) : null,
+      drop: dropId,
+      me, monster, log: fight.log,
+      killed, down,
+    },
     damage: Math.max(0, startHp - s.hp),
+    killed,
+    down,
   };
 }
 
@@ -579,7 +720,7 @@ export function resolvePath(run, slots) {
 
     // What a `dyn` card gets to read. The path-local fields (slot, neighbours,
     // monstersDefeated) are what make ordering a puzzle; the character fields
-    // (kw, atk, maxHp, gear, heartsLost) are what let a card pay off an
+    // (kw, atk, maxHp, gear) are what let a card pay off an
     // investment you've been making all run. A card that can only read its own
     // printed numbers can never be part of a build — it's the same card in
     // every deck, on every day, for every player. These are the hooks that let
@@ -603,7 +744,6 @@ export function resolvePath(run, slots) {
       maxHp: s.maxHp,
       gear: [...s.gear],
       durability: { ...s.durability },
-      heartsLost: START.hearts - s.hearts,
       round: s.round,
     };
 
@@ -707,7 +847,15 @@ export function playerFighter(s, bonusArmour = 0) {
 }
 
 export function monsterFighter(c) {
-  return { name: c.name, hp: c.hp, maxHp: c.hp, atk: c.atk, ...(c.kw || {}), anim: c.anim };
+  const kw = c.kw || {};
+  return {
+    name: c.name,
+    hp: c.hp,
+    maxHp: c.hp,
+    atk: c.atk,
+    ...kw,
+    anim: c.anim,
+  };
 }
 
 export function ghostFighter(g) {
@@ -759,7 +907,7 @@ export function applySecrets(fighter, secretIds = []) {
 
 /**
  * The duel. Damage taken on the path carries in, so a greedy path is a real
- * cost. Only this fight can take a heart.
+ * cost. After day five this is the only fight that decides the run.
  *
  * Secrets fire before the first exchange — yours onto them, theirs onto you —
  * which is why they're worth a path slot despite doing nothing for your own
@@ -805,31 +953,24 @@ export function duel(s, ghost, cleanPath, secrets = {}) {
 export const duelReward = (day) => 4 + 2 * Math.min(RUN_DAYS, Math.max(1, day));
 
 /**
- * Applies the duel result: bank a win, or lose a heart.
- *
- * A run is a five-day series against one rival. Three losses ends it there and
- * then — they beat you, and there's no point playing out days you can't win
- * back. Otherwise the run goes the distance and finishing day five *is*
- * completing it: surviving all five days means at most two losses against at
- * least three wins, so reaching the end with a heart left is already having
- * won the series. That keeps the last day genuinely decisive without making
- * the first four free — every day can still take a heart.
+ * Legacy helper used by tests: bank a win or a loss and walk the calendar.
+ * The live game ends a run only through settleFinale — the player-vs-player
+ * fight after day five. Losing a day no longer ends the run.
  */
 export function settleRound(run, won) {
   const s = { ...run, kw: { ...run.kw }, upkeepDone: false };
   if (won) {
     s.wins++;
-    // Taking a day off your rival pays, and pays more the deeper into the
-    // series you are. Without this the duel is pure downside — a heart to
-    // lose and nothing to gain — while the rival's secrets are a standing tax
-    // on you from day two. Winning has to buy something back, and gold is the
-    // right currency: it's spent on the next day's path, so a day you won
-    // makes the next one easier to plan rather than simply not hurting.
     s.gold += duelReward(s.round);
-  } else { s.losses++; s.hearts--; }
-  if (s.hearts <= 0) { s.over = true; s.completed = false; }
-  else if (s.round >= RUN_DAYS) { s.over = true; s.completed = true; }
-  else s.round++;
+  } else {
+    s.losses++;
+  }
+  if (s.round >= RUN_DAYS) {
+    s.over = true;
+    s.completed = Boolean(won);
+  } else {
+    s.round++;
+  }
   return s;
 }
 

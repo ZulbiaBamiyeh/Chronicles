@@ -40,16 +40,24 @@ export { RUN_DAYS };
 const secretsOnDay = (day) => (day <= 1 ? 0 : day >= RUN_DAYS ? 2 : 1);
 
 /**
- * Whether the rival ambushes the player's path on a given day.
- *
- * Pulled from live play: turned off entirely for now, pending a UI and
- * balance pass — see README.md's "Invasion, on hold" note. The engine side
- * (resolveAmbush, pickInvasion, the reveal gate in intel()) is untouched and
- * still fully correct; this is the single switch that keeps it out of an
- * actual run without deleting or half-finishing any of that work. Flip it
- * back to `day > 1` to re-enable the original day-two-through-five rhythm.
+ * The rival always sends a monster — that's their fifth card, the one they
+ * play *at you*. Revealed only if you scout, same as secrets.
  */
-export const hasInvasion = (_day) => false;
+export const hasInvasion = (_day) => true;
+
+/**
+ * Carry the rival's HP across days the same way the player's is: grow with
+ * their snapshot's max HP, then heal half between days. `combat` is null on
+ * day one (use the snapshot as-is).
+ */
+export function tickRivalHp(combat, snap) {
+  if (!combat) return { hp: snap.hp, maxHp: snap.maxHp, bruised: false };
+  let hp = combat.hp;
+  const grew = Math.max(0, snap.maxHp - combat.maxHp);
+  if (grew) hp += grew;
+  if (!combat.bruised) hp = Math.min(snap.maxHp, hp + Math.ceil(snap.maxHp / 2));
+  return { hp: Math.max(1, hp), maxHp: snap.maxHp, bruised: false };
+}
 
 /**
  * Generate a rival's whole run: one build per day, each with the secrets they
@@ -137,15 +145,24 @@ function pickSecrets(day, count, r) {
  * leaning toward whichever one carries the rival's own archetype keyword, so
  * beating it feels like it was actually sent by *this* rival.
  */
+function sendThreat(m) {
+  return (m.atk || 0) * (m.hp || 0) + (m.kw?.poison || 0) * 10 + (m.kw?.armour || 0) * 6;
+}
+
 function pickInvasion(day, archetype, r) {
   const tiers = tiersForRound(day);
   const pool = MONSTERS.filter((m) => tiers.includes(m.tier));
   if (!pool.length) return null;
+  const raids = pool.filter((m) => m.raid);
   const flavor = INVASION_FLAVOR[archetype];
-  const themed = flavor === 'firstStrike'
-    ? pool.filter((m) => m.kw.firstStrike)
-    : pool.filter((m) => m.kw[flavor]);
-  return pick(themed.length ? themed : pool, r).id;
+  const themed = (raids.length ? raids : pool).filter((m) => {
+    const kw = m.kw || {};
+    return flavor === 'firstStrike' ? kw.firstStrike : kw[flavor];
+  });
+  const from = themed.length ? themed : (raids.length ? raids : pool);
+  const ranked = from.slice().sort((a, b) => sendThreat(b) - sendThreat(a));
+  const top = ranked.slice(0, Math.max(2, Math.ceil(ranked.length / 3)));
+  return pick(top, r).id;
 }
 
 /** Deterministic per-day seed, so day N is always the same character. */

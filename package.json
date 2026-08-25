@@ -2,7 +2,7 @@
   "name": "ghostwalk",
   "version": "0.1.0",
   "private": true,
-  "description": "An async PvP path-builder for one thumb. Deal six cards, place four into a path, walk it, then duel a ghost — a snapshot of another character from the same point in their run.",
+  "description": "An async PvP path-builder. Deal six cards, place four on your path, send a monster at your rival. After five days, you fight them.",
   "type": "module",
   "scripts": {
     "test": "node test/engine.mjs",
@@ -11,7 +11,8 @@
     "card-coverage": "node tools/card-coverage.mjs",
     "build:www": "node scripts/build-www.mjs",
     "android:sync": "npm run build:www && npx cap sync android",
-    "serve": "node scripts/serve.mjs"
+    "serve": "node scripts/serve.mjs",
+    "assets": "node tools/pull-assets.mjs"
   },
   "repository": {
     "type": "git",

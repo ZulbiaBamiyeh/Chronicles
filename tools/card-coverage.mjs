@@ -6,10 +6,11 @@
 //   node tools/card-coverage.mjs [runs]
 
 import {
-  newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand, resolveAmbush,
+  newRun, startRound, settleFinale, advanceDay, rng, refillHand, RUN_DAYS,
 } from '../js/engine.js';
 import { ALL_CARDS } from '../js/cards.js';
-import { drawRival, rivalOnDay } from '../js/rival.js';
+import { drawRival, rivalOnDay, tickRivalHp } from '../js/rival.js';
+import { bestDay } from './play-day.mjs';
 
 const STRATEGIES = {
   atk: (s) => s.atk * 6 + s.hp * 0.3 + s.maxHp * 0.15,
@@ -21,36 +22,10 @@ const STRATEGIES = {
     s.kw.armour * 4 + s.kw.poison * 3 + s.kw.rally * 5.5 + s.kw.thorns * 2 + (s.kw.firstStrike ? 4 : 0),
 };
 
-function bestPath(run, hand, score, rivalDay) {
-  const available = hand.map((id) => ({ id, from: 'hand' }));
-  const target = Math.min(PATH_SLOTS, available.length);
-  let best = null;
-  const chosen = [];
-  const used = new Set();
-  const walk = () => {
-    if (chosen.length === target) {
-      const slots = [...chosen];
-      while (slots.length < PATH_SLOTS) slots.push(null);
-      let out = resolvePath(run, slots);
-      if (rivalDay.invasion) {
-        const ambush = resolveAmbush(out.state, rivalDay.invasion);
-        out = { ...out, state: ambush.state, pathDamage: out.pathDamage + ambush.damage,
-          cleanPath: out.cleanPath && ambush.damage === 0 };
-      }
-      const d = duel(out.state, rivalDay, out.cleanPath, {
-        mine: out.secrets, theirs: rivalDay.secrets,
-      });
-      const value = (d.won ? 500 : 0) + score(out.state);
-      if (!best || value > best.value) best = { value, out, duel: d, slots: chosen.slice() };
-      return;
-    }
-    for (let i = 0; i < available.length; i++) {
-      if (used.has(i)) continue;
-      used.add(i); chosen.push(available[i]); walk(); chosen.pop(); used.delete(i);
-    }
-  };
-  walk();
-  return best;
+function mark(id) {
+  if (!id) return;
+  used.add(id);
+  counts.set(id, (counts.get(id) || 0) + 1);
 }
 
 const RUNS = Number(process.argv[2] || 400);
@@ -61,16 +36,24 @@ for (const score of Object.values(STRATEGIES)) {
   for (let seed = 1; seed <= RUNS; seed++) {
     let run = newRun(seed);
     const rival = drawRival(run.rivalSeed);
+    let rivalCombat = null;
     let guard = 0;
     while (!run.over && guard++ < 40) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
       const { hand, seenCards } = refillHand(run, rng(roundSeed));
       run = { ...run, hand, seenCards };
-      const chosen = bestPath(run, run.hand, score, rivalOnDay(rival, run.round));
+      const rivalDay = rivalOnDay(rival, run.round);
+      rivalCombat = tickRivalHp(rivalCombat, rivalDay);
+      const chosen = bestDay(run, run.hand, score, {
+        rivalDay, rivalCombat, isFinale: run.round >= RUN_DAYS,
+      });
       const out = chosen.out;
-      for (const slot of chosen.slots) { used.add(slot.id); counts.set(slot.id, (counts.get(slot.id) || 0) + 1); }
-      run = settleRound(out.state, chosen.duel.won);
+      for (const slot of chosen.slots) mark(slot?.id);
+      mark(chosen.send?.id);
+      rivalCombat = { hp: chosen.afterHp, maxHp: rivalDay.maxHp, bruised: chosen.rivalBruised };
+      if (chosen.duel) run = settleFinale(out.state, chosen.duel.won);
+      else run = advanceDay(out.state);
     }
   }
 }

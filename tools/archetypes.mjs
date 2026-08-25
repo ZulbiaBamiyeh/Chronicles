@@ -18,11 +18,12 @@
 // building that way would actually do, and it's worth being able to re-run
 // after any card change.
 import {
-  newRun, startRound, resolvePath, duel, settleRound, rng, PATH_SLOTS, refillHand, resolveAmbush,
+  newRun, startRound, settleFinale, advanceDay, rng, refillHand, RUN_DAYS,
 } from '../js/engine.js';
-import { drawRival, rivalOnDay } from '../js/rival.js';
+import { drawRival, rivalOnDay, tickRivalHp } from '../js/rival.js';
 import { weaponAtk } from '../js/cards.js';
 import * as deckLib from '../js/deck.js';
+import { bestDay } from './play-day.mjs';
 
 // Weapon ATK stopped being part of the permanent s.atk stat once durability
 // shipped — it's only ever added live, from whichever weapon is currently
@@ -89,36 +90,12 @@ const STRATEGY_DECK = {
  * and a secret only ever scores if candidate paths are judged by the fight
  * they lead to rather than by the stats they leave behind.
  */
-function bestPath(run, hand, score, rivalDay) {
-  const available = hand.map((id) => ({ id, from: 'hand' }));
-  const target = Math.min(PATH_SLOTS, available.length);
-  let best = null;
-  const chosen = [];
-  const used = new Set();
-  const walk = () => {
-    if (chosen.length === target) {
-      const slots = [...chosen];
-      while (slots.length < PATH_SLOTS) slots.push(null);
-      let out = resolvePath(run, slots);
-      if (rivalDay.invasion) {
-        const ambush = resolveAmbush(out.state, rivalDay.invasion);
-        out = { ...out, state: ambush.state, pathDamage: out.pathDamage + ambush.damage,
-          cleanPath: out.cleanPath && ambush.damage === 0 };
-      }
-      const d = duel(out.state, rivalDay, out.cleanPath, {
-        mine: out.secrets, theirs: rivalDay.secrets,
-      });
-      const value = (d.won ? 500 : 0) + score(out.state);
-      if (!best || value > best.value) best = { value, out, duel: d };
-      return;
-    }
-    for (let i = 0; i < available.length; i++) {
-      if (used.has(i)) continue;
-      used.add(i); chosen.push(available[i]); walk(); chosen.pop(); used.delete(i);
-    }
-  };
-  walk();
-  return best;
+function plan(run, hand, score, rivalDay, rivalCombat) {
+  return bestDay(run, hand, score, {
+    rivalDay,
+    rivalCombat,
+    isFinale: run.round >= RUN_DAYS,
+  });
 }
 
 function simulate(strategyName, runs) {
@@ -129,18 +106,26 @@ function simulate(strategyName, runs) {
   for (let seed = 1; seed <= runs; seed++) {
     let run = newRun(seed, 'x', deck);
     const rival = drawRival(run.rivalSeed);
+    let rivalCombat = null;
     let guard = 0;
     while (!run.over && guard++ < 40) {
       run = startRound(run);
       const roundSeed = (seed * 7919 + run.round * 104729 + run.wins * 31) >>> 0;
       const { hand, seenCards } = refillHand(run, rng(roundSeed));
       run = { ...run, hand, seenCards };
-      const chosen = bestPath(run, run.hand, score, rivalOnDay(rival, run.round));
+      const rivalDay = rivalOnDay(rival, run.round);
+      rivalCombat = tickRivalHp(rivalCombat, rivalDay);
+      const chosen = plan(run, run.hand, score, rivalDay, rivalCombat);
       const out = chosen.out;
+      rivalCombat = { hp: chosen.afterHp, maxHp: rivalDay.maxHp, bruised: chosen.rivalBruised };
       (finalByRound[run.round] ||= []).push(out.state);
       const d = chosen.duel;
-      duels++; if (d.won) wins++;
-      run = settleRound(out.state, d.won);
+      if (d) {
+        duels++; if (d.won) wins++;
+        run = settleFinale(out.state, d.won);
+      } else {
+        run = advanceDay(out.state);
+      }
     }
     if (run.completed) completed++;
   }

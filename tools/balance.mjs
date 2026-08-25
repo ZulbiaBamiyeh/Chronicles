@@ -6,12 +6,13 @@
 //   node tools/balance.mjs [runs]
 
 import {
-  newRun, startRound, resolvePath, duel, settleRound,
-  rng, PATH_SLOTS, refillHand, resolveAmbush,
+  newRun, startRound, settleFinale, advanceDay,
+  rng, PATH_SLOTS, refillHand, RUN_DAYS,
 } from '../js/engine.js';
-import { drawRival, rivalOnDay } from '../js/rival.js';
+import { drawRival, rivalOnDay, tickRivalHp } from '../js/rival.js';
 import { weaponAtk } from '../js/cards.js';
 import * as deckLib from '../js/deck.js';
+import { bestDay } from './play-day.mjs';
 
 // Drawing from `newRun(seed)` with no deck argument pulls from the entire
 // 119-card pool, undifferentiated — which is not what a real player fights
@@ -42,49 +43,8 @@ const RUNS = Number(process.argv[2] || 600);
  * as a deck's tier pool empties. The planner fills as many slots as the hand
  * allows and leaves the rest empty, same as a real player would.
  */
-function bestPath(run, hand, score, ctx) {
-  const available = hand.map((id) => ({ id, from: 'hand' }));
-  const target = Math.min(PATH_SLOTS, available.length);
-  let best = null;
-  const chosen = [];
-  const used = new Set();
-
-  const walk = () => {
-    if (chosen.length === target) {
-      const slots = [...chosen];
-      while (slots.length < PATH_SLOTS) slots.push(null);
-      let out = resolvePath(run, slots);
-      // The rival's invasion — if this day has one — lands between the path
-      // and the duel, same as it does for a real player. Folding it in here
-      // is what makes the planner's own choice of path (and whether a secret
-      // is worth a slot) reflect the fight it's actually walking into.
-      let ambushDamage = 0;
-      if (ctx.rivalDay.invasion) {
-        const ambush = resolveAmbush(out.state, ctx.rivalDay.invasion);
-        ambushDamage = ambush.damage;
-        out = { ...out, state: ambush.state, pathDamage: out.pathDamage + ambush.damage,
-          cleanPath: out.cleanPath && ambush.damage === 0 };
-      }
-      const d = duel(out.state, ctx.rivalDay, out.cleanPath, {
-        mine: out.secrets,
-        theirs: ctx.rivalDay.secrets,
-      });
-      const value = score(out, d);
-      if (!best || value > best.value) best = { value, slots, out, duel: d, ambushDamage };
-      return;
-    }
-    for (let i = 0; i < available.length; i++) {
-      if (used.has(i)) continue;
-      used.add(i);
-      chosen.push(available[i]);
-      walk();
-      chosen.pop();
-      used.delete(i);
-    }
-  };
-  walk();
-  return best;
-}
+// Winning the finale dominates everything else; on earlier days the planner
+// still wants a strong character *and* a send that actually hurts them.
 
 // Weapon ATK stopped being part of the permanent s.atk stat once durability
 // shipped (see README's "Weapon durability capped the ceiling" section) —
@@ -109,10 +69,8 @@ const power = (s) =>
 const WIN = 500;
 
 const STYLES = {
-  greedy: (out, d) => (d.won ? WIN : 0) + power(out.state),
-  // The same player, but unwilling to arrive at a duel bleeding.
-  cautious: (out, d) =>
-    (d.won ? WIN : 0) + power(out.state) + out.state.hp * 2.2 - out.pathDamage * 1.6,
+  greedy: (s) => power(s),
+  cautious: (s) => power(s) + s.hp * 2.2,
 };
 
 function simulate(style) {
@@ -134,6 +92,7 @@ function simulate(style) {
   for (let seed = 1; seed <= RUNS; seed++) {
     let run = newRun(seed, 'x', DEFAULT_DECK);
     const rival = drawRival(run.rivalSeed);
+    let rivalCombat = null;
     stats.runs++;
     let guard = 0;
     while (!run.over && guard++ < 40) {
@@ -142,9 +101,12 @@ function simulate(style) {
       const { hand, seenCards } = refillHand(run, rng(roundSeed));
       run = { ...run, hand, seenCards };
       const rivalDay = rivalOnDay(rival, run.round);
-      const chosen = bestPath(run, run.hand, score, { rivalDay });
+      rivalCombat = tickRivalHp(rivalCombat, rivalDay);
+      const isFinale = run.round >= RUN_DAYS;
+      const chosen = bestDay(run, run.hand, score, { rivalDay, rivalCombat, isFinale });
       const out = chosen.out;
       const d = chosen.duel;
+      rivalCombat = { hp: chosen.afterHp, maxHp: rivalDay.maxHp, bruised: chosen.rivalBruised };
 
       stats.rounds++;
       stats.slots += PATH_SLOTS;
@@ -162,13 +124,16 @@ function simulate(style) {
         stats.invasionDamagePct.push(chosen.ambushDamage / out.state.maxHp);
       }
 
-      stats.duels++;
-      if (d.won) stats.duelWins++;
-      stats.duelsOnDay[run.round] = (stats.duelsOnDay[run.round] || 0) + 1;
-      if (d.won) stats.winsOnDay[run.round] = (stats.winsOnDay[run.round] || 0) + 1;
-      stats.exchanges.push(d.exchanges);
-
-      run = settleRound(out.state, d.won);
+      if (d) {
+        stats.duels++;
+        if (d.won) stats.duelWins++;
+        stats.duelsOnDay[run.round] = (stats.duelsOnDay[run.round] || 0) + 1;
+        if (d.won) stats.winsOnDay[run.round] = (stats.winsOnDay[run.round] || 0) + 1;
+        stats.exchanges.push(d.exchanges);
+        run = settleFinale(out.state, d.won);
+      } else {
+        run = advanceDay(out.state);
+      }
     }
     if (run.completed) stats.completed++;
   }

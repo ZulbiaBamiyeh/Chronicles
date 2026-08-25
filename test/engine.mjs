@@ -7,9 +7,10 @@
 import assert from 'node:assert/strict';
 import {
   resolveCombat, tiebreak, newRun, startRound, deal, resolvePath, duel,
-  settleRound, tiersForRound, costFor, rng, monsterFighter, playerFighter, applySecrets,
+  settleRound, settleFinale, advanceDay, spendCard, resolveSendFight,
+  tiersForRound, costFor, rng, monsterFighter, playerFighter, ghostFighter, applySecrets,
   PATH_SLOTS, HAND_SIZE, HAND_TARGET, MIN_HAND_MONSTERS, START,
-  refillHand, mulligan, MULLIGAN_LIMIT, resolveAmbush,
+  refillHand, mulligan, mulliganHand, MULLIGAN_LIMIT, resolveAmbush,
   gearSlotsFor, gearSlotsUsed,
 } from '../js/engine.js';
 import * as deckLib from '../js/deck.js';
@@ -18,7 +19,7 @@ import {
   equipment, attackAnim, weaponAtk, contributionsFor,
 } from '../js/cards.js';
 import { drawGhost, ARCHETYPES } from '../js/ghosts.js';
-import { drawRival, rivalOnDay, intel, RUN_DAYS } from '../js/rival.js';
+import { drawRival, rivalOnDay, intel, RUN_DAYS, tickRivalHp } from '../js/rival.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -37,10 +38,10 @@ const fighter = (o) => ({ name: 'x', hp: 10, atk: 1, ...o });
 // The card pool
 // ---------------------------------------------------------------------------
 
-test('the pool is 135 cards, all of them dealable', () => {
-  assert.equal(DEAL_POOL.length, 135);
-  assert.equal(ALL_CARDS.length, 135);
-  assert.equal(MONSTERS.length, 28);
+test('the pool is 141 cards, all of them dealable', () => {
+  assert.equal(DEAL_POOL.length, 141);
+  assert.equal(ALL_CARDS.length, 141);
+  assert.equal(MONSTERS.length, 34);
   assert.equal(GEAR.length, 58);
   assert.equal(ALLIES.length, 13);
   assert.equal(PLACES.length, 26);
@@ -308,16 +309,16 @@ test('adjacency cards read where they were placed, so ordering is a real choice'
   assert.equal(alone.atk, 2);
 });
 
-test("Berserker's Rite pays for hearts you've lost, so a losing series is fightable", () => {
-  const base = { ...newRun(903), gold: 99 };
-  assert.equal(played({ ...base, hearts: 3 }, 'berserkers_rite').atk, 0);
-  assert.equal(played({ ...base, hearts: 2 }, 'berserkers_rite').atk, 3);
-  assert.equal(played({ ...base, hearts: 1 }, 'berserkers_rite').atk, 6);
+test("Berserker's Rite pays for missing HP, so a greedy path is still a line", () => {
+  const base = { ...newRun(903), gold: 99, maxHp: 24 };
+  assert.equal(played({ ...base, hp: 24 }, 'berserkers_rite').atk, 0);
+  assert.equal(played({ ...base, hp: 16 }, 'berserkers_rite').atk, 3);
+  assert.equal(played({ ...base, hp: 8 }, 'berserkers_rite').atk, 6);
 });
 
 test('every card has a unique id and a contiguous number', () => {
   const ids = new Set(ALL_CARDS.map((c) => c.id));
-  assert.equal(ids.size, 135);
+  assert.equal(ids.size, 141);
   const nos = ALL_CARDS.map((c) => c.no).sort((a, b) => a - b);
   nos.forEach((n, i) => assert.equal(n, i + 1));
 });
@@ -360,7 +361,7 @@ test('every Tier 2 and Tier 3 monster pays off — a trophy or a real item', () 
   // you pick up permanent upgrades, not just a bigger pile of coins. A drop
   // pays off the same promise a trophy does — you walk away with something
   // you didn't have — just as the item itself instead of a stat bump.
-  for (const m of MONSTERS.filter((m) => m.tier >= 2)) {
+  for (const m of MONSTERS.filter((m) => m.tier >= 2 && !m.raid)) {
     assert.ok(m.trophy || m.drop, `${m.id} is a tier ${m.tier} monster with no payoff`);
   }
   const t1WithPayoff = MONSTERS.filter((m) => m.tier === 1 && (m.trophy || m.drop)).length;
@@ -409,20 +410,20 @@ test('damage is ATK minus Armour, floored at 1', () => {
   for (const e of toB) assert.equal(e.amount, 1, 'armour should never block the last point');
 });
 
-test('the §11 Cave Troll breakpoint table holds exactly', () => {
-  const troll = monsterFighter(card('cave_troll'));         // 14 / 5
-  for (const [atk, exchanges, damage] of [[3, 5, 25], [4, 4, 20], [5, 3, 15], [7, 2, 10], [14, 1, 5]]) {
+test('the Cave Troll breakpoint table holds exactly', () => {
+  const troll = monsterFighter(card('cave_troll'));         // 21 / 8
+  for (const [atk, exchanges, damage] of [[3, 7, 56], [7, 3, 24], [8, 3, 24], [11, 2, 16], [21, 1, 8]]) {
     const r = resolveCombat(fighter({ hp: 999, atk }), troll);
     assert.equal(r.exchanges, exchanges, `${atk} ATK should take ${exchanges} exchanges`);
     assert.equal(999 - r.a.hp, damage, `${atk} ATK should cost ${damage} HP`);
   }
 });
 
-test('going from 5 ATK to 6 against the troll saves nothing — the non-linearity is real', () => {
+test('going from 8 ATK to 9 against the troll saves nothing — the non-linearity is real', () => {
   const troll = () => monsterFighter(card('cave_troll'));
-  const at5 = resolveCombat(fighter({ hp: 999, atk: 5 }), troll());
-  const at6 = resolveCombat(fighter({ hp: 999, atk: 6 }), troll());
-  assert.equal(at5.a.hp, at6.a.hp);
+  const at8 = resolveCombat(fighter({ hp: 999, atk: 8 }), troll());
+  const at9 = resolveCombat(fighter({ hp: 999, atk: 9 }), troll());
+  assert.equal(at8.a.hp, at9.a.hp);
 });
 
 test('mutual First Strike cancels', () => {
@@ -493,8 +494,7 @@ test('the duel tiebreak runs max HP, then gold, then the ghost', () => {
 
 test('on the path, a 1 ATK player still eventually kills every monster', () => {
   // The floor is what guarantees this: the player can't die, and deals at least
-  // 1 a turn, so even the Elder Wyrm (32 HP, Rally 2 — which would grind a
-  // 999 HP unfloored player down first) always goes over in the end.
+  // 1 a turn, so even the Elder Wyrm always goes over in the end.
   for (const m of MONSTERS) {
     const r = resolveCombat(fighter({ hp: 20, atk: 1 }), monsterFighter(m), { floorA: true });
     assert.ok(r.exchanges < 200, `${m.id} did not resolve`);
@@ -515,7 +515,7 @@ test('you cannot die on the path', () => {
   ];
   const out = resolvePath(run, slots);
   assert.equal(out.state.hp, 1, 'path damage should floor at 1 HP, never below');
-  assert.ok(out.state.hearts === 3, 'the path must never touch hearts');
+  assert.equal(out.state.over, false, 'the path cannot end the run');
 });
 
 test('a card you cannot pay for fizzles and the slot does nothing', () => {
@@ -833,6 +833,17 @@ test('mulligan swaps one card, is capped, and only works on day one', () => {
   assert.deepEqual(mulligan(lateRun, 'wild_boar', rng(9)), lateRun, 'day one only');
 });
 
+test('mulliganHand replaces every marked index at once and ends the phase', () => {
+  const base = { ...newRun(78), hand: ['field_mouse', 'wild_boar', 'rusty_sword'],
+    seenCards: ['field_mouse', 'wild_boar', 'rusty_sword'] };
+  const after = mulliganHand(base, [0, 2], rng(11));
+  assert.notEqual(after.hand[0], 'field_mouse');
+  assert.equal(after.hand[1], 'wild_boar');
+  assert.notEqual(after.hand[2], 'rusty_sword');
+  assert.equal(after.mulliganDone, true);
+  assert.deepEqual(mulliganHand(after, [1], rng(12)), after, 'phase is over');
+});
+
 test('mulligan never deals a card the run has already seen', () => {
   let run = { ...newRun(77), hand: ['field_mouse'], seenCards: ['field_mouse', 'wild_boar', 'sewer_rat'] };
   for (let i = 0; i < MULLIGAN_LIMIT; i++) {
@@ -845,14 +856,14 @@ test('mulligan never deals a card the run has already seen', () => {
 // Dealing and run structure
 // ---------------------------------------------------------------------------
 
-test('every hand is six cards with at least two monsters and one thing to buy', () => {
+test('every hand is six cards with at least three monsters and one thing to buy', () => {
   for (let round = 1; round <= 8; round++) {
     for (let seed = 1; seed <= 400; seed++) {
       const hand = deal(round, rng(seed * 31 + round));
       assert.equal(hand.length, 6, `round ${round} seed ${seed}`);
       assert.equal(new Set(hand).size, 6, 'a hand should never contain duplicates');
       const kinds = hand.map((id) => card(id).type);
-      assert.ok(kinds.filter((t) => t === 'monster').length >= 2, `round ${round} seed ${seed}: gold unreachable`);
+      assert.ok(kinds.filter((t) => t === 'monster').length >= MIN_HAND_MONSTERS, `round ${round} seed ${seed}: not enough monsters to send`);
       assert.ok(kinds.some((t) => t === 'gear' || t === 'place'), `round ${round} seed ${seed}: gold unspendable`);
       const tiers = tiersForRound(round);
       for (const id of hand) assert.ok(tiers.includes(card(id).tier), 'off-tier card dealt');
@@ -905,22 +916,24 @@ test('recurring allies pay out at the top of every future round', () => {
   assert.equal(run.atk, atkAfterBuying + 1);
 });
 
-test('five wins completes a run, three losses ends it', () => {
+test('the finale decides the run — days 1–4 never end it', () => {
   let run = newRun(17);
-  for (let i = 0; i < 5; i++) run = settleRound(run, true);
-  assert.ok(run.completed && run.over);
+  for (let i = 0; i < 4; i++) {
+    run = advanceDay(run);
+    assert.ok(!run.over, `day ${run.round} should still be live`);
+  }
+  const win = settleFinale({ ...run, round: 5 }, true);
+  assert.ok(win.over && win.completed);
 
-  let doomed = newRun(18);
-  for (let i = 0; i < 3; i++) doomed = settleRound(doomed, false);
-  assert.ok(doomed.over && !doomed.completed);
-  assert.equal(doomed.hearts, 0);
+  const loss = settleFinale({ ...newRun(18), round: 5 }, false);
+  assert.ok(loss.over && !loss.completed);
 });
 
-test('only the duel can take a heart', () => {
+test('the path cannot end the run', () => {
   const run = { ...newRun(19), hp: 1 };
   const after = resolvePath(run, [{ id: 'hill_giant', from: 'hand' }, null, null, null]);
-  assert.equal(after.state.hearts, 3);
-  assert.equal(settleRound(after.state, false).hearts, 2);
+  assert.equal(after.state.over, false);
+  assert.equal(after.state.hp, 1);
 });
 
 // ---------------------------------------------------------------------------
@@ -1205,31 +1218,106 @@ test('winning a day pays, and pays more the deeper into the series it is', () =>
   assert.equal(lost.gold, 0, 'losing pays nothing');
 });
 
-test('invasions are switched off for now — no rival carries one, any day', () => {
-  // Pulled from live play pending a UI and balance pass (README.md's
-  // "Invasion, on hold"). hasInvasion(day) is the single switch; this locks
-  // in that switching it back off is enough to keep it out of a run
-  // end-to-end, without anything downstream (drawRival, intel) needing to
-  // know why. resolveAmbush itself — the part that actually resolves a
-  // fight — is still tested directly below, since that machinery is correct
-  // and untouched; only the "does a rival have one today" decision changed.
+test('every rival sends a monster each day — that is their fifth card', () => {
   for (let seed = 1; seed <= 50; seed++) {
     const rv = drawRival(seed * 977);
     for (let day = 1; day <= RUN_DAYS; day++) {
-      assert.equal(rivalOnDay(rv, day).invasion, null, `day ${day} should carry no invasion while this is off`);
-      assert.equal(intel(rv, day, true).hasInvasion, false);
+      const d = rivalOnDay(rv, day);
+      assert.ok(d.invasion, `day ${day} should carry a send`);
+      assert.equal(card(d.invasion).type, 'monster');
+      assert.equal(intel(rv, day, false).hasInvasion, true);
+      assert.equal(intel(rv, day, false).invasion, null, 'unscouted send is hidden');
+      assert.equal(intel(rv, day, true).invasion, d.invasion);
     }
   }
 });
 
-test('resolveAmbush pays off exactly like a monster from the path would', () => {
-  const run = { ...newRun(80), atk: 6, hp: 20, maxHp: 20, gold: 0 };
+test('a sent monster fights on the same stats printed on the card', () => {
+  const c = card('curse_eye');
+  const path = monsterFighter(c);
+  const sent = monsterFighter(c);
+  assert.equal(path.hp, c.hp);
+  assert.equal(path.atk, c.atk);
+  assert.equal(sent.hp, c.hp);
+  assert.equal(sent.atk, c.atk);
+});
+
+test('a send fight chips the defender and floors them at 1', () => {
+  const g = drawGhost(1, 0, 42);
+  const them = ghostFighter(g);
+  const out = resolveSendFight(them, 'cave_troll');
+  assert.equal(out.event.kind, 'fight');
+  assert.ok(out.damage >= 0);
+  assert.ok(out.fighter.hp >= 1, 'a send cannot kill');
+  assert.equal(out.fighter.hp, them.hp - out.damage);
+  assert.equal(g.hp, them.hp, 'the snapshot is not mutated');
+});
+
+test('killing a sent monster pays loot; going down skips tomorrow\'s heal', () => {
+  const strong = { ...newRun(82), atk: 20, hp: 30, maxHp: 30, gold: 0 };
+  const win = resolveAmbush(strong, 'cave_troll');
+  assert.ok(win.killed);
+  assert.equal(win.down, false);
+  assert.equal(win.state.gold, card('cave_troll').gold);
+  assert.equal(win.state.bruised, undefined);
+
+  const weak = { ...newRun(83), atk: 1, hp: 8, maxHp: 20, gold: 0 };
+  const loss = resolveAmbush(weak, 'hill_giant');
+  assert.equal(loss.killed, false);
+  assert.ok(loss.down);
+  assert.equal(loss.state.gold, 0, 'a loss pays no spoils');
+  assert.equal(loss.state.hp, 1);
+  assert.equal(loss.state.bruised, true);
+
+  const next = startRound({ ...loss.state, round: 2, upkeepDone: false });
+  assert.equal(next.hp, 1, 'bruised skips the between-days heal');
+  assert.equal(next.bruised, false);
+});
+
+test('spendCard removes the sent monster from the hand', () => {
+  const run = { ...newRun(7), hand: ['field_mouse', 'rusty_sword', 'buckler'] };
+  const next = spendCard(run, 'field_mouse');
+  assert.deepEqual(next.hand, ['rusty_sword', 'buckler']);
+  assert.deepEqual(run.hand, ['field_mouse', 'rusty_sword', 'buckler']);
+});
+
+test('advanceDay walks the calendar; settleFinale ends the run', () => {
+  let run = newRun(8);
+  run = advanceDay(run);
+  assert.equal(run.round, 2);
+  assert.equal(run.over, false);
+  run = { ...run, round: 5 };
+  const win = settleFinale(run, true);
+  assert.ok(win.over && win.completed);
+  const loss = settleFinale(run, false);
+  assert.ok(loss.over && !loss.completed);
+});
+
+test('tickRivalHp grows and heals between days, and starts from the snapshot', () => {
+  const day1 = { hp: 20, maxHp: 20 };
+  const first = tickRivalHp(null, day1);
+  assert.deepEqual(first, { hp: 20, maxHp: 20, bruised: false });
+  const wounded = { hp: 8, maxHp: 20 };
+  const day2 = { hp: 24, maxHp: 28 };
+  const next = tickRivalHp(wounded, day2);
+  assert.equal(next.maxHp, 28);
+  assert.ok(next.hp > 8, 'they heal');
+  assert.ok(next.hp <= 28);
+
+  const skipped = tickRivalHp({ hp: 8, maxHp: 20, bruised: true }, day2);
+  assert.equal(skipped.hp, 8 + (28 - 20), 'bruised skips the heal, max-HP growth still lands');
+  assert.equal(skipped.bruised, false);
+});
+
+test('resolveAmbush pays loot when you kill their send', () => {
+  const run = { ...newRun(80), atk: 20, hp: 40, maxHp: 40, gold: 0 };
   const ambush = resolveAmbush(run, 'cave_troll');
   assert.equal(ambush.event.kind, 'fight');
+  assert.ok(ambush.killed);
   assert.equal(ambush.event.gold, card('cave_troll').gold);
   assert.ok(ambush.state.gold > 0, 'the gold should actually be paid');
   assert.ok(Array.isArray(ambush.event.log) && ambush.event.log.length > 0);
-  assert.ok(ambush.state.hp >= 1, 'the floor holds for an ambush too — it cannot kill the player before the duel');
+  assert.ok(ambush.state.hp >= 1);
 });
 
 test('an ambush never mutates the run it was fought against', () => {
@@ -1239,26 +1327,20 @@ test('an ambush never mutates the run it was fought against', () => {
   assert.equal(JSON.stringify(run), before);
 });
 
-test('a five-day series ends on day five, and three losses ends it sooner', () => {
+test('a five-day series only ends on the finale, not on early losses', () => {
   let run = newRun(50);
-  for (let d = 0; d < RUN_DAYS; d++) {
+  for (let d = 0; d < RUN_DAYS - 1; d++) {
     assert.ok(!run.over, `the run should still be live on day ${d + 1}`);
-    run = settleRound(run, true);
+    run = advanceDay(run);
   }
-  assert.ok(run.over && run.completed, 'surviving five days wins the series');
+  assert.equal(run.round, RUN_DAYS);
+  assert.ok(!run.over);
 
-  // Losing two of five and winning the rest still takes it — you finished
-  // with hearts left, which is the same thing as winning more days.
-  let mixed = newRun(51);
-  for (const won of [false, true, false, true, true]) mixed = settleRound(mixed, won);
-  assert.ok(mixed.over && mixed.completed);
-  assert.equal(mixed.wins, 3);
-  assert.equal(mixed.losses, 2);
+  const won = settleFinale(run, true);
+  assert.ok(won.over && won.completed, 'winning the finale wins the series');
 
-  let doomed = newRun(52);
-  for (let i = 0; i < 3; i++) doomed = settleRound(doomed, false);
-  assert.ok(doomed.over && !doomed.completed, 'three losses ends it wherever you are');
-  assert.equal(doomed.hearts, 0);
+  const lost = settleFinale({ ...newRun(51), round: RUN_DAYS }, false);
+  assert.ok(lost.over && !lost.completed, 'losing the finale ends the run');
 });
 
 // ---------------------------------------------------------------------------
@@ -1268,28 +1350,51 @@ test('a five-day series ends on day five, and three losses ends it sooner', () =
 test('a thousand random runs finish without throwing or stalling', () => {
   for (let seed = 1; seed <= 1000; seed++) {
     let run = newRun(seed);
+    const rival = drawRival(run.rivalSeed);
+    let rivalCombat = null;
     let guard = 0;
     while (!run.over) {
       assert.ok(++guard < 40, 'a run should end well inside 40 rounds');
       run = startRound(run);
-      const hand = deal(run.round, rng(run.seed + run.round));
-      // Play greedily and stupidly: whatever comes first.
-      const slots = hand.slice(0, PATH_SLOTS).map((id) => ({ id, from: 'hand', upgrade: false }));
-      const out = resolvePath(run, slots);
+      const { hand, seenCards } = refillHand(run, rng(run.seed + run.round));
+      run = { ...run, hand, seenCards };
+      const ghost = rivalOnDay(rival, run.round);
+      rivalCombat = tickRivalHp(rivalCombat, ghost);
+      const sendId = hand.find((id) => card(id)?.type === 'monster');
+      const pathIds = hand.filter((id) => id !== sendId).slice(0, PATH_SLOTS);
+      const slots = pathIds.map((id) => ({ id, from: 'hand', upgrade: false }));
+      while (slots.length < PATH_SLOTS) slots.push(null);
+      let out = resolvePath(run, slots);
       assert.ok(out.state.hp >= 1, 'the path floor held');
       assert.ok(Number.isFinite(out.state.gold) && out.state.gold >= 0, 'gold went strange');
-      const g = drawGhost(run.round, run.wins, (seed * 31 + run.round) >>> 0);
-      const d = duel(out.state, g, out.cleanPath);
-      run = settleRound(out.state, d.won);
+      if (ghost.invasion) {
+        const ambush = resolveAmbush(out.state, ghost.invasion);
+        assert.ok(ambush.state.hp >= 1);
+        out = { ...out, state: ambush.state };
+      }
+      if (sendId) {
+        const them = ghostFighter({ ...ghost, hp: rivalCombat.hp, maxHp: rivalCombat.maxHp });
+        const sent = resolveSendFight(them, sendId);
+        assert.ok(sent.fighter.hp >= 1);
+        rivalCombat = { hp: sent.fighter.hp, maxHp: them.maxHp, bruised: sent.bruised };
+        out = { ...out, state: spendCard(out.state, sendId) };
+      }
+      if (run.round >= RUN_DAYS) {
+        const d = duel(out.state, { ...ghost, hp: rivalCombat.hp, maxHp: rivalCombat.maxHp }, out.cleanPath);
+        run = settleFinale(out.state, d.won);
+      } else {
+        run = advanceDay(out.state);
+      }
     }
-    assert.ok(run.completed || run.hearts === 0);
+    assert.ok(run.over);
+    assert.equal(typeof run.completed, 'boolean');
   }
 });
 
 test('the constants the UI leans on are what the design says', () => {
   assert.equal(PATH_SLOTS, 4);
   assert.equal(HAND_SIZE, 6);
-  assert.deepEqual(START, { hp: 20, maxHp: 20, atk: 2, gold: 0, hearts: 3 });
+  assert.deepEqual(START, { hp: 20, maxHp: 20, atk: 2, gold: 0 });
 });
 
 console.log(`engine: ${passed} tests passed`);

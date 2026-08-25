@@ -14,7 +14,7 @@
 // ctx passed to dyn() — see resolvePath() in js/engine.js for exactly what
 // each one is:
 //   { slot, slots, gold, monstersDefeated, usedWatchtower, paidUpgrade,
-//     left, right, kw, atk, hp, maxHp, gear, durability, heartsLost, round }
+//     left, right, kw, atk, hp, maxHp, gear, durability, round }
 //
 // `anim` is purely presentational — which attack animation this fighter or
 // weapon plays when it lands a blow. It never touches resolution; a Runed
@@ -37,48 +37,48 @@
 // end of it, not just a bigger number of coins.
 export const MONSTERS = [
   // ---- Tier 1 ----
-  { no: 1, id: 'field_mouse', name: 'Field Mouse', tier: 1, hp: 2, atk: 1, kw: {}, gold: 2, anim: 'bite' },
-  { no: 2, id: 'sewer_rat', name: 'Sewer Rat', tier: 1, hp: 3, atk: 1, kw: {}, gold: 3, anim: 'bite' },
-  { no: 3, id: 'wild_boar', name: 'Wild Boar', tier: 1, hp: 5, atk: 2, kw: {}, gold: 4, anim: 'stab' },
-  { no: 4, id: 'goblin_scrapper', name: 'Goblin Scrapper', tier: 1, hp: 4, atk: 2, kw: {},
+  { no: 1, id: 'field_mouse', name: 'Field Mouse', tier: 1, hp: 4, atk: 2, kw: {}, gold: 2, anim: 'bite' },
+  { no: 2, id: 'sewer_rat', name: 'Sewer Rat', tier: 1, hp: 5, atk: 2, kw: {}, gold: 3, anim: 'bite' },
+  { no: 3, id: 'wild_boar', name: 'Wild Boar', tier: 1, hp: 8, atk: 3, kw: {}, gold: 4, anim: 'stab' },
+  { no: 4, id: 'goblin_scrapper', name: 'Goblin Scrapper', tier: 1, hp: 7, atk: 3, kw: {},
     gold: 3, trophy: { atk: 1 }, anim: 'slash' },
-  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 4, atk: 1, kw: { poison: 1 },
+  { no: 5, id: 'giant_spider', name: 'Giant Spider', tier: 1, hp: 6, atk: 2, kw: { poison: 1 },
     gold: 2, drop: 'venom_flask', anim: 'bite' },
-  { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 6, atk: 2, kw: {}, gold: 5, anim: 'slash' },
-  { no: 7, id: 'bog_toad', name: 'Bog Toad', tier: 1, hp: 8, atk: 1, kw: {},
+  { no: 6, id: 'bandit_lookout', name: 'Bandit Lookout', tier: 1, hp: 9, atk: 3, kw: {}, gold: 5, anim: 'slash' },
+  { no: 7, id: 'bog_toad', name: 'Bog Toad', tier: 1, hp: 12, atk: 2, kw: {},
     gold: 4, trophy: { maxHp: 2 }, anim: 'lash' },
-  { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 5, atk: 3, kw: { armour: 1 },
+  { no: 8, id: 'skeleton_picket', name: 'Skeleton Picket', tier: 1, hp: 8, atk: 4, kw: { armour: 1 },
     gold: 3, drop: 'buckler', anim: 'stab' },
-  { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 3, atk: 2, kw: { firstStrike: true }, gold: 4, anim: 'claw' },
+  { no: 9, id: 'feral_hound', name: 'Feral Hound', tier: 1, hp: 5, atk: 3, kw: { firstStrike: true }, gold: 4, anim: 'claw' },
 
   // ---- Tier 2 ----
-  { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 14, atk: 5, kw: {},
+  { no: 10, id: 'cave_troll', name: 'Cave Troll', tier: 2, hp: 21, atk: 8, kw: {},
     gold: 9, trophy: { maxHp: 3 }, anim: 'smash' },
-  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 10, atk: 3, kw: { poison: 3 },
+  { no: 11, id: 'marsh_wraith', name: 'Marsh Wraith', tier: 2, hp: 16, atk: 5, kw: { poison: 3 },
     gold: 8, trophy: { poison: 2 }, anim: 'magic' },
-  { no: 12, id: 'bandit_captain', name: 'Bandit Captain', tier: 2, hp: 12, atk: 6, kw: {},
+  { no: 12, id: 'bandit_captain', name: 'Bandit Captain', tier: 2, hp: 18, atk: 8, kw: {},
     gold: 6, drop: 'rusty_sword', anim: 'slash' },
-  { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 16, atk: 4, kw: { armour: 3 },
+  { no: 13, id: 'iron_golem', name: 'Iron Golem', tier: 2, hp: 24, atk: 6, kw: { armour: 3 },
     gold: 6, drop: 'tower_shield', anim: 'smash' },
-  { no: 14, id: 'ogre_brute', name: 'Ogre Brute', tier: 2, hp: 18, atk: 7, kw: {},
+  { no: 14, id: 'ogre_brute', name: 'Ogre Brute', tier: 2, hp: 26, atk: 10, kw: {},
     gold: 12, trophy: { maxHp: 3 }, anim: 'smash' },
-  { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 11, atk: 5, kw: { firstStrike: true },
+  { no: 15, id: 'wyvern_hatchling', name: 'Wyvern Hatchling', tier: 2, hp: 17, atk: 7, kw: { firstStrike: true },
     gold: 9, trophy: { atk: 1 }, anim: 'fire' },
-  { no: 16, id: 'thornback_boar', name: 'Thornback Boar', tier: 2, hp: 13, atk: 4, kw: { thorns: 3 },
+  { no: 16, id: 'thornback_boar', name: 'Thornback Boar', tier: 2, hp: 20, atk: 6, kw: { thorns: 3 },
     gold: 8, trophy: { thorns: 2 }, anim: 'stab' },
 
   // ---- Tier 3 ----
-  { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 26, atk: 9, kw: {},
+  { no: 17, id: 'hill_giant', name: 'Hill Giant', tier: 3, hp: 36, atk: 13, kw: {},
     gold: 16, trophy: { maxHp: 4 }, anim: 'smash' },
-  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 22, atk: 7, kw: { poison: 6 },
+  { no: 18, id: 'basilisk', name: 'Basilisk', tier: 3, hp: 32, atk: 10, kw: { poison: 6 },
     gold: 9, drop: 'basilisk_fang', anim: 'bite' },
-  { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 30, atk: 8, kw: { armour: 5 },
+  { no: 19, id: 'stone_warden', name: 'Stone Warden', tier: 3, hp: 42, atk: 11, kw: { armour: 5 },
     gold: 18, trophy: { armour: 2 }, anim: 'smash' },
-  { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 24, atk: 11, kw: { firstStrike: true },
+  { no: 20, id: 'chimera', name: 'Chimera', tier: 3, hp: 34, atk: 15, kw: { firstStrike: true },
     gold: 17, trophy: { atk: 2 }, anim: 'claw' },
-  { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 32, atk: 10, kw: { rally: 3 },
+  { no: 21, id: 'elder_wyrm', name: 'Elder Wyrm', tier: 3, hp: 44, atk: 14, kw: { rally: 3 },
     gold: 12, drop: 'dragonplate', anim: 'fire' },
-  { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 20, atk: 8, kw: {},
+  { no: 22, id: 'flame_imp', name: 'Flame Imp', tier: 3, hp: 30, atk: 12, kw: {},
     gold: 14, trophy: { atk: 2 }, anim: 'fire' },
 
   // A monster that carries something worth taking. `drop` hands you the actual
@@ -86,18 +86,33 @@ export const MONSTERS = [
   // and if it's a weapon you start swinging it. Gold buys what you choose;
   // drops give you what you *took*, which is a different kind of reward and
   // the reason to pick a fight you could have walked past.
-  { no: 74, id: 'dire_wolf', name: 'Dire Wolf', tier: 2, hp: 12, atk: 6, kw: { firstStrike: true },
+  { no: 74, id: 'dire_wolf', name: 'Dire Wolf', tier: 2, hp: 18, atk: 8, kw: { firstStrike: true },
     gold: 7, trophy: { atk: 1 }, anim: 'claw' },
-  { no: 75, id: 'forest_troll', name: 'Forest Troll', tier: 2, hp: 15, atk: 5, kw: { thorns: 2 },
+  { no: 75, id: 'forest_troll', name: 'Forest Troll', tier: 2, hp: 22, atk: 7, kw: { thorns: 2 },
     gold: 6, drop: 'spiked_vambrace', anim: 'smash' },
-  { no: 76, id: 'grave_knight', name: 'Grave Knight', tier: 2, hp: 17, atk: 6, kw: { armour: 2 },
+  { no: 76, id: 'grave_knight', name: 'Grave Knight', tier: 2, hp: 24, atk: 8, kw: { armour: 2 },
     gold: 5, drop: 'steel_longsword', anim: 'slash' },
-  { no: 77, id: 'bog_horror', name: 'Bog Horror', tier: 3, hp: 28, atk: 8, kw: { poison: 5 },
+  { no: 77, id: 'bog_horror', name: 'Bog Horror', tier: 3, hp: 40, atk: 12, kw: { poison: 5 },
     gold: 12, trophy: { maxHp: 4 }, anim: 'lash' },
-  { no: 78, id: 'frost_wraith', name: 'Frost Wraith', tier: 3, hp: 23, atk: 9, kw: { armour: 2 },
+  { no: 78, id: 'frost_wraith', name: 'Frost Wraith', tier: 3, hp: 34, atk: 13, kw: { armour: 2 },
     gold: 9, drop: 'chainmail', anim: 'magic' },
-  { no: 79, id: 'warlord_of_ash', name: 'Warlord of Ash', tier: 3, hp: 27, atk: 10, kw: { rally: 2 },
+  { no: 79, id: 'warlord_of_ash', name: 'Warlord of Ash', tier: 3, hp: 38, atk: 14, kw: { rally: 2 },
     gold: 8, drop: 'executioners_blade', anim: 'chop' },
+
+  // Raid cards: poor gold if you farm them, still the nastier bodies.
+  // A send uses the same ATK/HP printed on the card — no hidden statline.
+  { no: 136, id: 'curse_eye', name: 'Curse Eye', tier: 1, hp: 11, atk: 5, kw: { poison: 3 },
+    gold: 1, raid: true, anim: 'magic' },
+  { no: 137, id: 'horny_mushroom', name: 'Horny Mushroom', tier: 1, hp: 10, atk: 5, kw: { firstStrike: true },
+    gold: 1, raid: true, anim: 'stab' },
+  { no: 138, id: 'iron_hog', name: 'Iron Hog', tier: 2, hp: 22, atk: 8, kw: { armour: 3 },
+    gold: 3, raid: true, anim: 'stab' },
+  { no: 139, id: 'king_clang', name: 'King Clang', tier: 2, hp: 24, atk: 7, kw: { thorns: 5 },
+    gold: 3, raid: true, anim: 'smash' },
+  { no: 140, id: 'taurospear', name: 'Taurospear', tier: 3, hp: 36, atk: 14, kw: { firstStrike: true, armour: 2 },
+    gold: 5, raid: true, anim: 'stab' },
+  { no: 141, id: 'lucida', name: 'Lucida', tier: 3, hp: 32, atk: 12, kw: { poison: 6 },
+    gold: 4, raid: true, anim: 'magic' },
 ].map((m) => ({ ...m, type: 'monster' }));
 
 // `slot` is which equipment-panel slot a piece of gear fills when it's worn —
@@ -298,19 +313,19 @@ export const GEAR = [
   { no: 131, id: 'serpent_scale_mail', name: 'Serpent Scale Mail', tier: 2, cost: 10,
     dyn: (ctx) => ({ armour: 2, maxHp: 3, poison: ctx.gear.includes('venomfang_dagger') ? 2 : 0 }),
     slot: 'armour',
-    text: 'Armour 2, +3 max HP. +2 more Poison if you also carry a Venomfang Dagger.' },
+    text: 'Armour 2, +3 max HP. +2 more Poison if you also carry a Triple Zamadar.' },
   { no: 132, id: 'vanguards_edge', name: "Vanguard's Edge", tier: 2, cost: 11,
     fx: { atk: 6 }, slot: 'atk', durability: 4, anim: 'slash' },
   { no: 133, id: 'vanguards_banner', name: "Vanguard's Banner", tier: 2, cost: 10,
     dyn: (ctx) => ({ rally: 3, atk: ctx.gear.includes('vanguards_edge') ? 3 : 0 }),
     slot: 'rally',
-    text: 'Rally 3. +3 more ATK if you also carry a Vanguard\'s Edge.' },
+    text: 'Rally 3. +3 more ATK if you also carry a Maple Sword.' },
   { no: 134, id: 'sentinel_plate', name: 'Sentinel Plate', tier: 3, cost: 18,
     fx: { armour: 4, maxHp: 6 }, slot: 'armour' },
   { no: 135, id: 'sentinel_spikes', name: 'Sentinel Spikes', tier: 3, cost: 17,
     dyn: (ctx) => ({ thorns: 4, armour: ctx.gear.includes('sentinel_plate') ? 3 : 0 }),
     slot: 'thorns',
-    text: 'Thorns 4. +3 more Armour if you also carry Sentinel Plate.' },
+    text: 'Thorns 4. +3 more Armour if you also carry Silver Crusader.' },
 ].map((g) => ({ ...g, type: 'gear' }));
 
 // Allies are permanent like gear, but their value is conditional or recurring.
@@ -428,13 +443,12 @@ export const PLACES = [
     },
     text: '+2 ATK and +2 max HP. Doubled if both neighbours are places.' },
 
-  // A comeback card: the only thing in the pool that pays you for losing. A
-  // five-day series you're down 0–2 in is otherwise a formality you have to
-  // sit through, and that's the worst state a run can be in. This makes the
-  // back foot a place you can actually fight from.
+  // A comeback card: pays for arriving hurt. The finale is the only fight
+  // that counts, so walking in on a sliver of HP has to be a plan, not just
+  // a punishment — this is the card that makes a greedy path still a line.
   { no: 118, id: 'berserkers_rite', name: "Berserker's Rite", tier: 2, cost: 0,
-    dyn: (ctx) => ({ atk: 3 * ctx.heartsLost }),
-    text: '+3 ATK for each heart you have lost.' },
+    dyn: (ctx) => ({ atk: 3 * Math.floor(Math.max(0, ctx.maxHp - ctx.hp) / 8) }),
+    text: '+3 ATK for every 8 HP you are below max.' },
   { no: 119, id: 'bloodforge', name: 'Bloodforge', tier: 3, cost: 0,
     dyn: (ctx) => ({ atk: Math.floor(Math.max(0, ctx.maxHp - 20) / 4) }),
     text: '+1 ATK for every 4 max HP you have above 20.' },
@@ -453,7 +467,7 @@ export const PLACES = [
     text: '+1 ATK. +2 more per tier of the monster to its left.' },
   { no: 124, id: 'arcane_surge', name: 'Arcane Surge', tier: 2, cost: 0,
     dyn: (ctx) => ({ atk: 1 + (ctx.usedWatchtower ? 3 : 0) + (ctx.slot === 3 ? 2 : 0) }),
-    text: '+1 ATK. +3 more if you scouted with Watchtower this round. +2 more if this is your fourth slot.' },
+    text: '+1 ATK. +3 more if you scouted with Orbis Tower this round. +2 more if this is your fourth slot.' },
 
   // The other shape a curse takes: ATK for max HP, instead of max HP for
   // ATK — the same trade, read from the opposite side of a build. See the
@@ -505,6 +519,82 @@ export const DEAL_POOL = [...MONSTERS, ...GEAR, ...ALLIES, ...PLACES, ...SECRETS
 
 export const ALL_CARDS = DEAL_POOL;
 
+// Display names are classic MapleStory — snails, Ilbis, Sauna Robe — not the
+// fantasy placeholders the pool was first written with.
+const MAPLE_NAME = {
+  // ---- monsters ----------------------------------------------------------
+  field_mouse: 'Snail', sewer_rat: 'Blue Snail', wild_boar: 'Pig',
+  goblin_scrapper: 'Shroom', giant_spider: 'Evil Eye', bandit_lookout: 'Octopus',
+  bog_toad: 'Bubbling', skeleton_picket: 'Dark Stump', feral_hound: 'Ribbon Pig',
+  cave_troll: 'Jr. Yeti', marsh_wraith: 'Zombie Mushroom', bandit_captain: 'Lupin',
+  iron_golem: 'Mixed Golem', ogre_brute: 'Fire Boar', wyvern_hatchling: 'Copper Drake',
+  thornback_boar: 'Dark Axe Stump', hill_giant: 'Stumpy', basilisk: 'Cold Eye',
+  stone_warden: 'Gatekeeper', chimera: 'Griffey', elder_wyrm: 'Manon',
+  flame_imp: 'Firebomb', dire_wolf: 'Hector', forest_troll: 'White Fang',
+  grave_knight: 'Skeleton Soldier', bog_horror: 'Dyle', frost_wraith: 'Wraith',
+  warlord_of_ash: 'Jr. Balrog',
+  curse_eye: 'Curse Eye', horny_mushroom: 'Horny Mushroom', iron_hog: 'Iron Hog',
+  king_clang: 'King Clang', taurospear: 'Taurospear', lucida: 'Lucida',
+  // ---- gear --------------------------------------------------------------
+  whetstone: 'Stimulator', buckler: 'Pan Lid', travellers_boots: 'Red Rubber Boots',
+  rusty_sword: 'Sword', leather_jerkin: 'Sauna Robe', spiked_vambrace: 'Work Gloves',
+  hunting_bow: 'Battle Bow', venom_flask: 'Poison Mushroom', battle_drum: 'Red Bandana',
+  chainmail: 'White Crusader', tower_shield: 'Tower Shield',
+  steel_longsword: 'Two-Handed Sword', assassins_kris: 'Zamadar',
+  warhorn: 'Blue Napoleon', serrated_axe: 'Double Axe', basilisk_fang: 'Dragon Kanzir',
+  dragonplate: 'Mithril Platine', runed_greatsword: 'Berzerker',
+  banner_of_the_vanguard: 'Nymph Cape', executioners_blade: 'Scimitar',
+  plague_censer: 'Wooden Staff', barbed_cuirass: 'Green Ades',
+  wyrmvenom_vial: 'Poison Cap', bramble_aegis: 'Steel Shield',
+  iron_cap: 'White Bandana', leather_gloves: 'Fingerless Gloves',
+  hunting_knife: 'Razor', sling: 'Ilbis', kite_shield: 'Stolen Fence',
+  war_pick: 'Wooden Mallet', scale_hauberk: 'Skull Overall',
+  twin_daggers: 'Halfmoon Zamadar', coated_blade: 'Fruit Knife',
+  rally_standard: 'Yellow Bandana', titan_maul: 'Gigantic Sledge',
+  wyrmfang_spear: 'Spear', berserkers_axe: 'Two-Handed Axe',
+  shadowsteel_blade: 'Stonetooth Sword', aegis_of_dawn: 'Maple Warrior Shield',
+  crown_of_command: 'Bone Helm', reaver_plate: 'Red Sauna Robe',
+  grindstone: 'Pico-Pico Hammer', armsmaster: 'Sword Mastery',
+  masters_forge: 'Smith Hammer', reckless_thirst: 'Berserk',
+  bramblelord: 'Power Guard', wardens_oath: 'Iron Will',
+  toxinsmith: 'Poison Mastery', ironblood_rite: 'Dragon Blood',
+  berserkers_pact: 'Chaos Scroll', reckless_charge: 'Rush',
+  glass_cannon: 'Maple Staff',
+  venomfang_dagger: 'Triple Zamadar', serpent_scale_mail: 'Dark Night',
+  vanguards_edge: 'Maple Sword', vanguards_banner: 'Maple Shield',
+  sentinel_plate: 'Silver Crusader', sentinel_spikes: 'Horny Cap',
+  // ---- allies (skills / classic items) -----------------------------------
+  torchbearer: 'Combo Drain', coin_clipper: 'Maple Coin',
+  sparring_partner: 'Rage', field_medic: 'Heal',
+  shieldbearer: 'Iron Body', houndmaster: 'Silver Hawk',
+  quartermaster: 'Haste', banner_squire: 'Maple Warrior',
+  venom_alchemist: 'Poison Mist', war_priest: 'Bless',
+  master_smith: 'Sword Booster', scout: 'Eye of Amazon',
+  shield_maiden: "Heaven's Hammer",
+  // ---- places (maps / skills) --------------------------------------------
+  roadside_shrine: 'Mushroom Shrine', market_square: 'Free Market',
+  blacksmith: 'Perion', training_yard: 'Training Ground',
+  boneyard: 'Golem Temple', watchtower: 'Orbis Tower',
+  ruined_chapel: 'Cursed Temple', toll_bridge: 'Lith Harbor',
+  standing_stones: 'El Nath', hidden_cache: 'Hidden Street',
+  the_arena: 'Mu Lung Dojo', sacred_spring: 'Ellinia',
+  war_camp: 'Sleepywood', dragon_altar: 'Zakum Altar',
+  flanking_strike: 'Lucky Seven', scavengers_cache: 'Pig Beach',
+  ambushers_nook: 'Ninja Ambush', ritual_circle: 'Magic Library',
+  berserkers_rite: 'Dragon Roar', bloodforge: 'Hyper Body',
+  gilded_edge: 'Meso Explosion', vein_drain: 'Drain',
+  marked_quarry: 'Snipe', arcane_surge: 'Meteor Shower',
+  hollow_vigor: 'Slow', wither: 'Curse',
+  // ---- secrets -----------------------------------------------------------
+  caltrops: 'Threaten', rust_powder: 'Scroll 60%', snare_wire: 'Shadow Web',
+  antidote_draught: 'All Cure', dousing_rain: 'Dispel', barb_file: 'Relaxer',
+  hamstring: 'Weakness', ambush_pit: 'Assassinate',
+  purge_ritual: 'Genesis', sabotage: 'Disorder',
+};
+for (const c of ALL_CARDS) {
+  if (MAPLE_NAME[c.id]) c.name = MAPLE_NAME[c.id];
+}
+
 const BY_ID = new Map(ALL_CARDS.map((c) => [c.id, c]));
 
 /** @returns {object} the card definition, or undefined for an unknown id. */
@@ -517,9 +607,11 @@ export const card = (id) => BY_ID.get(id);
 export function cardText(c) {
   if (c.text) return c.text;
   if (c.type === 'monster') {
-    const parts = [`+${c.gold} gold`];
+    const parts = [];
+    parts.push(`+${c.gold} gold`);
     if (c.trophy) parts.push(fxText(c.trophy));
     if (c.drop) parts.push(`take ${card(c.drop)?.name ?? c.drop}`);
+    if (c.raid) parts.push('better sent than fought');
     return parts.join(', ');
   }
   if (c.type === 'secret') return `Your rival: ${counterText(c.counter)}.`;

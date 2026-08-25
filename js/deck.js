@@ -13,9 +13,9 @@
 // every card you put in is a card you will actually be handed.
 //
 // The legality rules exist to protect the one guarantee a hand can't lose:
-// §9's floor that a hand always contains a way to earn gold and a way to spend
-// it. A deck with two monsters in it could not honour that, so the builder
-// won't let you make one.
+// a way to earn gold, a way to spend it, and a monster left over to send. A
+// deck with two monsters in it could not honour that, so the builder won't
+// let you make one.
 
 import { ALL_CARDS, card } from './cards.js';
 
@@ -23,7 +23,7 @@ export const TIERS = [1, 2, 3];
 export const PER_TIER = 10;
 export const DECK_SIZE = PER_TIER * TIERS.length;
 
-/** Per tier: enough monsters to fill a hand's gold floor, and enough to spend it on. */
+/** Per tier: enough monsters for the hand floor (two to fight, one to send). */
 export const MIN_MONSTERS = 3;
 export const MIN_SPENDABLE = 3;
 
@@ -94,41 +94,41 @@ export const deckTier = (ids, tier) => ids.filter((id) => card(id)?.tier === tie
 
 const PRESETS = {
   balanced: {
-    name: 'The Wanderer',
+    name: 'Beginner',
     blurb: 'A little of everything. The deck to learn the game with.',
     cards: [
       // T1 — a weapon to start sharpening, and the two adjacency cards, so the
       // first thing a new player learns is that order changes what a path pays.
-      'sewer_rat', 'wild_boar', 'goblin_scrapper',
+      'sewer_rat', 'curse_eye', 'goblin_scrapper',
       'grindstone', 'rusty_sword', 'leather_jerkin',
       'hollow_vigor', 'blacksmith', 'flanking_strike', 'scavengers_cache',
       // T2
-      'cave_troll', 'bandit_captain', 'grave_knight',
+      'cave_troll', 'king_clang', 'grave_knight',
       'steel_longsword', 'chainmail', 'armsmaster',
       'wither', 'hidden_cache', 'ritual_circle', 'hamstring',
       // T3 — the payoff end of the weapon arc.
-      'hill_giant', 'flame_imp', 'chimera',
+      'hill_giant', 'taurospear', 'chimera',
       'runed_greatsword', 'dragonplate', 'masters_forge',
       'war_camp', 'sacred_spring', 'bloodforge', 'sabotage',
     ],
   },
   aggro: {
-    name: 'The Duellist',
+    name: 'Night Lord',
     blurb: 'Hit first, hit hardest. One blade, sharpened all run.',
     cards: [
-      'feral_hound', 'goblin_scrapper', 'wild_boar',
+      'feral_hound', 'goblin_scrapper', 'horny_mushroom',
       'hunting_bow', 'rusty_sword', 'berserkers_pact', 'grindstone',
       'blacksmith', 'training_yard', 'flanking_strike',
-      'dire_wolf', 'wyvern_hatchling', 'bandit_captain', 'grave_knight',
+      'dire_wolf', 'iron_hog', 'bandit_captain', 'grave_knight',
       'reckless_charge', 'steel_longsword', 'assassins_kris', 'armsmaster',
       'the_arena', 'hamstring',
-      'chimera', 'flame_imp', 'warlord_of_ash', 'hill_giant',
+      'chimera', 'lucida', 'warlord_of_ash', 'hill_giant',
       'executioners_blade', 'runed_greatsword', 'glass_cannon', 'masters_forge',
       'war_camp', 'sabotage',
     ],
   },
   tank: {
-    name: 'The Bulwark',
+    name: 'Paladin',
     blurb: 'Armour into Thorns and back. Nothing gets through, everything bleeds.',
     // Used to carry zero weapons and zero flat-ATK gear at all — every card
     // in the deck was Armour, Thorns, or max HP. A duel deals damage = ATK
@@ -138,47 +138,47 @@ const PRESETS = {
     // Plate — the last a hybrid Armour+ATK piece) gives it a real, if modest,
     // way to finish a fight while keeping the theme intact.
     cards: [
-      'bog_toad', 'skeleton_picket', 'wild_boar', 'sewer_rat',
+      'bog_toad', 'skeleton_picket', 'curse_eye', 'sewer_rat',
       'buckler', 'leather_jerkin', 'rusty_sword', 'spiked_vambrace',
       'travellers_boots', 'roadside_shrine',
-      'iron_golem', 'forest_troll', 'thornback_boar', 'cave_troll',
+      'iron_golem', 'king_clang', 'thornback_boar', 'cave_troll',
       'chainmail', 'tower_shield', 'war_pick',
       'bramblelord', 'wardens_oath', 'ambushers_nook',
-      'stone_warden', 'bog_horror', 'hill_giant',
+      'stone_warden', 'taurospear', 'hill_giant',
       'dragonplate', 'sentinel_plate', 'sentinel_spikes', 'ironblood_rite',
       'shield_maiden', 'sacred_spring', 'war_camp',
     ],
   },
   poison: {
-    name: 'The Alchemist',
+    name: 'Arch Mage',
     blurb: 'Poison ignores Armour, and every vial you carry makes the next one worse.',
     cards: [
-      'giant_spider', 'bog_toad', 'sewer_rat',
+      'giant_spider', 'bog_toad', 'curse_eye',
       'venom_flask', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
       'roadside_shrine', 'rust_powder', 'whetstone',
-      'marsh_wraith', 'cave_troll', 'grave_knight',
+      'marsh_wraith', 'king_clang', 'grave_knight',
       'ritual_circle', 'plague_censer', 'coated_blade', 'venom_alchemist', 'toxinsmith',
       'venomfang_dagger', 'serpent_scale_mail',
-      'basilisk', 'bog_horror', 'hill_giant',
+      'basilisk', 'lucida', 'hill_giant',
       'wyrmvenom_vial', 'wyrmfang_spear', 'shadowsteel_blade', 'dragonplate',
       'sacred_spring', 'war_camp', 'purge_ritual',
     ],
   },
   rally: {
-    name: 'The Warlord',
+    name: 'Dark Knight',
     blurb: 'Weak on the first exchange. Terrifying by the fourth — and worse when losing.',
     cards: [
-      'bog_toad', 'skeleton_picket', 'wild_boar',
+      'bog_toad', 'skeleton_picket', 'horny_mushroom',
       'battle_drum', 'leather_jerkin', 'hunting_knife', 'travellers_boots',
       'roadside_shrine', 'whetstone', 'snare_wire',
-      'cave_troll', 'ogre_brute', 'iron_golem', 'grave_knight',
+      'cave_troll', 'ogre_brute', 'iron_hog', 'grave_knight',
       'vanguards_edge', 'vanguards_banner',
       'berserkers_rite', 'ritual_circle', 'dousing_rain',
       // Banner Squire is Tier 2, not Tier 3 — it sits here because it reads as
       // a late-game card, which is exactly how this deck ended up 11/9 and
       // illegal. Counted where it actually belongs, the tier blocks below are
       // nine Tier 2 above and ten Tier 3 here.
-      'elder_wyrm', 'hill_giant', 'warlord_of_ash',
+      'elder_wyrm', 'taurospear', 'warlord_of_ash',
       'banner_of_the_vanguard', 'crown_of_command', 'berserkers_axe', 'banner_squire',
       'dragonplate', 'sacred_spring', 'war_camp', 'ambush_pit',
     ],
@@ -191,58 +191,58 @@ const PRESETS = {
   // (gear durability, striking power) already is the Duellist's weapon arc —
   // neither needed a new deck. These four did.
   fence: {
-    name: 'The Fence',
+    name: 'Shadower',
     blurb: "Ozan's trade: hoard gold, spend it fast, and let the pile itself hit harder.",
     cards: [
-      'sewer_rat', 'wild_boar', 'bandit_lookout',
+      'sewer_rat', 'curse_eye', 'bandit_lookout',
       'coin_clipper', 'leather_jerkin', 'flanking_strike',
       'rusty_sword', 'grindstone', 'iron_cap', 'blacksmith',
-      'bandit_captain', 'ogre_brute', 'grave_knight',
+      'bandit_captain', 'king_clang', 'grave_knight',
       'quartermaster', 'ritual_circle', 'gilded_edge',
       'chainmail', 'the_arena', 'war_pick', 'kite_shield',
-      'flame_imp', 'hill_giant', 'warlord_of_ash',
+      'taurospear', 'hill_giant', 'warlord_of_ash',
       'dragon_altar', 'sacred_spring', 'war_camp',
       'runed_greatsword', 'shield_maiden', 'bloodforge', 'sabotage',
     ],
   },
   bloodbound: {
-    name: 'The Bloodbound',
+    name: 'Spearman',
     blurb: "Vanescula's wager: a max HP pool nobody else builds, cashed in the worse it's dented.",
     cards: [
-      'bog_toad', 'wild_boar', 'feral_hound',
+      'bog_toad', 'horny_mushroom', 'feral_hound',
       'travellers_boots', 'leather_jerkin', 'flanking_strike',
       'whetstone', 'rusty_sword', 'blacksmith', 'grindstone',
       'cave_troll', 'ogre_brute', 'bandit_captain',
       'chainmail', 'scale_hauberk', 'war_priest', 'berserkers_rite',
       'armsmaster', 'steel_longsword', 'vein_drain',
-      'hill_giant', 'bog_horror', 'flame_imp',
+      'hill_giant', 'bog_horror', 'lucida',
       'dragonplate', 'aegis_of_dawn', 'sacred_spring', 'bloodforge',
       'reckless_thirst', 'runed_greatsword', 'ironblood_rite',
     ],
   },
   hunter: {
-    name: 'The Hunter',
+    name: 'Bowmaster',
     blurb: "Morvran's trade: fight more of the path than anyone, and get paid per kill for it.",
     cards: [
-      'field_mouse', 'sewer_rat', 'wild_boar', 'goblin_scrapper',
+      'field_mouse', 'sewer_rat', 'curse_eye', 'goblin_scrapper',
       'flanking_strike', 'scavengers_cache', 'training_yard', 'marked_quarry', 'rusty_sword', 'grindstone',
-      'cave_troll', 'bandit_captain', 'dire_wolf', 'grave_knight',
+      'cave_troll', 'iron_hog', 'dire_wolf', 'grave_knight',
       'ritual_circle', 'the_arena', 'war_pick', 'houndmaster', 'watchtower', 'chainmail',
-      'hill_giant', 'chimera', 'flame_imp', 'warlord_of_ash',
+      'hill_giant', 'chimera', 'taurospear', 'warlord_of_ash',
       'runed_greatsword', 'war_camp', 'standing_stones', 'dragon_altar', 'shield_maiden', 'dragonplate',
     ],
   },
   adept: {
-    name: 'The Adept',
+    name: 'Bishop',
     blurb: "Ariane's trade: barely any gear at all, everything staked on reading the fight right.",
     cards: [
-      'field_mouse', 'sewer_rat', 'wild_boar',
+      'field_mouse', 'sewer_rat', 'horny_mushroom',
       'roadside_shrine', 'blacksmith', 'training_yard', 'flanking_strike',
       'rusty_sword', 'boneyard', 'caltrops',
-      'cave_troll', 'bandit_captain', 'grave_knight',
+      'cave_troll', 'king_clang', 'grave_knight',
       'watchtower', 'ritual_circle', 'arcane_surge', 'steel_longsword',
       'hamstring', 'dousing_rain', 'kite_shield',
-      'hill_giant', 'chimera', 'elder_wyrm',
+      'hill_giant', 'chimera', 'lucida',
       'standing_stones', 'sacred_spring', 'dragon_altar', 'runed_greatsword',
       'sabotage', 'purge_ritual', 'ambush_pit',
     ],

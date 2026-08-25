@@ -395,7 +395,7 @@ export class AudioEngine {
     });
   }
 
-  /** Duel lost — a heart gone. */
+  /** Finale lost. */
   defeat() {
     this.duck(0.35, 2.2);
     const t = this.now();

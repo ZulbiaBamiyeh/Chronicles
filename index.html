@@ -4,9 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
 <meta name="theme-color" content="#070a16" />
-<title>GHOSTWALK</title>
-<meta name="description" content="Deal six cards, place four, walk the path, then duel a ghost. An async PvP path-builder for one thumb." />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128123;</text></svg>" />
+<title>Chronicles</title>
+<meta name="description" content="Deal six cards, place four on your path and send a monster at your rival. After five days, you fight them." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.86em%22 font-size=%2288%22>C</text></svg>" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -19,8 +19,8 @@
   <!-- ===================== TITLE ===================== -->
   <section id="screen-title" class="screen">
     <div class="title-wrap">
-      <h1 class="game-title">GHOST<span class="title-glyph">👻</span>WALK</h1>
-      <p class="subtitle">Six cards. Four slots. One ghost.</p>
+      <h1 class="game-title">CHRONICLES</h1>
+      <p class="subtitle">Four cards for you. One monster for them. Fight after day five.</p>
     </div>
 
     <p id="ghost-report" class="ghost-report hidden"></p>
@@ -44,9 +44,8 @@
   <section id="screen-run" class="screen hidden">
     <header class="hud">
       <div class="hud-top">
-        <span id="hud-round" class="pill">ROUND 1</span>
-        <span id="hud-hearts" class="hearts" aria-label="Hearts"></span>
-        <span id="hud-wins" class="wins" aria-label="Duels won"></span>
+        <span id="hud-round" class="pill">DAY 1</span>
+        <span id="hud-wins" class="wins" aria-label="Days completed"></span>
       </div>
       <div class="hud-bars">
         <div class="hpbar" aria-label="Health">
@@ -80,6 +79,10 @@
 
     <div class="path-wrap">
       <div id="path" class="path"></div>
+      <div class="send-col">
+        <span class="send-label">FOR THEM</span>
+        <div id="send-slot" class="slot slot-send"></div>
+      </div>
     </div>
 
     <!-- Who you're building against today. Open statline, hidden secrets. A
@@ -88,13 +91,19 @@
          stacking above the hand — see the desktop layout in style.css. -->
     <div id="rival-panel" class="rival-panel"></div>
 
+    <div id="mulligan-overlay" class="mulligan-overlay hidden">
+      <h2 class="mulligan-title">OPENING HAND</h2>
+      <p class="mulligan-copy">Tap any card you don't want. Confirm to redraw those, or keep all.</p>
+      <div id="mulligan-hand" class="mulligan-hand"></div>
+      <button id="btn-mulligan-confirm" class="btn btn-gold btn-big">KEEP ALL</button>
+    </div>
+
     <!-- Planning -->
     <div id="plan-area" class="plan-area">
       <!-- The hand scrolls if a short phone can't fit it; EMBARK stays pinned
            below so it's never the thing that gets clipped. -->
       <div class="plan-scroll">
         <div class="hand-label"><span>YOUR HAND</span><em id="hand-hint">Tap a card to place it</em></div>
-        <div id="mulligan-bar" class="mulligan-bar hidden"></div>
         <div id="hand" class="hand"></div>
       </div>
       <button id="btn-embark" class="btn btn-gold btn-big btn-embark" disabled>EMBARK</button>
@@ -110,14 +119,14 @@
         <div id="path-fight-them" class="duelist duelist-them"></div>
       </div>
       <div id="resolve-log" class="resolve-log"></div>
-      <button id="btn-to-duel" class="btn btn-gold btn-big hidden">FACE YOUR RIVAL</button>
+      <button id="btn-to-duel" class="btn btn-gold btn-big hidden">WATCH THEM</button>
     </div>
   </section>
 
   <!-- ===================== DUEL ===================== -->
   <section id="screen-duel" class="screen hidden">
     <div class="duel-bar">
-      <p id="duel-heading" class="duel-heading">THE DUEL</p>
+      <p id="duel-heading" class="duel-heading">THE FINAL BATTLE</p>
       <button id="btn-speed" class="btn-speed" type="button" title="Replay speed">1×</button>
     </div>
     <div class="duelists">
@@ -192,16 +201,22 @@
     <h2 class="result-title">HOW TO PLAY</h2>
     <div class="howto">
       <h3>The round</h3>
-      <p>You're dealt <b>six cards</b> and place <b>four</b> into a path. The path resolves
-         left to right — you fight monsters, buy gear, hire allies, visit places — and whoever
-         comes out the far end duels a <b>ghost</b>: a snapshot of another character from the
-         same point in their run.</p>
+      <p>You're dealt <b>six cards</b>. Place <b>four</b> into your path — fight monsters, buy
+         gear, hire allies, visit places — and put a fifth card, a <b>monster</b>, in the send
+         slot. That monster is played <em>at your rival</em>. They send one at you too. You
+         watch them fight yours, and you can see everything they're wearing.</p>
+
+      <h3>The final battle</h3>
+      <p>There is no duel at the end of each day. For five days you build, chip their HP
+         with what you send, and take what they send. After day five you fight <b>them</b>
+         — the same character you've been watching, with whatever HP and kit they have left.</p>
 
       <h3>Ordering is the game</h3>
       <p>Everyone gets the same kind of cards. The only decision is <b>sequence</b>, and sequence
          changes everything: what you can afford, what you can survive, what compounds. Kill a
          monster before you visit the Boneyard and it pays. Buy a sword you can't afford yet and
-         the slot <b>fizzles</b> — greyed out, wasted, path continues.</p>
+         the slot <b>fizzles</b> — greyed out, wasted, path continues. Send your scariest leftover
+         instead of farming it, and they arrive at the finale hurt.</p>
 
       <h3>Combat is deterministic</h3>
       <p>No dice, no crits, ever. The same resolver runs path fights and the duel, so you learn
@@ -217,12 +232,16 @@
          to 5 saves you 5 HP — and going from 5 to 6 saves you nothing.</p>
 
       <h3>You can't die on the path</h3>
-      <p>Path damage floors you at 1 HP. Arriving at the duel on 1 HP is punishment enough.
-         <b>Hearts</b> — you have three — are only ever lost in the duel.</p>
+      <p>Monsters you <b>chose</b> to fight floor you at 1 HP and pay gold. The monster
+         <b>they send</b> (and the one you send) fights on its <b>Send</b> statline — scarier
+         than farming it. <b>Raid</b> cards are poor gold and nasty sends: keep them for
+         sabotage. Kill their send and you take its spoils. Go down and you skip tomorrow's
+         heal. Same for them.</p>
 
       <h3>The run</h3>
-      <p><b>Five duel wins</b> completes a run. <b>Three losses</b> ends it. Between rounds you
-         heal half your max HP; gold and ATK carry over in full.</p>
+      <p><b>Five days</b>, then one fight. Whoever wins that fight wins the run. Between days
+         you heal half your max HP (unless you went down to their send); gold and ATK carry
+         over in full. Their HP carries the same way.</p>
     </div>
     <button id="btn-howto-back" class="btn btn-gold btn-big">BACK</button>
   </section>

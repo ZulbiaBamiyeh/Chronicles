@@ -1,6 +1,6 @@
 {
   "appId": "com.ghostwalk.game",
-  "appName": "Ghostwalk",
+  "appName": "Chronicles",
   "webDir": "www",
   "plugins": {
     "SystemBars": {

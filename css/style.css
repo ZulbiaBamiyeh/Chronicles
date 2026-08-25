@@ -1,4 +1,4 @@
-/* GHOSTWALK — portrait phone, one thumb, no horizontal scroll anywhere.
+/* CHRONICLES — portrait phone, one thumb, no horizontal scroll anywhere.
    Sizes are clamped against viewport width so the same sheet reads on a small
    phone and a tablet without a pile of breakpoints. The shader background from
    GAMBIT sits behind everything; the whole UI is translucent panels over it. */
@@ -11,12 +11,28 @@
    to size itself correctly: width/height in `em` resolve against the same
    font-size the class already declares, so real art drops in at the emoji's
    footprint with no other CSS to touch. */
-img.card-art-glyph, img.duelist-glyph, img.equip-icon,
-img.kit-item, img.secret-chip-icon, img.invasion-icon, img.secret-fire-icon {
-  width: 1em;
-  height: 1em;
+img.equip-icon, img.kit-item, img.kit-item-icon, img.secret-chip-icon,
+img.invasion-icon, img.secret-fire-icon, img.gear-chip-icon, img.chosen-icon {
+  width: 1.35em;
+  height: 1.35em;
   object-fit: contain;
   vertical-align: middle;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+/* Card portraits and fighter sprites fill their well — the 1em rule above
+   is for HUD chips. MapleStory pixel art needs nearest-neighbour scale or
+   it turns to mud. */
+img.card-art-glyph, img.duelist-glyph {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center center;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
 }
 
 @font-face {
@@ -303,8 +319,6 @@ body.no-webgl #app {
   padding: 0.24rem 0.44rem;
   white-space: nowrap;
 }
-.hearts { font-size: 1.05rem; letter-spacing: 0.06em; color: var(--blood); }
-.heart.spent { color: rgba(255, 255, 255, 0.16); }
 .wins { display: flex; gap: 0.22rem; margin-left: auto; }
 .pip {
   width: 0.52rem;
@@ -406,25 +420,18 @@ body.no-webgl #app {
 
 .hud-kw { display: flex; flex-wrap: wrap; gap: 0.22rem; }
 
-/* What you're carrying, on the screen where you choose what to buy. */
-.hud-gear { display: flex; flex-wrap: wrap; gap: 0.28rem; }
-.gear-chip {
+/* What you're carrying — same kit chips as the rival panel. */
+.hud-gear {
   display: flex;
-  align-items: center;
-  gap: 0.26rem;
-  max-width: 100%;
-  padding: 0.2rem 0.4rem 0.2rem 0.28rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.4);
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  padding-top: 0.12rem;
 }
-.gear-chip-icon { font-size: 0.95rem; line-height: 1; }
-.gear-chip-name {
-  font-size: 0.66rem;
-  color: var(--bone);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.kit-item-dur {
+  font-family: var(--pixel);
+  font-size: 0.5rem;
+  color: var(--gold);
+  margin-left: 0.12rem;
 }
 .gear-chip-dur {
   font-family: var(--pixel);
@@ -441,12 +448,50 @@ body.no-webgl #app {
 
 /* ===================== the path ===================== */
 
-.path-wrap { width: 100%; flex: none; }
+.path-wrap {
+  width: 100%;
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem;
+  align-items: stretch;
+}
 .path {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.35rem;
   width: 100%;
+  min-width: 0;
+}
+.send-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 0.18rem;
+  width: clamp(4.4rem, 18vw, 6.4rem);
+}
+.send-label {
+  font-family: var(--pixel);
+  font-size: 0.48rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--t-monster);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.slot-send {
+  border-color: color-mix(in srgb, var(--t-monster) 70%, var(--line));
+  background:
+    repeating-linear-gradient(45deg, rgba(224, 86, 63, 0.08) 0 6px, transparent 6px 12px),
+    rgba(7, 10, 22, 0.55);
+}
+.slot-send.filled { background: transparent; }
+.slot-send.over {
+  border-color: var(--t-monster);
+  box-shadow: 0 0 0 2px rgba(224, 86, 63, 0.4), 0 0 18px rgba(224, 86, 63, 0.28);
 }
 
 .slot {
@@ -504,8 +549,8 @@ body.no-webgl #app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-evenly;
-  gap: 0.1rem;
+  justify-content: flex-start;
+  gap: 0.12rem;
   padding: 0.32rem 0.28rem;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
@@ -522,6 +567,8 @@ body.no-webgl #app {
   background: var(--accent, var(--line-hot));
 }
 .card-monster { --accent: var(--t-monster); }
+.card-raid { --accent: #ffb04a; }
+.card-raid .card-type { color: #ffb04a; }
 .card-gear    { --accent: var(--t-gear); }
 .card-ally    { --accent: var(--t-ally); }
 .card-place   { --accent: var(--t-place); }
@@ -548,26 +595,34 @@ body.no-webgl #app {
    geometry in this project's own palette. */
 .card-badge {
   position: absolute;
-  top: 0.1rem;
+  top: 0.08rem;
   z-index: 3;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.05rem;
-  min-width: 1.3rem;
-  height: 1.3rem;
-  padding: 0 0.14rem;
-  border-radius: 50%;
-  font-family: var(--pixel);
-  font-size: 0.72rem;
+  gap: 0;
+  min-width: 2.05rem;
+  height: 2.05rem;
+  padding: 0.1rem 0.22rem 0.08rem;
+  border-radius: 0.32rem;
+  font-family: var(--body);
+  font-size: 1.12rem;
   line-height: 1;
-  color: #10142a;
-  border: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+  color: #fff8ee;
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.55);
 }
-.badge-icon { font-size: 0.46rem; opacity: 0.8; }
-.badge-value { font-weight: 700; }
+.badge-lab {
+  font-family: var(--body);
+  font-size: 0.52rem;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+  opacity: 0.95;
+  color: #fff8ee;
+}
+.badge-value { font-weight: 800; letter-spacing: 0; }
 
 .badge-atk {
   left: 0.1rem;
@@ -582,36 +637,46 @@ body.no-webgl #app {
   background: radial-gradient(circle at 34% 28%, #cfe0ff, #79a6ff 62%, #2d4f9e);
 }
 
-/* A hexagonal "kite" cut rather than the plain rounded well this used to be
-   — wide shoulders for the ATK/HP badges to sit on, tapering to a point top
-   and bottom. Framed by a beveled ring in the card's own type colour so the
-   art reads as set into the card rather than pasted on top of it. */
+/* A square well, not a kite-cut: MapleStory sprites are drawn on a
+   transparent rectangle and the hex was clipping limbs and weapons off. */
 .card-frame {
   width: 100%;
-  flex: 0 0 auto;
-  aspect-ratio: 1 / 0.86;
-  margin-top: 0.75rem;
-  padding: 0.1rem;
-  clip-path: polygon(50% 0%, 100% 22%, 100% 78%, 50% 100%, 0% 78%, 0% 22%);
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  margin-top: 1.85rem;
+  padding: 0.12rem;
+  border-radius: 0.4rem;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 55%, var(--bone) 10%), color-mix(in srgb, var(--accent) 30%, black 40%));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 55%, black 20%);
 }
 .card-art {
   position: relative;
   width: 100%;
   height: 100%;
-  clip-path: polygon(50% 0%, 100% 22%, 100% 78%, 50% 100%, 0% 78%, 0% 22%);
+  border-radius: 0.28rem;
   display: grid;
   place-items: center;
+  padding: 0.28rem;
   background:
-    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 68%),
-    linear-gradient(180deg, rgba(4, 7, 18, 0.6), rgba(4, 7, 18, 0.25));
+    radial-gradient(ellipse at 50% 58%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, rgba(10, 16, 36, 0.92), rgba(4, 7, 18, 0.96));
   box-shadow: inset 0 6px 14px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 .card-art-glyph {
-  font-size: clamp(1.3rem, 7vw, 1.9rem);
+  font-size: clamp(1.6rem, 9vw, 2.4rem);
   line-height: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+img.card-art-glyph {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 /* The name plate: a banner cut with pointed ends, laid across the card like
@@ -628,8 +693,8 @@ body.no-webgl #app {
 }
 .card-name {
   font-family: var(--pixel);
-  font-size: 0.6rem;
-  line-height: 1.25;
+  font-size: 0.68rem;
+  line-height: 1.2;
   text-align: center;
   color: var(--bone);
   letter-spacing: 0.01em;
@@ -662,11 +727,19 @@ body.no-webgl #app {
   background: linear-gradient(180deg, color-mix(in srgb, var(--curse) 35%, #1a1428 40%), color-mix(in srgb, var(--curse) 18%, black 55%));
 }
 .card-text {
-  font-size: 0.7rem;
-  line-height: 1.24;
+  font-size: 0.64rem;
+  line-height: 1.25;
   text-align: center;
-  color: var(--dim);
+  color: var(--bone);
+  opacity: 0.92;
   overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 0 0.12rem;
 }
 
 /* Footer: gold coin bottom-left, tier as a small diamond gem beside it — the
@@ -683,14 +756,14 @@ body.no-webgl #app {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.45rem;
+  height: 1.45rem;
   border-radius: 50%;
-  font-family: var(--pixel);
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: #10142a;
-  border: 1px solid rgba(0, 0, 0, 0.5);
+  font-family: var(--body);
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #1a1204;
+  border: 1px solid rgba(0, 0, 0, 0.55);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.45);
   background: radial-gradient(circle at 34% 28%, #ffe9a8, var(--gold) 62%, #b9821a);
 }
@@ -703,9 +776,18 @@ body.no-webgl #app {
   font-size: 0.7rem;
 }
 .card-rarity {
-  width: 0.7rem;
-  height: 0.7rem;
-  transform: rotate(45deg);
+  min-width: 1.5rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.22rem;
+  font-family: var(--body);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #1a1408;
   border: 1px solid rgba(0, 0, 0, 0.5);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
@@ -716,22 +798,22 @@ body.no-webgl #app {
 /* Slot-sized cards are roughly a quarter of the screen wide, so they drop the
    effect text and show keywords as bare colour chips. The detail sheet (long
    press) is where the full wording lives. */
-.card-slot { padding: 0.26rem 0.16rem; gap: 0.05rem; justify-content: space-evenly; }
-.card-slot .card-name { font-size: 0.5rem; }
+.card-slot { padding: 0.22rem 0.12rem; gap: 0.04rem; justify-content: space-evenly; }
+.card-slot .card-name { font-size: 0.52rem; }
 .card-slot .card-type { display: none; }
-.card-slot .card-frame { margin-top: 0.55rem; aspect-ratio: 1 / 0.78; }
-.card-slot .card-art-glyph { font-size: clamp(1.1rem, 5.5vw, 1.6rem); }
-.card-slot .card-banner { padding: 0.1rem 0.3rem; }
+.card-slot .card-frame { margin-top: 1.45rem; aspect-ratio: 1 / 1; }
+.card-slot .card-art-glyph { font-size: clamp(1.3rem, 6vw, 1.9rem); }
+.card-slot .card-banner { padding: 0.08rem 0.22rem; }
 .card-slot .card-text { display: none; }
 .card-slot .card-badge {
-  min-width: 1.08rem;
-  height: 1.08rem;
-  font-size: 0.58rem;
+  min-width: 1.55rem;
+  height: 1.45rem;
+  font-size: 0.95rem;
 }
-.card-slot .badge-icon { display: none; }
+.card-slot .badge-lab { font-size: 0.42rem; }
 .card-slot .card-footer { gap: 0.22rem; }
-.card-slot .card-coin { width: 0.95rem; height: 0.95rem; font-size: 0.48rem; }
-.card-slot .card-rarity { width: 0.56rem; height: 0.56rem; }
+.card-slot .card-coin { width: 1.2rem; height: 1.2rem; font-size: 0.78rem; }
+.card-slot .card-rarity { min-width: 1.25rem; height: 1rem; font-size: 0.62rem; }
 .card-slot .card-kw .kw {
   font-size: 0;
   width: 0.4rem;
@@ -829,34 +911,51 @@ body.is-dragging { cursor: grabbing; }
 }
 .hand-card { position: relative; width: 100%; }
 
-.mulligan-bar {
+.mulligan-overlay {
   width: 100%;
-  text-align: center;
-  padding: 0.2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.2rem 0 0.8rem;
 }
-.mulligan-label {
+.mulligan-overlay.hidden { display: none; }
+.mulligan-title {
   font-family: var(--pixel);
-  font-size: 0.46rem;
-  letter-spacing: 0.04em;
-  color: var(--t-secret);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  margin: 0;
 }
-.mulligan-btn {
+.mulligan-copy {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--dim);
+  text-align: center;
+  max-width: 42ch;
+}
+.mulligan-hand {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  width: 100%;
+  max-width: 720px;
+}
+.mulligan-card { position: relative; cursor: pointer; }
+.mulligan-card.replace .card { box-shadow: 0 0 0 2px var(--blood), 0 0 16px rgba(239, 74, 109, 0.45); }
+.mulligan-x {
   position: absolute;
-  top: -0.3rem;
-  right: -0.3rem;
-  z-index: 6;
-  width: 1.15rem;
-  height: 1.15rem;
-  border-radius: 50%;
-  font-size: 0.6rem;
-  line-height: 1;
-  border: 1px solid var(--t-secret);
-  background: rgba(255, 122, 209, 0.22);
-  color: var(--bone);
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(80, 8, 20, 0.5);
+  font-family: var(--pixel);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #ffc2c8;
+  pointer-events: none;
+  border-radius: 0.55rem;
 }
-.mulligan-btn:active { transform: scale(0.9); }
 
 .btn-embark { flex: none; align-self: center; }
 
@@ -1136,13 +1235,37 @@ body.is-dragging { cursor: grabbing; }
 }
 .rival-title-note { font-size: 0.64rem; color: var(--dim); }
 
-.rival-head { display: flex; align-items: center; gap: 0.45rem; }
+.rival-sheet {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: center;
+}
+.rival-portrait {
+  width: 4.6rem;
+  height: 5.4rem;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
 .rival-glyph {
   font-size: 1.35rem;
   line-height: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
-  animation: bob 3.4s ease-in-out infinite;
+  flex: none;
 }
+img.rival-glyph {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.rival-body { display: flex; flex-direction: column; gap: 0.28rem; min-width: 0; }
+.hpbar-rival { height: 1.15rem; }
 .rival-id { flex: 1; min-width: 0; }
 .rival-name {
   font-family: var(--pixel);
@@ -1194,7 +1317,36 @@ body.is-dragging { cursor: grabbing; }
 .rs-rally  { border-color: rgba(255, 207, 63, 0.5); color: var(--gold); }
 .rs-first  { border-color: rgba(139, 233, 255, 0.5); color: var(--ghost); }
 
+.rival-kit-label {
+  width: 100%;
+  font-family: var(--pixel);
+  font-size: 0.46rem;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
 .rival-kit { display: flex; flex-wrap: wrap; gap: 0.22rem; }
+.rival-send {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 0.4rem;
+  background: rgba(224, 86, 63, 0.1);
+  border: 1px solid color-mix(in srgb, var(--t-monster) 55%, var(--line));
+}
+.rival-send.unknown {
+  color: var(--dim);
+  font-size: 0.7rem;
+  justify-content: center;
+}
+img.invasion-icon {
+  width: 3.2rem;
+  height: 3.2rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.rival-send-name { font-family: var(--pixel); font-size: 0.72rem; color: var(--bone); }
+.rival-send-stats { font-size: 0.68rem; color: var(--t-monster); }
 .kit-item {
   display: inline-flex;
   align-items: center;
@@ -1205,8 +1357,9 @@ body.is-dragging { cursor: grabbing; }
   border-radius: 0.3rem;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--line);
+  cursor: help;
 }
-.kit-item-icon { font-size: 0.86rem; line-height: 1; }
+.kit-item-icon { font-size: 1.35rem; line-height: 1; }
 .kit-item-name {
   font-size: 0.64rem;
   color: var(--bone);
@@ -1266,9 +1419,10 @@ body.is-dragging { cursor: grabbing; }
    scouted things read as different *kinds* of threat at a glance. */
 .rival-invasion {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.3rem;
-  padding: 0.26rem 0.4rem;
+  padding: 0.35rem 0.4rem;
   margin-top: 0.1rem;
   border-radius: 0.32rem;
   border: 1px dashed #ffb04a;
@@ -1283,6 +1437,8 @@ body.is-dragging { cursor: grabbing; }
    frame so it reads as imposed on you rather than a fight you picked. */
 .path-fight-stage.ambush { box-shadow: 0 0 0 1px #ffb04a, 0 0 22px rgba(255, 176, 74, 0.25); border-radius: 0.7rem; }
 .path-fight-stage.ambush .duelist-sub { color: #ffcb8a; }
+.path-fight-stage.watch { box-shadow: 0 0 0 1px var(--ghost), 0 0 22px rgba(139, 233, 255, 0.22); border-radius: 0.7rem; }
+.path-fight-stage.watch .duelist-sub { color: var(--ghost); }
 
 /* Secrets firing at the top of the duel. */
 .duel-secrets {
@@ -1374,13 +1530,26 @@ body.is-dragging { cursor: grabbing; }
   display: grid;
   place-items: center;
   width: 100%;
-  min-height: 2.6rem;
+  min-height: 6.4rem;
+  height: 8rem;
+  overflow: visible;
+  isolation: isolate;
 }
 .duelist-glyph {
   font-size: clamp(1.8rem, 11vw, 2.8rem);
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
 }
-.duelist-them .duelist-glyph { animation: bob 3.4s ease-in-out infinite; }
+img.duelist-glyph {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+/* Maple sprites face left by default. The fighter on the left has to turn
+   toward the opponent on the right. */
+.duelist-me img.duelist-glyph { transform: scaleX(-1); }
 .duelist-name {
   font-family: var(--pixel);
   font-size: 0.62rem;
@@ -1523,10 +1692,29 @@ body.is-dragging { cursor: grabbing; }
   font-family: var(--pixel);
   font-size: 0.7rem;
   color: var(--bone);
+  margin-bottom: 0.12rem;
+}
+.equip-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+img.equip-tip-art {
+  width: 2.4rem;
+  height: 2.4rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex: none;
+}
+.equip-tip-text {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--bone);
   margin-bottom: 0.3rem;
 }
 .equip-tip-empty {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--dim);
 }
 .equip-tip-list {
@@ -1809,7 +1997,9 @@ body.is-dragging { cursor: grabbing; }
    log below, and there can be up to four of these in one path. */
 .path-fight-stage { margin-bottom: 0.15rem; flex: none; }
 .path-fight-stage .duelist { padding: 0.4rem 0.32rem; gap: 0.16rem; }
+.path-fight-stage .duelist-portrait { height: 7.4rem; min-height: 6.6rem; overflow: visible; }
 .path-fight-stage .duelist-glyph { font-size: clamp(1.2rem, 6.5vw, 1.7rem); }
+.path-fight-stage img.duelist-glyph { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
 .path-fight-stage .duelist-sub { min-height: 0; }
 .path-fight-stage .equip-grid { gap: 0.2rem; }
 
@@ -1909,7 +2099,7 @@ body.is-dragging { cursor: grabbing; }
 .detail-card .card-icon { font-size: 2.6rem; }
 .detail-card .card-name { font-size: 0.7rem; }
 .detail-card .card-stats { font-size: 0.95rem; }
-.detail-card .card-text { font-size: 0.74rem; }
+.detail-card .card-text { font-size: 0.74rem; -webkit-line-clamp: unset; line-clamp: unset; display: block; overflow: visible; }
 .detail-card .kw { font-size: 0.5rem; }
 .detail-note {
   font-size: 0.72rem;
@@ -1962,6 +2152,10 @@ body.is-dragging { cursor: grabbing; }
   #screen-run > .path-wrap { grid-area: path; }
   #screen-run > #rival-panel { grid-area: rival; position: sticky; top: 0.5rem; margin-bottom: 0; align-self: start; }
   #screen-run > #plan-area { grid-area: plan; }
+  #screen-run > #mulligan-overlay { grid-column: 1 / -1; grid-row: 2 / 4; }
+  .mulligan-hand { grid-template-columns: repeat(6, 1fr); max-width: none; }
+  .card-hand { aspect-ratio: 3 / 5.2; }
+  .card-text { -webkit-line-clamp: 5; font-size: 0.72rem; }
   /* The rival panel hides while resolving (its "would scouting help" preview
      stops meaning anything once the path is locked in) — rather than leave
      its column sitting empty, the resolve stage claims the full width. */
@@ -1999,8 +2193,9 @@ body.is-dragging { cursor: grabbing; }
   #screen-duel .duelists, #screen-duel .duel-secrets { max-width: none; width: 100%; }
   .duelists { grid-template-columns: 1fr auto 1fr; column-gap: 3rem; }
   .duelist { padding: 1.6rem 1.4rem; gap: 0.5rem; border-radius: 1rem; }
-  .duelist-portrait { min-height: 4.2rem; }
+  .duelist-portrait { min-height: 8.4rem; height: 10rem; overflow: visible; }
   .duelist-glyph { font-size: clamp(2.4rem, 6vw, 4.6rem); }
+  img.duelist-glyph { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
   .duelist-name { font-size: 1rem; }
   .duelist-sub { font-size: 0.85rem; }
   .duel-heading { font-size: 0.95rem; }
@@ -2074,7 +2269,6 @@ body.is-dragging { cursor: grabbing; }
   .readout-val { font-size: 1.15rem; }
   .readout-label { font-size: 0.6rem; }
   .pill { font-size: 0.72rem; padding: 0.4rem 0.7rem; }
-  .hearts { font-size: 1.2rem; }
   .pip { width: 0.65rem; height: 0.65rem; }
   .hpbar { height: 1.7rem; }
   .hpbar-text { font-size: 0.85rem; }
