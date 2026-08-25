@@ -343,15 +343,32 @@ function renderRival() {
   });
 }
 
+/**
+ * Combat is deterministic, so the outcome of the path as currently laid out
+ * isn't a secret the game is keeping from the player until EMBARK — it's
+ * just a function of `run` and `slots` that nothing was calling yet. Reusing
+ * resolvePath() here (the same pure function embark() calls for real) turns
+ * "how much gold will I actually have" from a guess into a number on the
+ * slot itself, and catches a fizzle you'd otherwise only find out about
+ * after committing to the path.
+ */
 function renderPath() {
   const mount = $('#path');
   mount.textContent = '';
+  const preview = resolvePath(run, slots);
   slots.forEach((slot, i) => {
     const cell = el('div', 'slot');
     cell.dataset.slot = String(i);
     if (slot) {
       cell.classList.add('filled');
       cell.appendChild(cardEl(slot.id, { run, size: 'slot', upgrade: slot.upgrade }));
+      const ev = preview.events[i];
+      if (ev?.kind === 'fizzle') {
+        cell.classList.add('will-fizzle');
+        cell.appendChild(el('div', 'slot-preview slot-preview-bad', `needs ${ev.cost}◉`));
+      } else if (ev?.snap) {
+        cell.appendChild(el('div', 'slot-preview', `${ev.snap.gold}◉ so far`));
+      }
     } else {
       cell.appendChild(el('span', 'slot-num', i + 1));
     }

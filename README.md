@@ -832,6 +832,81 @@ reverted when it was switched off. Nothing about the mechanic itself is
 unfinished; `hasInvasion` is the one switch that turns it back on, and the
 engine underneath is exercised directly by its own tests either way.
 
+### The send-a-mob reskin broke the finale, silently
+
+The MapleStory reskin replaced the daily-duel loop (fight a fresh ghost every
+round) with the send-a-mob loop (no duel on days 1–4, one finale duel on day
+5) — but nothing in `js/ghosts.js`'s `TARGETS` table changed to match. That
+table paces a round-N ghost against a *canonical* round-N character, and
+under the old loop a round-5 character really had grown through five rounds
+of duel-reward gold on top of path gear. Under the new loop the player only
+ever grows through path-building, which compounds far slower: re-running
+`tools/archetypes.mjs`'s planner round by round measured real round-5
+characters landing at maxHp ~28–44 (avg ~32) across every preset — barely
+half `TARGETS[5]`'s original `maxHp: [58, 70]` band, before the multiplier
+that solves a ghost's actual HP from that band (capped at 1.8x it, then
+divided by a 0.8–1.0 freshness roll) compounded it further. The day-5 ghost
+averaged over 100 HP against a player who couldn't reliably clear 30, and
+every archetype's finale win rate collapsed under 22% — most under 8%, one
+at 0.0%. This is what "it's just not balanced" and "not fun to guess how
+much gold you'll have" turned out to mean on inspection: the *structure* of
+the finale had quietly become unwinnable, not any one card's numbers.
+
+`TARGETS[5]` is now `{ atk: [20, 25], maxHp: [17, 21] }` — re-measured from
+the new loop's actual round-5 curve, not proportionally shrunk from the old
+band (the ghost-solving formula amplifies maxHp much harder than atk on its
+way from this table to a ghost's real stats, so an even scale-down undershoots
+atk and overshoots maxHp; this was tuned empirically against
+`tools/archetypes.mjs`, the same discipline every other pass in this file
+uses). Rounds 1–4 are untouched — they're never fought as a standalone duel
+under the new loop, only used for the rival's shown kit and the day-by-day
+send-a-mob skirmish, so nothing there needed to move. Two `test/engine.mjs`
+cases that asserted round 5 must out-scale round 4 in raw ghost stats no
+longer apply for the same reason and were narrowed to rounds 1–4; a third's
+hardcoded "canonical round-5 character" (atk 30, maxHp 46 — the old band)
+was re-measured against the new one. Result: 34.7%–81.5% completion across
+every archetype (`atk` 52.0%, `tank` 57.5%, `poison` 81.5%, `rally` 60.5%,
+`thorns` 55.3%, `balanced` 34.7%, `fence` 45.8%, `bloodbound` 54.3%,
+`hunter` 49.3%), every archetype's actual duel win rate on this repo's own
+100-test suite, all green.
+
+**Not fixed yet:** `adept` sits at 5.5% completion, a real outlier against
+everything else's 35%+ — its near-zero Armour (0.8 avg) leaves it with
+nothing to answer a Poison-leaning finale ghost's per-exchange tick, and the
+brute-force planner doesn't know to prioritize its own counter-tech (Purge
+Ritual, Sabotage) the way a human reading the fight would, which is
+plausibly the deck's actual design intent per its own blurb ("barely any
+gear at all, everything staked on reading the fight right") rather than a
+bug the planner can diagnose. `poison` at 81.5% is also now the strongest
+archetype by a wide margin — worth a card-value pass, not a structural one.
+Both are the next `tools/archetypes.mjs` iteration, in the same spirit as
+the per-deck pass earlier in this file; they didn't make it into this one.
+
+### Two UI bugs the reskin also shipped
+
+**Overlapping fight panels at laptop widths.** `#screen-run`'s desktop grid
+layout inherited `align-items: center` from `.screen`'s base (phone) flex
+rule, which nothing had ever reset for the grid context. Grid items are
+centered within their own row track by default when `align-items` isn't
+`stretch` — harmless when an item's content matches its track's auto-sized
+height, but the mid-resolve fight-stage popup is much taller than the row
+it shares with the log and button, so it rendered centered on a track sized
+for its *siblings*, bleeding upward into the path row above as well as down.
+Fixed with one line, `align-items: start` on `#screen-run`'s desktop rule —
+confirmed cleared at 1366×768, 1280×800, and 1280×720.
+
+**No visibility into gold while planning.** Combat on the path is entirely
+deterministic — the same `resolvePath()` that computes what actually happens
+at EMBARK can be called just as safely *while planning*, since it's a pure
+function of `run` and the current (possibly partial) `slots` array. Nothing
+was calling it early, so a card's fizzle-for-affordability was something you
+only found out about after committing to the path, and a monster you could
+plainly beat gave no visibility into how much gold you'd actually walk away
+with. `renderPath()` now runs the same preview every time a slot changes and
+annotates each filled slot with its running gold total, or a red "needs N◉"
+flag if it would fizzle — the real number, just surfaced before EMBARK
+instead of after.
+
 ---
 
 ## Building the APK

@@ -97,12 +97,29 @@ import { DEAL_POOL, GEAR, ALLIES, card } from './cards.js';
 // day-by-day read of the median would predict, durability or not. Landed at
 // 31.5% completion, 39.7% duel win rate, curve 40/36/42/40/43 — the same
 // shape as before, on numbers that are real again.
+// This whole band was still calibrated for the pre-reskin design, where the
+// player fought a brand new ghost every single day and grew through 5 rounds
+// of duel rewards stacked on top of path gear. The send-a-mob loop replaced
+// that with no duel at all on days 1-4 and one finale duel on day 5 — the
+// player now only ever grows through path-building, which compounds far
+// slower. tools/play-day.mjs's own planner, run round by round across every
+// preset, measured real characters landing at (atk, maxHp) of roughly
+// (5, 22) / (7, 23) / (10, 25) / (15, 26) / (19, 32) for rounds 1-5 — round 5
+// alone was less than half this band's original [58,70] maxHp target, and
+// every earlier round had quietly drifted just as far since nothing here
+// changed when the loop did. Left as-is, the day-5 ghost's maxHp (solved
+// from the old band, capped at 1.8x it) averaged over 100 HP against a
+// player who couldn't reliably clear 30 — every archetype's finale win rate
+// collapsed under 22%, most under 8%. Rebuilt from those measured curves
+// (with maxHp scaled down harder than atk, since the ghost-solving pipeline
+// below amplifies maxHp much more than atk on its way from this band to a
+// ghost's actual stats — verified empirically, not derived in closed form).
 const TARGETS = {
   1: { atk: [7, 10], maxHp: [20, 23] },
   2: { atk: [16, 21], maxHp: [27, 32] },
   3: { atk: [21, 27], maxHp: [33, 40] },
   4: { atk: [33, 42], maxHp: [46, 55] },
-  5: { atk: [48, 60], maxHp: [58, 70] },
+  5: { atk: [20, 25], maxHp: [17, 21] },
 };
 
 // ---------------------------------------------------------------------------

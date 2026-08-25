@@ -516,6 +516,32 @@ body.no-webgl #app {
   font-size: 1rem;
   color: rgba(160, 190, 255, 0.28);
 }
+/* The running gold total if the path resolved exactly as laid out right now
+   — combat is deterministic, so this isn't a preview of a guess, it's the
+   real number, just computed before EMBARK instead of after. Sits over the
+   card's own footer (cost/tier), the least-consulted corner of the face
+   while planning. */
+.slot-preview {
+  position: absolute;
+  left: 50%;
+  bottom: 0.32rem;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-family: var(--pixel);
+  font-size: 0.52rem;
+  white-space: nowrap;
+  color: var(--gold);
+  background: rgba(3, 5, 14, 0.82);
+  border: 1px solid rgba(255, 207, 63, 0.4);
+  pointer-events: none;
+}
+.slot.will-fizzle .card { filter: saturate(0.55) brightness(0.7); }
+.slot-preview-bad {
+  color: var(--blood);
+  border-color: rgba(239, 74, 109, 0.5);
+}
 .slot.active { transform: translateY(-5px) scale(1.05); z-index: 3; }
 .slot.active .card { box-shadow: 0 0 0 2px var(--gold), 0 10px 26px rgba(0, 0, 0, 0.6); }
 .slot.done { opacity: 0.72; }
@@ -2143,6 +2169,13 @@ img.equip-tip-art {
     column-gap: 2rem;
     row-gap: 0.8rem;
     align-content: start;
+    /* Reset the align-items: center that .screen (flex, for the phone
+       layout) sets — as a grid property it centers every item inside its
+       own auto-sized row track instead of filling it, so a row whose real
+       content (e.g. the fight-stage popup mid-resolve) is taller than the
+       track's other siblings bleeds upward into the row above as well as
+       down, overlapping it. */
+    align-items: start;
     max-width: 1440px;
     width: 100%;
     margin: 0 auto;
